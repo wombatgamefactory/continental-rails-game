@@ -86,7 +86,7 @@ for (const prefix of ['node_modules/', 'sim-results/', 'tests/tmp/', 'bug-report
 // The page, the configuration and the licence.
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const page = read('index.html');
-const SITE = 'https://wombatgamefactory.github.io/continental-rails-game/';
+const SITE = 'https://www.wombatgamefactory.com/continental-rails-game/';
 const meta = (prop) => (new RegExp(`<meta[^>]+(?:property|name)="${prop}"[^>]+content="([^"]*)"`).exec(page) || [])[1];
 if (!/<html lang="en-GB">/.test(page)) add('page', 'index.html: lang is not en-GB');
 if (!/<title>[^<]{10,}<\/title>/.test(page)) add('page', 'index.html: no title');

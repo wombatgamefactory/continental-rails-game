@@ -2074,7 +2074,7 @@ async function landingPage(browser) {
   assert(head.og['og:title'] && head.og['og:description'] && head.og['og:image'], 'Open Graph title, description and image');
   assert(/^data:image\/svg/.test(head.icon), 'the favicon is the drawn one while ui-favicon is a placeholder');
   // The address a link preview uses is absolute, on the published site; the file it names must exist in the repository.
-  const SITE = 'https://wombatgamefactory.github.io/continental-rails-game/';
+  const SITE = 'https://www.wombatgamefactory.com/continental-rails-game/';
   assert(head.og['og:url'] === SITE, `og:url is the published address (${head.og['og:url']})`);
   assert(head.og['og:image'].startsWith(SITE), `og:image is an absolute address on the published site (${head.og['og:image']})`);
   const ogRelative = head.og['og:image'].slice(SITE.length);

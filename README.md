@@ -8,7 +8,7 @@ Designed by Dean Morris, Wombat Game Factory. The game is a prototype: the rules
 
 ## Play
 
-- **Online:** <https://wombatgamefactory.github.io/continental-rails-game/>. Choose "Play now", or set every seat to a bot and choose "Watch a demo game".
+- **Online:** <https://www.wombatgamefactory.com/continental-rails-game/>. Choose "Play now", or set every seat to a bot and choose "Watch a demo game".
 - **On your own computer:** you need [Node.js](https://nodejs.org/) (tested with Node 24). The page uses ES modules and a Web Worker, so it has to be served over `http`, not opened as a file.
 
   ```
@@ -39,7 +39,7 @@ Every rule that was not settled is a switchable **variant**. On the set-up page,
 A configuration is shared by address: the set-up page keeps `?variants=name=value,name=value` in step with your choices, so copying the address copies the rules. For example:
 
 ```
-https://wombatgamefactory.github.io/continental-rails-game/?variants=conversionRate=1:1,modulePonyExpress=false
+https://www.wombatgamefactory.com/continental-rails-game/?variants=conversionRate=1:1,modulePonyExpress=false
 ```
 
 Other parameters of the address: `bots=human,medium` (a level per seat, which also starts the game), `players=3`, `names=Anna,Ben`, `seed=42`, `speed=normal|fast|instant`. The full list is at the top of `src/ui/setup.js`. The same variant names work on the simulator command line as `--variant.<name>=<value>`.
