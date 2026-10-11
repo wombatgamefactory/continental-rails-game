@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Continental Rails - a heavyweight Euro about building the 1869 transcontinental railroad</title>
+<meta name="description" content="Continental Rails: build the train that builds the railroad, then race it across the continent. A heavyweight Euro for 2 to 4 players. Play the digital prototype in your browser, hot-seat or against bots.">
+<meta name="author" content="Dean Morris">
+<meta name="theme-color" content="#2b2018">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Continental Rails">
+<meta property="og:url" content="https://wombatgamefactory.github.io/continental-rails-game/">
+<meta property="og:title" content="Continental Rails">
+<meta property="og:description" content="Build the train that builds the railroad, then race it across the continent. A heavyweight Euro for 2 to 4 players, playable in the browser.">
+<!-- The one image path outside src/ui/art.js: static HTML cannot ask the manifest. It names a real picture, not a placeholder, and is an absolute address because link previews are fetched by other sites. -->
+<meta property="og:image" content="https://wombatgamefactory.github.io/continental-rails-game/assets/districts/district-lay-tracks.jpg">
+<meta property="og:image:alt" content="Railroad planners gathered round a map of the continent">
+<link rel="canonical" href="https://wombatgamefactory.github.io/continental-rails-game/">
+<meta name="twitter:card" content="summary_large_image">
+<!-- Text favicon drawn inline; main.js swaps in the manifest's ui-favicon once that art is real. -->
+<link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%232b2018'/%3E%3Crect x='4' y='4' width='56' height='56' rx='9' fill='none' stroke='%23c9973b' stroke-width='2.5'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-family='Georgia,serif' font-weight='700' font-size='29' fill='%23f3e9d2'%3ECR%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="setup">
+<div id="app" data-phase="setup">
+  <main id="screen-setup" class="screen screen--setup"></main>
+
+  <div id="screen-game" class="screen game" hidden>
+    <header id="region-header" class="hdr"></header>
+
+    <div class="col-left">
+      <section id="region-prompt" class="region region--prompt" aria-live="polite" aria-label="What to do now"></section>
+      <section class="region region--grid" aria-label="Action grid">
+        <h2 class="region__title">Action grid <small>place or remove one worker, then take a district beside it</small></h2>
+        <div id="region-grid"></div>
+      </section>
+      <section class="region region--congress" aria-label="Lobby Congress">
+        <div id="region-congress" class="congress"></div>
+      </section>
+    </div>
+
+    <section class="region region--map" aria-label="Route map">
+      <div id="region-map" class="mapwrap"></div>
+    </section>
+
+    <aside class="col-side">
+      <nav id="region-scores" class="region region--scores scores" aria-label="Players and scores"></nav>
+      <section id="region-log" class="region region--log" aria-label="Game log"></section>
+    </aside>
+
+    <div class="col-bottom">
+      <section id="region-dock" class="region region--dock" aria-label="Add-on modules" hidden></section>
+      <section class="region region--trains" aria-label="Train">
+        <div id="region-trains"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="cover" class="cover" hidden></div>
+  <div id="end" class="end" hidden></div>
+  <div id="toast" class="toast-host" aria-live="assertive" hidden></div>
+  <div id="popup" class="popup-host" aria-live="polite" hidden></div>
+  <div id="tip" class="tip" role="tooltip" hidden></div>
+</div>
+<noscript><p class="noscript">Continental Rails needs JavaScript to run.</p></noscript>
+<script type="module" src="src/ui/main.js"></script>
+</body>
+</html>

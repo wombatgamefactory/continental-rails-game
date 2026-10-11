@@ -1,0 +1,1474 @@
+// GENERATED FILE - do not edit by hand.
+// Source: src/engine/data/route-map.json
+// Regenerate with: node tools/build-route-map-module.mjs
+//
+// Cities: id, name, x, y (mm on the 500 x 400 board), role ("w" = west
+// start city, "e" = east start city, "" = inland city).
+// Routes: a, b (city ids), terrain (one letter per slot from a to b:
+// G = Ground, T = Tunnel, B = Bridge), slots (x, y, angle for the UI).
+export const ROUTE_MAP = {
+ "title": "Continental Rails route map v2",
+ "board": {
+  "w": 500,
+  "h": 400
+ },
+ "slot": {
+  "l": 26,
+  "w": 9,
+  "pitch": 28
+ },
+ "city_r": 8,
+ "cities": [
+  {
+   "id": "SEA",
+   "name": "Seattle",
+   "x": 22,
+   "y": 37.96,
+   "role": "w"
+  },
+  {
+   "id": "POR",
+   "name": "Portland",
+   "x": 22,
+   "y": 145.76,
+   "role": "w"
+  },
+  {
+   "id": "SAC",
+   "name": "Sacramento",
+   "x": 22,
+   "y": 251.88,
+   "role": "w"
+  },
+  {
+   "id": "LAX",
+   "name": "Los Angeles",
+   "x": 22,
+   "y": 362.62,
+   "role": "w"
+  },
+  {
+   "id": "SPO",
+   "name": "Spokane",
+   "x": 86.02,
+   "y": 89.2,
+   "role": ""
+  },
+  {
+   "id": "REN",
+   "name": "Reno",
+   "x": 88.63,
+   "y": 199.17,
+   "role": ""
+  },
+  {
+   "id": "FRE",
+   "name": "Fresno",
+   "x": 84.18,
+   "y": 309.07,
+   "role": ""
+  },
+  {
+   "id": "HEL",
+   "name": "Helena",
+   "x": 182.12,
+   "y": 23.83,
+   "role": ""
+  },
+  {
+   "id": "BOI",
+   "name": "Boise",
+   "x": 185.56,
+   "y": 136.01,
+   "role": ""
+  },
+  {
+   "id": "LVG",
+   "name": "Las Vegas",
+   "x": 182.03,
+   "y": 258.82,
+   "role": ""
+  },
+  {
+   "id": "PHX",
+   "name": "Phoenix",
+   "x": 207.86,
+   "y": 370.35,
+   "role": ""
+  },
+  {
+   "id": "BIL",
+   "name": "Billings",
+   "x": 251.43,
+   "y": 78.52,
+   "role": ""
+  },
+  {
+   "id": "SLC",
+   "name": "Salt Lake City",
+   "x": 249.03,
+   "y": 187.93,
+   "role": ""
+  },
+  {
+   "id": "SFE",
+   "name": "Santa Fe",
+   "x": 254.17,
+   "y": 297.81,
+   "role": ""
+  },
+  {
+   "id": "BIS",
+   "name": "Bismarck",
+   "x": 318.81,
+   "y": 22,
+   "role": ""
+  },
+  {
+   "id": "CHE",
+   "name": "Cheyenne",
+   "x": 313.37,
+   "y": 132.26,
+   "role": ""
+  },
+  {
+   "id": "DEN",
+   "name": "Denver",
+   "x": 317.87,
+   "y": 242.17,
+   "role": ""
+  },
+  {
+   "id": "ELP",
+   "name": "El Paso",
+   "x": 317.68,
+   "y": 352.53,
+   "role": ""
+  },
+  {
+   "id": "SXF",
+   "name": "Sioux Falls",
+   "x": 414.61,
+   "y": 89.24,
+   "role": ""
+  },
+  {
+   "id": "NPL",
+   "name": "North Platte",
+   "x": 410.75,
+   "y": 199.17,
+   "role": ""
+  },
+  {
+   "id": "DOD",
+   "name": "Dodge City",
+   "x": 417.75,
+   "y": 306.86,
+   "role": ""
+  },
+  {
+   "id": "MIN",
+   "name": "Minneapolis",
+   "x": 478,
+   "y": 37.22,
+   "role": "e"
+  },
+  {
+   "id": "OMA",
+   "name": "Omaha",
+   "x": 478,
+   "y": 146.39,
+   "role": "e"
+  },
+  {
+   "id": "KCY",
+   "name": "Kansas City",
+   "x": 478,
+   "y": 251.24,
+   "role": "e"
+  },
+  {
+   "id": "FTW",
+   "name": "Fort Worth",
+   "x": 478,
+   "y": 362.83,
+   "role": "e"
+  }
+ ],
+ "routes": [
+  {
+   "a": "SEA",
+   "b": "SPO",
+   "terrain": "GG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 43.08,
+     "y": 54.83,
+     "angle": 38.67,
+     "type": "G"
+    },
+    {
+     "x": 64.94,
+     "y": 72.32,
+     "angle": 38.67,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "POR",
+   "b": "SPO",
+   "terrain": "BB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 43.33,
+     "y": 126.91,
+     "angle": -41.46,
+     "type": "B"
+    },
+    {
+     "x": 64.69,
+     "y": 108.04,
+     "angle": -41.46,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "POR",
+   "b": "REN",
+   "terrain": "TT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 44.19,
+     "y": 163.55,
+     "angle": 38.72,
+     "type": "T"
+    },
+    {
+     "x": 66.43,
+     "y": 181.37,
+     "angle": 38.72,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "SAC",
+   "b": "REN",
+   "terrain": "TT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 44.14,
+     "y": 234.36,
+     "angle": -38.35,
+     "type": "T"
+    },
+    {
+     "x": 66.49,
+     "y": 216.68,
+     "angle": -38.35,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "SAC",
+   "b": "FRE",
+   "terrain": "TT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 42.6,
+     "y": 270.83,
+     "angle": 42.61,
+     "type": "T"
+    },
+    {
+     "x": 63.58,
+     "y": 290.12,
+     "angle": 42.61,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "LAX",
+   "b": "FRE",
+   "terrain": "TT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 42.47,
+     "y": 344.99,
+     "angle": -40.73,
+     "type": "T"
+    },
+    {
+     "x": 63.71,
+     "y": 326.71,
+     "angle": -40.73,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "HEL",
+   "b": "SPO",
+   "terrain": "TTT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 157.63,
+     "y": 40.49,
+     "angle": 145.78,
+     "type": "T"
+    },
+    {
+     "x": 134.07,
+     "y": 56.51,
+     "angle": 145.78,
+     "type": "T"
+    },
+    {
+     "x": 110.5,
+     "y": 72.54,
+     "angle": 145.78,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "BOI",
+   "b": "SPO",
+   "terrain": "GTT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 161.13,
+     "y": 124.52,
+     "angle": -154.81,
+     "type": "G"
+    },
+    {
+     "x": 135.79,
+     "y": 112.6,
+     "angle": -154.81,
+     "type": "T"
+    },
+    {
+     "x": 110.45,
+     "y": 100.69,
+     "angle": -154.81,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "LVG",
+   "b": "FRE",
+   "terrain": "GGG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 158.01,
+     "y": 271.16,
+     "angle": 152.82,
+     "type": "G"
+    },
+    {
+     "x": 133.1,
+     "y": 283.95,
+     "angle": 152.82,
+     "type": "G"
+    },
+    {
+     "x": 108.2,
+     "y": 296.74,
+     "angle": 152.82,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "PHX",
+   "b": "FRE",
+   "terrain": "BTTT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 183.66,
+     "y": 358.36,
+     "angle": -153.64,
+     "type": "B"
+    },
+    {
+     "x": 158.56,
+     "y": 345.93,
+     "angle": -153.64,
+     "type": "T"
+    },
+    {
+     "x": 133.47,
+     "y": 333.5,
+     "angle": -153.64,
+     "type": "T"
+    },
+    {
+     "x": 108.38,
+     "y": 321.06,
+     "angle": -153.64,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "HEL",
+   "b": "BIL",
+   "terrain": "GG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 205.59,
+     "y": 42.35,
+     "angle": 38.27,
+     "type": "G"
+    },
+    {
+     "x": 227.96,
+     "y": 60,
+     "angle": 38.27,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "BOI",
+   "b": "BIL",
+   "terrain": "TT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 207.76,
+     "y": 116.63,
+     "angle": -41.11,
+     "type": "T"
+    },
+    {
+     "x": 229.23,
+     "y": 97.89,
+     "angle": -41.11,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "LVG",
+   "b": "SFE",
+   "terrain": "BT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 205.78,
+     "y": 271.66,
+     "angle": 28.39,
+     "type": "B"
+    },
+    {
+     "x": 230.41,
+     "y": 284.97,
+     "angle": 28.39,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "CHE",
+   "b": "BIL",
+   "terrain": "GG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 292.98,
+     "y": 114.56,
+     "angle": -139.05,
+     "type": "G"
+    },
+    {
+     "x": 271.83,
+     "y": 96.21,
+     "angle": -139.05,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "CHE",
+   "b": "SLC",
+   "terrain": "GT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 291.98,
+     "y": 150.77,
+     "angle": 139.13,
+     "type": "G"
+    },
+    {
+     "x": 270.42,
+     "y": 169.42,
+     "angle": 139.13,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "DEN",
+   "b": "SLC",
+   "terrain": "TG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 294.64,
+     "y": 223.87,
+     "angle": -141.77,
+     "type": "T"
+    },
+    {
+     "x": 272.26,
+     "y": 206.23,
+     "angle": -141.77,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "DEN",
+   "b": "SFE",
+   "terrain": "TT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 296.75,
+     "y": 260.61,
+     "angle": 138.86,
+     "type": "T"
+    },
+    {
+     "x": 275.29,
+     "y": 279.36,
+     "angle": 138.86,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "ELP",
+   "b": "SFE",
+   "terrain": "BB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 296.72,
+     "y": 334.47,
+     "angle": -139.25,
+     "type": "B"
+    },
+    {
+     "x": 275.13,
+     "y": 315.87,
+     "angle": -139.25,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "BIS",
+   "b": "SXF",
+   "terrain": "GGG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 343.38,
+     "y": 39.25,
+     "angle": 35.06,
+     "type": "G"
+    },
+    {
+     "x": 366.71,
+     "y": 55.62,
+     "angle": 35.06,
+     "type": "G"
+    },
+    {
+     "x": 390.04,
+     "y": 71.99,
+     "angle": 35.06,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "DEN",
+   "b": "DOD",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 343.89,
+     "y": 259.02,
+     "angle": 32.93,
+     "type": "B"
+    },
+    {
+     "x": 367.81,
+     "y": 274.51,
+     "angle": 32.93,
+     "type": "B"
+    },
+    {
+     "x": 391.73,
+     "y": 290.01,
+     "angle": 32.93,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "ELP",
+   "b": "DOD",
+   "terrain": "GGG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 342.24,
+     "y": 341.32,
+     "angle": -24.53,
+     "type": "G"
+    },
+    {
+     "x": 367.71,
+     "y": 329.69,
+     "angle": -24.53,
+     "type": "G"
+    },
+    {
+     "x": 393.19,
+     "y": 318.07,
+     "angle": -24.53,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "MIN",
+   "b": "SXF",
+   "terrain": "BB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 457.13,
+     "y": 54.35,
+     "angle": 140.63,
+     "type": "B"
+    },
+    {
+     "x": 435.48,
+     "y": 72.11,
+     "angle": 140.63,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "OMA",
+   "b": "SXF",
+   "terrain": "TT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 456.89,
+     "y": 127.35,
+     "angle": -137.96,
+     "type": "T"
+    },
+    {
+     "x": 435.72,
+     "y": 108.27,
+     "angle": -137.96,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "KCY",
+   "b": "DOD",
+   "terrain": "GG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 458.16,
+     "y": 269.55,
+     "angle": 137.29,
+     "type": "G"
+    },
+    {
+     "x": 437.59,
+     "y": 288.54,
+     "angle": 137.29,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "FTW",
+   "b": "DOD",
+   "terrain": "BB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 458.16,
+     "y": 344.4,
+     "angle": -137.11,
+     "type": "B"
+    },
+    {
+     "x": 437.59,
+     "y": 325.29,
+     "angle": -137.11,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "SPO",
+   "b": "REN",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 86.66,
+     "y": 116.19,
+     "angle": 88.64,
+     "type": "B"
+    },
+    {
+     "x": 87.32,
+     "y": 144.18,
+     "angle": 88.64,
+     "type": "B"
+    },
+    {
+     "x": 87.99,
+     "y": 172.17,
+     "angle": 88.64,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "REN",
+   "b": "FRE",
+   "terrain": "TTT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 87.53,
+     "y": 226.14,
+     "angle": 92.32,
+     "type": "T"
+    },
+    {
+     "x": 86.4,
+     "y": 254.12,
+     "angle": 92.32,
+     "type": "T"
+    },
+    {
+     "x": 85.27,
+     "y": 282.1,
+     "angle": 92.32,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "HEL",
+   "b": "BOI",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 182.97,
+     "y": 51.43,
+     "angle": 88.24,
+     "type": "B"
+    },
+    {
+     "x": 183.84,
+     "y": 79.92,
+     "angle": 88.24,
+     "type": "B"
+    },
+    {
+     "x": 184.71,
+     "y": 108.41,
+     "angle": 88.24,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "LVG",
+   "b": "PHX",
+   "terrain": "GGG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 188.51,
+     "y": 286.82,
+     "angle": 76.96,
+     "type": "G"
+    },
+    {
+     "x": 194.94,
+     "y": 314.59,
+     "angle": 76.96,
+     "type": "G"
+    },
+    {
+     "x": 201.37,
+     "y": 342.35,
+     "angle": 76.96,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "SLC",
+   "b": "SFE",
+   "terrain": "TTT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 250.29,
+     "y": 214.9,
+     "angle": 87.32,
+     "type": "T"
+    },
+    {
+     "x": 251.6,
+     "y": 242.87,
+     "angle": 87.32,
+     "type": "T"
+    },
+    {
+     "x": 252.91,
+     "y": 270.84,
+     "angle": 87.32,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "BIS",
+   "b": "CHE",
+   "terrain": "TTT",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 317.48,
+     "y": 49.06,
+     "angle": 92.83,
+     "type": "T"
+    },
+    {
+     "x": 316.09,
+     "y": 77.13,
+     "angle": 92.83,
+     "type": "T"
+    },
+    {
+     "x": 314.71,
+     "y": 105.19,
+     "angle": 92.83,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "CHE",
+   "b": "DEN",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 314.48,
+     "y": 159.23,
+     "angle": 87.66,
+     "type": "B"
+    },
+    {
+     "x": 315.62,
+     "y": 187.21,
+     "angle": 87.66,
+     "type": "B"
+    },
+    {
+     "x": 316.77,
+     "y": 215.19,
+     "angle": 87.66,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "DEN",
+   "b": "ELP",
+   "terrain": "GGG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 317.82,
+     "y": 269.26,
+     "angle": 90.1,
+     "type": "G"
+    },
+    {
+     "x": 317.77,
+     "y": 297.35,
+     "angle": 90.1,
+     "type": "G"
+    },
+    {
+     "x": 317.72,
+     "y": 325.44,
+     "angle": 90.1,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "SEA",
+   "b": "HEL",
+   "terrain": "BTTTT",
+   "bow": -0.4381,
+   "slots": [
+    {
+     "x": 46.23,
+     "y": 26.11,
+     "angle": -21.98,
+     "type": "B"
+    },
+    {
+     "x": 72.88,
+     "y": 17.58,
+     "angle": -13.51,
+     "type": "T"
+    },
+    {
+     "x": 100.49,
+     "y": 13.07,
+     "angle": -5.04,
+     "type": "T"
+    },
+    {
+     "x": 128.46,
+     "y": 12.68,
+     "angle": 3.43,
+     "type": "T"
+    },
+    {
+     "x": 156.18,
+     "y": 16.41,
+     "angle": 11.89,
+     "type": "T"
+    }
+   ]
+  },
+  {
+   "a": "LAX",
+   "b": "PHX",
+   "terrain": "TTTTGB",
+   "bow": 0.5,
+   "slots": [
+    {
+     "x": 46.03,
+     "y": 374.88,
+     "angle": 23.06,
+     "type": "T"
+    },
+    {
+     "x": 72.49,
+     "y": 383.96,
+     "angle": 14.79,
+     "type": "T"
+    },
+    {
+     "x": 99.99,
+     "y": 389.13,
+     "angle": 6.52,
+     "type": "T"
+    },
+    {
+     "x": 127.94,
+     "y": 390.29,
+     "angle": -1.75,
+     "type": "T"
+    },
+    {
+     "x": 155.77,
+     "y": 387.42,
+     "angle": -10.02,
+     "type": "G"
+    },
+    {
+     "x": 182.89,
+     "y": 380.58,
+     "angle": -18.29,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "BIS",
+   "b": "MIN",
+   "terrain": "GGGGG",
+   "bow": -0.4717,
+   "slots": [
+    {
+     "x": 344.59,
+     "y": 14.04,
+     "angle": -12.77,
+     "type": "G"
+    },
+    {
+     "x": 372.27,
+     "y": 10.04,
+     "angle": -3.66,
+     "type": "G"
+    },
+    {
+     "x": 400.24,
+     "y": 10.48,
+     "angle": 5.46,
+     "type": "G"
+    },
+    {
+     "x": 427.78,
+     "y": 15.35,
+     "angle": 14.58,
+     "type": "G"
+    },
+    {
+     "x": 454.2,
+     "y": 24.52,
+     "angle": 23.7,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "ELP",
+   "b": "FTW",
+   "terrain": "GGGGG",
+   "bow": 0.4478,
+   "slots": [
+    {
+     "x": 342.12,
+     "y": 364.01,
+     "angle": 20.99,
+     "type": "G"
+    },
+    {
+     "x": 368.94,
+     "y": 372.03,
+     "angle": 12.33,
+     "type": "G"
+    },
+    {
+     "x": 396.67,
+     "y": 375.93,
+     "angle": 3.68,
+     "type": "G"
+    },
+    {
+     "x": 424.66,
+     "y": 375.62,
+     "angle": -4.98,
+     "type": "G"
+    },
+    {
+     "x": 452.29,
+     "y": 371.09,
+     "angle": -13.63,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "REN",
+   "b": "SLC",
+   "terrain": "TTGGG",
+   "bow": 0.4357,
+   "slots": [
+    {
+     "x": 114.44,
+     "y": 207.01,
+     "angle": 12.84,
+     "type": "T"
+    },
+    {
+     "x": 142.1,
+     "y": 211.2,
+     "angle": 4.42,
+     "type": "T"
+    },
+    {
+     "x": 170.07,
+     "y": 211.3,
+     "angle": -4.01,
+     "type": "G"
+    },
+    {
+     "x": 197.76,
+     "y": 207.3,
+     "angle": -12.43,
+     "type": "G"
+    },
+    {
+     "x": 224.56,
+     "y": 199.29,
+     "angle": -20.85,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "HEL",
+   "b": "BIS",
+   "terrain": "TBBB",
+   "bow": -0.2372,
+   "slots": [
+    {
+     "x": 208.55,
+     "y": 18.36,
+     "angle": -9.04,
+     "type": "T"
+    },
+    {
+     "x": 236.37,
+     "y": 15.29,
+     "angle": -3.53,
+     "type": "B"
+    },
+    {
+     "x": 264.36,
+     "y": 14.92,
+     "angle": 1.99,
+     "type": "B"
+    },
+    {
+     "x": 292.25,
+     "y": 17.24,
+     "angle": 7.51,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "PHX",
+   "b": "ELP",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 234.82,
+     "y": 365.97,
+     "angle": -9.22,
+     "type": "B"
+    },
+    {
+     "x": 262.77,
+     "y": 361.44,
+     "angle": -9.22,
+     "type": "B"
+    },
+    {
+     "x": 290.72,
+     "y": 356.9,
+     "angle": -9.22,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "BOI",
+   "b": "SLC",
+   "terrain": "TG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 206.46,
+     "y": 153.11,
+     "angle": 39.29,
+     "type": "T"
+    },
+    {
+     "x": 228.13,
+     "y": 170.84,
+     "angle": 39.29,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "OMA",
+   "b": "NPL",
+   "terrain": "BG",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 455.58,
+     "y": 163.98,
+     "angle": 141.87,
+     "type": "B"
+    },
+    {
+     "x": 433.16,
+     "y": 181.57,
+     "angle": 141.87,
+     "type": "G"
+    }
+   ]
+  },
+  {
+   "a": "CHE",
+   "b": "NPL",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 338.57,
+     "y": 149.57,
+     "angle": 34.49,
+     "type": "B"
+    },
+    {
+     "x": 362.06,
+     "y": 165.71,
+     "angle": 34.49,
+     "type": "B"
+    },
+    {
+     "x": 385.55,
+     "y": 181.85,
+     "angle": 34.49,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "SXF",
+   "b": "NPL",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 413.66,
+     "y": 116.22,
+     "angle": 92.01,
+     "type": "B"
+    },
+    {
+     "x": 412.68,
+     "y": 144.2,
+     "angle": 92.01,
+     "type": "B"
+    },
+    {
+     "x": 411.69,
+     "y": 172.18,
+     "angle": 92.01,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "DEN",
+   "b": "KCY",
+   "terrain": "BBBBB",
+   "bow": -0.4527,
+   "slots": [
+    {
+     "x": 343.46,
+     "y": 233.62,
+     "angle": -14.26,
+     "type": "B"
+    },
+    {
+     "x": 371.01,
+     "y": 228.81,
+     "angle": -5.51,
+     "type": "B"
+    },
+    {
+     "x": 398.98,
+     "y": 228.26,
+     "angle": 3.24,
+     "type": "B"
+    },
+    {
+     "x": 426.71,
+     "y": 231.97,
+     "angle": 11.99,
+     "type": "B"
+    },
+    {
+     "x": 453.54,
+     "y": 239.85,
+     "angle": 20.74,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "CHE",
+   "b": "SXF",
+   "terrain": "BBB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 338.22,
+     "y": 121.7,
+     "angle": -23.02,
+     "type": "B"
+    },
+    {
+     "x": 363.99,
+     "y": 110.75,
+     "angle": -23.02,
+     "type": "B"
+    },
+    {
+     "x": 389.76,
+     "y": 99.8,
+     "angle": -23.02,
+     "type": "B"
+    }
+   ]
+  },
+  {
+   "a": "BOI",
+   "b": "REN",
+   "terrain": "GGB",
+   "bow": 0,
+   "slots": [
+    {
+     "x": 160.97,
+     "y": 152.03,
+     "angle": 146.92,
+     "type": "G"
+    },
+    {
+     "x": 137.09,
+     "y": 167.59,
+     "angle": 146.92,
+     "type": "G"
+    },
+    {
+     "x": 113.21,
+     "y": 183.15,
+     "angle": 146.92,
+     "type": "B"
+    }
+   ]
+  }
+ ],
+ "checks": [
+  {
+   "ok": true,
+   "rule": "No route crosses or touches another",
+   "measured": "0 crossings, 0 touching slots"
+  },
+  {
+   "ok": true,
+   "rule": "Clear space between slots of different routes >= 7 mm",
+   "measured": "tightest 22.6 mm"
+  },
+  {
+   "ok": true,
+   "rule": "Routes fan apart at shared cities (first slots >= 2.5 mm)",
+   "measured": "tightest 3.9 mm"
+  },
+  {
+   "ok": true,
+   "rule": "Slots clear of other cities >= 6 mm",
+   "measured": "tightest 17.2 mm"
+  },
+  {
+   "ok": true,
+   "rule": "Every slot identical; routes are whole numbers of slots",
+   "measured": "worst misfit 0.00 mm; slot gaps 2.0 to 2.5 mm, city to first slot 6.0 to 10.0 mm"
+  },
+  {
+   "ok": true,
+   "rule": "All slots on the board (>= 4 mm from edge)",
+   "measured": "closest 4.7 mm"
+  },
+  {
+   "ok": true,
+   "rule": "4 start cities left, 4 right, alone on their longitude",
+   "measured": "nearest other city is 60 mm inland"
+  },
+  {
+   "ok": true,
+   "rule": "One route per city pair; no start-to-start links",
+   "measured": "47 routes, 47 pairs"
+  },
+  {
+   "ok": true,
+   "rule": "Terrain types balanced (within 6 points)",
+   "measured": "Ground 44 (32%) / Tunnel 46 (34%) / Bridge 46 (34%)"
+  },
+  {
+   "ok": true,
+   "rule": "No large empty space (largest clear disc <= 40 mm radius)",
+   "measured": "largest 36 mm"
+  },
+  {
+   "ok": true,
+   "rule": "Even density: every 10 cm cell holds 4+ slots, none over 3x the sparsest",
+   "measured": "4 to 9 slots per cell"
+  },
+  {
+   "ok": true,
+   "rule": "Every inland city branches (3 to 6 routes)",
+   "measured": "inland 3 to 6"
+  },
+  {
+   "ok": true,
+   "rule": "Every shortest crossing needs all three track types (3+ tiles of each)",
+   "measured": "scarcest type appears 3 to 5 times across 102 shortest paths"
+  },
+  {
+   "ok": true,
+   "rule": "Any start pair can skip Ground or skip Bridge, at a cost in tiles",
+   "measured": "costs 3 to 6 extra tiles"
+  },
+  {
+   "ok": true,
+   "rule": "Mountains in the west, rivers and plains in the east",
+   "measured": "Tunnel slots: 29 in the western third, 2 in the eastern third"
+  },
+  {
+   "ok": true,
+   "rule": "Every start city has a 2-slot opening route",
+   "measured": "Seattle 2/5, Portland 2/2, Sacramento 2/2, Los Angeles 2/6, Minneapolis 2/5, Omaha 2/2, Kansas City 2/5, Fort Worth 2/5"
+  }
+ ]
+};

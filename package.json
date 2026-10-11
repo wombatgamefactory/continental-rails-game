@@ -1,0 +1,16 @@
+{
+  "name": "continental-rails-game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser version of the board game Continental Rails",
+  "scripts": {
+    "dev": "node tools/serve.mjs 8080",
+    "test": "node tests/run-all.mjs",
+    "test:ui": "node tests/ui-smoke.mjs",
+    "sim": "node sim/sim.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.0"
+  }
+}
