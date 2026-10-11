@@ -2,6 +2,8 @@
 
 Date: 11/10/2026. Build label: `prototype 2026-10-11` (`src/ui/config.js`). Machine: Windows 11, Node 24, the installed Chrome (154), 23 worker threads.
 
+**Status: published on 11/10/2026** at <https://www.wombatgamefactory.com/continental-rails-game/>. Sections 1 to 5 record the check made before publication; sections 6 to 8 were brought up to date afterwards.
+
 This is the record of the last full check before the repository was made public: every test suite, the simulator, the browser checklist, the art inventory and a sweep of every file that is published. Anything not checked is marked NOT VERIFIED. The scripts that produced the browser results are in `tests/qa/` (run by hand, not part of `npm test`); their output goes to `tests/tmp/qa/` (not tracked).
 
 ## 1. Tests
@@ -41,7 +43,7 @@ Everything was done with `playwright-core` on the installed Chrome (`channel: 'c
 | # | Item | Result | How checked | Evidence |
 |---|---|---|---|---|
 | 1 | Landing page at 1440 x 900, 1280 x 800, 1024 x 768, 768 x 1024, 390 x 844: no horizontal scroll, no overlap, no placeholder picture, copy free of typos, British spelling | PASS | `tests/qa/landing.mjs`: scroll width equals window width at all five sizes; no element outside the window; no sibling blocks overlapping; no clipped text; the four pictures are real art and none broken; the page text scanned for US spellings, doubled words, stray characters, "undefined", "Steel" (0 findings); the text was also read. Smoke 20a, 20b | `qa/landing-1440x900.png` ... `landing-390x844.png`, `landing-text.txt` |
-| 2 | A complete human game from the landing page to the end screen, all modules on, against one Medium bot, through the bespoke controls | PASS | `tests/qa/human-game.mjs --preset=full`: chose the preset, the seats and Start on the page; 75 human decisions, each by clicking the on-screen target for a legal action picked by a seeded rule. **0 uses of the generic list of legal moves.** 53 clicked a target on the board; 22 clicked a button in the prompt panel (decisions the page offers only as panel buttons, such as choosing a resource, plus 9 where a board target existed but was not on screen: `discard` 7, `installUpgrade` 1, `exchangeToken` 1; see known issue 5). Ended on the end screen after 50 turns; 0 console errors; 0 driver incidents | `qa/human-full-*.png`, `human-game-full.json` |
+| 2 | A complete human game from the landing page to the end screen, all modules on, against one Medium bot, through the bespoke controls | PASS | `tests/qa/human-game.mjs --preset=full`: chose the preset, the seats and Start on the page; 75 human decisions, each by clicking the on-screen target for a legal action picked by a seeded rule. **0 uses of the generic list of legal moves.** 53 clicked a target on the board; 22 clicked a button in the prompt panel (decisions the page offers only as panel buttons, such as choosing a resource, plus 9 where a board target existed but was not on screen: `discard` 7, `installUpgrade` 1, `exchangeToken` 1; see known issue 4). Ended on the end screen after 50 turns; 0 console errors; 0 driver incidents | `qa/human-full-*.png`, `human-game-full.json` |
 | 3 | The same with the "Core only" preset | PASS | `--preset=core`: 59 human decisions, **0 generic fallbacks** (11 prompt-panel buttons), no module in the state, ended after 56 turns, 0 console errors | `qa/human-core-*.png`, `human-game-core.json` |
 | 4 | A four-bot demo game at Normal speed watched to the end | PASS | `tests/qa/demo.mjs --part=watch`: "Watch a demo game", speed set to Normal; reached the end screen after **8 min 6 s** (719 actions, 132 turns); 0 driver incidents; 0 console errors | `qa/demo-normal-end.png` |
 | 5 | Pause, resume, speed change mid-game | PASS | same run: a paused game made no move in 2.5 s and the banner said so; Resume moved it again; Normal 1.0 moves a second, Fast 4.7 | `qa/demo-paused.png` |
@@ -63,7 +65,7 @@ Everything was done with `playwright-core` on the installed Chrome (`channel: 'c
 | 21 | No console errors, no debug logs in the render path | PASS | every script and smoke test fails on any console error or page error; `grep` finds no `console.` in `src/engine`, `src/bots`, or the render code (purity suite) | - |
 | 22 | `.nojekyll` present; no file or folder name starts with an underscore | PASS | `.nojekyll` added at the root; the sweep found 0 such names | - |
 
-Not verified: the live GitHub Pages site (HTTPS, headers, caching) - only its sub-path layout was reproduced locally; browsers other than Chrome (Edge, Firefox, Safari); real phones and tablets (the narrow layouts were checked at viewport sizes only); screen readers; slow devices; analytics with a real measurement id and the bug-report email link with a real address (both are inert while `src/ui/config.js` is empty, and smoke 19f checks them with a test-only override).
+The live site was checked after publication (section 8). Not verified: browsers other than Chrome (Edge, Firefox, Safari); real phones and tablets (the narrow layouts were checked at viewport sizes only); screen readers; slow devices; analytics with a real measurement id and the bug-report email link with a real address (both are inert while `src/ui/config.js` is empty, and smoke 19f checks them with a test-only override).
 
 ## 3. Art reconciliation
 
@@ -101,7 +103,7 @@ The page: `lang="en-GB"`, a title and description, `og:url` and `og:image` are a
 
 What was removed from the documents: the engine contract's questions section is now "How the engine reads the rules where they are silent or ambiguous" (the questions framing and the three "what a task changed" sections were removed); the rules audit report lost its section of questions addressed to the designer (replaced by a neutral paragraph naming the six ambiguous readings) and its internal notes; the engine to-do lost its task attributions; the art extraction report lost its internal title and a request for confirmation; `docs/bots.md` lost its "Design findings from the search bots" section (observations about the game's balance) and the build machine's processor model.
 
-**Not covered by the sweep: the git history.** See known issue 1.
+**The git history.** The sweep reads files, not history. The repository was therefore published with a new, clean history under a no-reply author address (section 7); the working history of the build is not part of it.
 
 ## 5. Fixes made during the check
 
@@ -124,22 +126,35 @@ What was removed from the documents: the engine contract's questions section is 
 
 ## 6. Known issues, most important first
 
-1. **The git history is not clean (decision needed before publishing).** All 15 commits carry the designer's personal email address in their author field, and earlier revisions of files contain what the sweep removed from the current files: the earlier game's title (commits c9f8deb, d149b15, ba354ca, b5ebe32), a publisher's name (b5ebe32), the spec's file path in the audit report and its test header (d726e10), a sync-folder name in a test comment (e71610e), and the earlier versions of the documents with their internal framing. No commit message contains any of these. Making the repository public publishes all of it. Options: publish a new repository with a single squashed commit under a no-reply address, or accept it. This QA could not change history.
-2. **26 pictures are placeholders** (`assets/art-manifest.md`). The landing page uses a district illustration where `ui-hero` will go; `map-backdrop` and `train-engine` are not wired into the map and train renderers yet (each needs a small change once the art exists). Nothing hatched is ever shown.
-3. **The start player is not marked on the board.** It matters only with `turnStructure = rounds` and in the last tie-break (the end screen's sentence mentions it). Reproduce: start a Rounds game and look for a marker.
-4. **A player's name is cut short when its card also carries badges.** At 1440 x 900 in a two-player game, "Player 2" shows as "Pla..." beside the bot badge and the TURN badge (`qa/search-expert-thinking.png`). Reproduce: seat names longer than about six letters next to a bot level.
-5. **A discard or upgrade target in the train is not clickable while a dock panel covers the train.** The prompt panel offers a button for the same action, so play is never blocked, but its heading says "click an item here or in your storage". Reproduce: a discard decision while the Upgrades tab is open (9 of the 75 human decisions in the full-game run).
-6. **A search bot's first turn is long and the first frames can be slow.** Hard took 5.9 s and Expert 10.7 s on their first turn (their later turns took 1.7 to 4.5 s); the longest frame gap, 350 ms, came while the worker started. The page never froze and the driver never timed out.
-7. **A demo game at Normal speed takes about eight minutes** (719 actions at 0.85 s). Fast speed takes under two. By design.
-8. **Rule numbers (`R11.5.4`) in the documents, comments and test names refer to the designer's rules text, which is not in the repository.** A reader cannot look them up.
-9. **Only Chrome was used** (section 2), and only at emulated viewport sizes.
-10. **`?test=1` exposes `window.__cr`** (read the state, commit an action through the engine's own validation). It holds no secret and is how the tests drive the page; a visitor who adds it can use it.
+1. **26 pictures are placeholders** (`assets/art-manifest.md`). The landing page uses a district illustration where `ui-hero` will go; `map-backdrop` and `train-engine` are not wired into the map and train renderers yet (each needs a small change once the art exists). Nothing hatched is ever shown.
+2. **The start player is not marked on the board.** It matters only with `turnStructure = rounds` and in the last tie-break (the end screen's sentence mentions it). Reproduce: start a Rounds game and look for a marker.
+3. **A player's name is cut short when its card also carries badges.** At 1440 x 900 in a two-player game, "Player 2" shows as "Pla..." beside the bot badge and the TURN badge (`qa/search-expert-thinking.png`). Reproduce: seat names longer than about six letters next to a bot level.
+4. **A discard or upgrade target in the train is not clickable while a dock panel covers the train.** The prompt panel offers a button for the same action, so play is never blocked, but its heading says "click an item here or in your storage". Reproduce: a discard decision while the Upgrades tab is open (9 of the 75 human decisions in the full-game run).
+5. **A search bot's first turn is long and the first frames can be slow.** Hard took 5.9 s and Expert 10.7 s on their first turn (their later turns took 1.7 to 4.5 s); the longest frame gap, 350 ms, came while the worker started. The page never froze and the driver never timed out.
+6. **A demo game at Normal speed takes about eight minutes** (719 actions at 0.85 s). Fast speed takes under two. By design.
+7. **Rule numbers (`R11.5.4`) in the documents, comments and test names refer to the designer's rules text, which is not in the repository.** A reader cannot look them up.
+8. **Only Chrome was used** (section 2), and only at emulated viewport sizes.
+9. **`?test=1` exposes `window.__cr`** (read the state, commit an action through the engine's own validation). It holds no secret and is how the tests drive the page; a visitor who adds it can use it.
 
 ## 7. Ready to publish?
 
-**No, not yet - one decision is open; everything else is ready.**
+**Yes. Published on 11/10/2026.**
 
-- The tracked files are clean: every sweep category is at zero, all test suites pass (including five consecutive runs and two overlapping runs after the flaky suite was fixed), the clean-clone run of the published commit and of the corrected tree passes, the simulator ran 3,040 games with zero refusals, caps, crashes, mismatches or turn-limit games, and the browser checklist has no failure.
-- **Blocking decision:** the git history publishes the designer's personal email address and earlier revisions that mention the earlier game's title, a publisher's name and internal framing (known issue 1). If the repository is published as it is, that is the price; if not, publish a squashed history first. This is the designer's call, not a defect in the files.
-- The corrected files are in the working folder and have not been committed or pushed; the live site cannot be checked until they are.
-- Not verified: the live Pages deployment, other browsers and real devices (section 2).
+- The tracked files are clean: every sweep category is at zero, all test suites pass (including five consecutive runs and two overlapping runs after the flaky suite was fixed), the clean-copy run passes, the simulator ran 3,040 games with zero refusals, caps, crashes, mismatches or turn-limit games, and the browser checklist has no failure.
+- The one open point at the end of the check was the git history, which a file sweep cannot see. It was settled by publishing a new repository with a clean history under a no-reply author address. The file tree of the first published commit is identical to the tree that was checked.
+- Not verified: browsers other than Chrome, real phones and tablets, screen readers and slow devices (section 2).
+
+## 8. The live site
+
+Checked after publication, in the installed Chrome driven by `playwright-core`, against <https://www.wombatgamefactory.com/continental-rails-game/>.
+
+| Check | Result |
+|---|---|
+| The address | The site is served from `www.wombatgamefactory.com/continental-rails-game/` over HTTPS. The `github.io` address of the repository redirects to it. The page's `og:url`, `og:image` and canonical link use the served address. |
+| Landing page | Loads with its title, heading and hook; 280 KB of images at first paint. |
+| A four-bot game (Medium bots, instant speed, started by query string) | Reaches the end screen with ranked scores. |
+| A Hard bot against a Medium bot | The search runs in the Web Worker and the game reaches the end screen in about 30 seconds at instant speed. |
+| Console errors, page errors, failed requests, responses of 400 or above | None. |
+| Hosts contacted | Only the site's own. |
+
+One run made within seconds of a redeploy timed out waiting for the landing page; the runs before and after it passed. Allow a minute after a push before judging the live site.
