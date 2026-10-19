@@ -78,12 +78,12 @@ const R21_3 = [
   ['endRoutesPerPlayer', 'integer', [0, 23], 8],
   ['maxTurnsPerPlayer', 'integer', [0, 500], 80],
   ['bonusActionLimit', 'enum', ['once-per-turn', 'once-per-game', 'multiplied'], 'once-per-turn'],
-  ['hireCostModel', 'enum', ['fee-plus-table', 'fee-only', 'table-only'], 'fee-plus-table'],
+  ['hireCostModel', 'enum', ['fee-plus-table', 'fee-only', 'table-only'], 'fee-only'],
   ['bothBuildingsSameOwner', 'boolean', [true, false], true],
   ['buildingScoreCurve', 'enum', ['rising', '2018'], 'rising'],
   ['scoringCard', 'enum', ['none', 'random', 'ground', 'tunnel', 'bridge'], 'random'],
   ['upgradeVpTiming', 'enum', ['per-activation', 'on-install'], 'per-activation'],
-  ['specialistActivations', 'enum', ['by-level', 'once'], 'by-level'],
+  ['specialistActivations', 'enum', ['by-level', 'once'], 'once'],
   ['gridLayout', 'enum', ['fixed', 'shuffle-resources'], 'fixed'],
 ];
 
@@ -597,10 +597,10 @@ export default function part5() {
     assert.equal(eventOf(ev, 'districtChosen').multiplier, 2);
     assert.deepEqual(s.players[0].resources, { iron: 5, wood: 1, gunpowder: 1 });
     assert.equal(storageUsed(s.players[0]), 7);
-    assert.ok(!offered(s, 'hireSpecialist', { specialist: 'financier' }), 'a Financier would cost 2 Coins and 1 Iron');
+    assert.deepEqual(sorted(offers(s, 'hireSpecialist').map((a) => a.specialist)), ['crew', 'engineer', 'financier', 'miner'], 'any type for the same 1 Coin');
     act(s, { type: 'hireSpecialist', specialist: 'crew' });
-    assert.deepEqual(held(s.players[0]), { iron: 4, wood: 1, gunpowder: 0, coins: 0 });
-    assert.equal(storageUsed(s.players[0]), 5);
+    assert.deepEqual(held(s.players[0]), { iron: 5, wood: 1, gunpowder: 1, coins: 0 });
+    assert.equal(storageUsed(s.players[0]), 7);
     assert.deepEqual(s.players[0].train.specialistCarriages[0].slots, ['crew', 'crew']);
   });
   check('E2', 'Gather, with the Carriage Upgrade bonus action', () => {
@@ -660,7 +660,7 @@ export default function part5() {
     const map = JSON.stringify(s.map);
     const ev = placeAndChoose(s, 'W7', 'D6');
     assert.equal(eventOf(ev, 'districtChosen').multiplier, 2);
-    assert.equal(eventOf(ev, 'trainActivation').steps, 7);
+    assert.equal(eventOf(ev, 'trainActivation').steps, 6);
     const snapshot = () => [s.players[0].resources.wood, s.players[0].resources.iron, s.players[0].builtTiles.bridge, s.players[0].builtTiles.ground];
     ev.push(...act(s, { type: 'useStep' }));
     assert.deepEqual(snapshot(), [3, 2, 1, 0]);
@@ -668,7 +668,7 @@ export default function part5() {
     assert.deepEqual(snapshot(), [2, 2, 2, 0]);
     ev.push(...act(s, { type: 'useStep' })); // Engineer, level 1
     assert.deepEqual(snapshot(), [0, 2, 3, 0]);
-    ev.push(...act(s, { type: 'useStep' })); // Crew, level 1; the level 2 Engineer cannot pay, twice
+    ev.push(...act(s, { type: 'useStep' })); // Crew, level 1; the level 2 Engineer cannot pay
     assert.deepEqual(snapshot(), [0, 0, 3, 1]);
     assert.equal(s.turn.player, 1);
     assert.equal(storageUsed(s.players[0]), 4);

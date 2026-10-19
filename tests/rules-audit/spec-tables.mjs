@@ -1,4 +1,4 @@
-// Data tables of the designer's rules text, transcribed mechanically on 11/10/2026 for the rules audit, updated to spec v4 on 19/10/2026
+// Data tables of the designer's rules text, transcribed mechanically on 11/10/2026 for the rules audit, updated to spec v4 and then to the two specialist rulings of 19/10/2026 (hire cost, activations)
 // (R10.1, R15.2, R16.5, R16.8, R17.3, R18.7, R20.3, R21.3, Appendix A.1 and A.2).
 // The rules text is not part of this repository, so its tables are kept here as data.
 // "machine" is the spec's own "Machine form" column, as text. DO NOT edit a value
@@ -265,11 +265,11 @@ export const R21_3 = [
   {"name":"endRoutesPerPlayer","type":"integer","allowed":"0 to 23 (0 = off)","default":"8","rule":"R19.3"},
   {"name":"maxTurnsPerPlayer","type":"integer","allowed":"0 to 500 (0 = off)","default":"80","rule":"R19.4"},
   {"name":"bonusActionLimit","type":"enum","allowed":"once-per-turn, once-per-game, multiplied","default":"once-per-turn","rule":"R7.2"},
-  {"name":"hireCostModel","type":"enum","allowed":"fee-plus-table, fee-only, table-only","default":"fee-plus-table","rule":"R7.4, R8.6"},
+  {"name":"hireCostModel","type":"enum","allowed":"fee-plus-table, fee-only, table-only","default":"fee-only","rule":"R7.4, R8.6"},
   {"name":"bothBuildingsSameOwner","type":"boolean","allowed":"true, false","default":"true","rule":"R13.7"},
   {"name":"buildingScoreCurve","type":"enum","allowed":"rising, 2018","default":"rising","rule":"R20.3"},
   {"name":"scoringCard","type":"enum","allowed":"none, random, ground, tunnel, bridge","default":"random","rule":"R11.9"},
   {"name":"upgradeVpTiming","type":"enum","allowed":"per-activation, on-install","default":"per-activation","rule":"R15.6"},
-  {"name":"specialistActivations","type":"enum","allowed":"by-level, once","default":"by-level","rule":"R9.3"},
+  {"name":"specialistActivations","type":"enum","allowed":"by-level, once","default":"once","rule":"R9.3"},
   {"name":"gridLayout","type":"enum","allowed":"fixed, shuffle-resources","default":"fixed","rule":"R5.8"},
 ];

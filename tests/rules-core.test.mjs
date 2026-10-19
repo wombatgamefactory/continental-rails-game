@@ -222,14 +222,14 @@ suite.check('E5 (R22): the step list of a train activation, M = 2, use and skip;
   assert.deepEqual(stepList(frame), [
     'engineer@0', 'engineer@0', // the Foreman, twice (M = 2)
     'engineer@1', 'crew@1', // level 1 carriage: slot 1, slot 2
-    'engineer@2', 'engineer@2', // level 2 carriage: the Engineer acts twice (R9.3)
+    'engineer@2', // level 2 carriage: the Engineer acts once, like every specialist (R9.3)
   ]);
   const run = runSteps(state, 'useStep');
   assert.deepEqual(eve.builtTiles, { ground: 1, tunnel: 0, bridge: 3 });
   assert.deepEqual(eve.resources, { iron: 0, wood: 0, gunpowder: 0 });
   assert.equal(storageUsed(eve), 4, '3 Bridge and 1 Ground');
   const skipped = run.filter((x) => x.type === 'action' && x.auto && x.action.type === 'skipStep');
-  assert.equal(skipped.length, 2, 'the level 2 Engineer has no Wood: both of its steps were skipped by the engine');
+  assert.equal(skipped.length, 1, 'the level 2 Engineer has no Wood: its step was skipped by the engine');
   assert.equal(eventsOf(run, 'build').length, 4);
   assert.equal(claimedCount(state), 0, 'R9.6: nothing has been put on the map');
   assert.equal(state.turn.player, 1);

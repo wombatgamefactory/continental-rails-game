@@ -410,7 +410,7 @@ suite.check('R22 E5 with its real upgrade tile: Eve builds 3 Bridge tiles and 1 
   assert.equal(state.turn.multiplier, 2, 'M = 1 + 1');
   assert.deepEqual(
     frame.steps.map((s) => (s.level === 0 ? 'Foreman' : s.type === 'upgrade' ? 'tile' : `${s.type}${s.level}`)),
-    ['Foreman', 'Foreman', 'tile', 'engineer1', 'crew1', 'engineer2', 'engineer2'],
+    ['Foreman', 'Foreman', 'tile', 'engineer1', 'crew1', 'engineer2'],
   );
   const p = state.players[0];
   take(state, 'useStep'); // Foreman: 2 Wood -> 1 Bridge
@@ -423,7 +423,7 @@ suite.check('R22 E5 with its real upgrade tile: Eve builds 3 Bridge tiles and 1 
   assert.deepEqual([p.resources.wood, p.builtTiles.bridge], [0, 3]);
   take(state, 'useStep'); // Crew, level 1: 2 Iron -> 1 Ground
   assert.deepEqual([p.resources.iron, p.builtTiles.ground], [0, 1]);
-  // The level 2 Engineer has no Wood: both steps are skipped by the engine.
+  // The level 2 Engineer has no Wood: its one step is skipped by the engine.
   assert.equal(state.turn.number, 2, 'the turn is over');
   assert.deepEqual({ ...p.builtTiles }, { ground: 1, tunnel: 0, bridge: 3 });
   assert.equal(Object.values(state.map.routeOwner).filter((o) => o !== null).length, 0, 'nothing has been put on the map');
@@ -1654,7 +1654,7 @@ suite.check('R18.7 card 9: a carriage and a hire at its hire cost without the fe
   assert.ok(keys(state).includes('skipEffect'));
   const coins = state.players[0].coins;
   take(state, 'hireSpecialist', { specialist: 'crew' });
-  assert.deepEqual(state.players[0].resources, { iron: 3, wood: 0, gunpowder: 3 }, 'the hire cost of a Crew: 1 Iron + 1 Gunpowder');
+  assert.deepEqual(state.players[0].resources, { iron: 4, wood: 0, gunpowder: 4 }, 'no hire cost by default (R8.6.3)');
   assert.equal(state.players[0].coins, coins, 'no 1-Coin fee');
   // The other order, skipping both parts.
   const skipping = pony(2);
@@ -1800,7 +1800,7 @@ suite.check('R18.7 card 15: at the start of each of your train activations one s
   assert.ok(!keys(state).some((k) => k.includes(':0')));
   take(state, 'chooseExtraActivation', { level: 2, slot: 1 });
   const steps = topFrame(state).steps.map((s) => `${s.type}${s.level}`);
-  assert.deepEqual(steps, ['crew0', 'crew1', 'miner1', 'engineer2', 'engineer2', 'engineer2'], 'the level 2 Engineer acts 2 + 1 times');
+  assert.deepEqual(steps, ['crew0', 'crew1', 'miner1', 'engineer2', 'engineer2'], 'the level 2 Engineer acts 1 + 1 times');
   // It is asked in every activation; with a single specialist the choice is made by the engine.
   const lone = pony(2);
   ownCard(lone, 0, 'PX15');
@@ -1938,7 +1938,7 @@ suite.check('R18.7 card 28: any one bonus action, at no printed cost, outside th
   assert.match(getBlockReason(state, { type: 'skipBonusAction', player: 0 }), /You have used Frontier Mastery/);
   const coinsBefore = state.players[0].coins;
   const events = take(state, 'hireSpecialist', { specialist: 'crew' });
-  assert.deepEqual(state.players[0].resources, { iron: 1, wood: 0, gunpowder: 1 }, 'the hire cost of a Crew, but no 1-Coin fee (the printed cost)');
+  assert.deepEqual(state.players[0].resources, { iron: 2, wood: 0, gunpowder: 2 }, 'no 1-Coin fee (the printed cost), and no hire cost by default (R8.6.3)');
   assert.equal(state.players[0].coins, coinsBefore, 'the Coin fee was not charged');
   assert.equal(eventOf(events, 'hire').cause, 'pony:PX28');
   assert.deepEqual({ ...state.players[0].bonusActionsUsed }, { upgrade: false, hire: false, hat: false, carriage: false }, 'does not count towards bonusActionLimit, and marks nothing');
@@ -2003,7 +2003,7 @@ suite.check('R18.7 card 33: until the end of this turn each specialist of the ch
   const count = (x) => steps.filter((s) => s === x).length;
   assert.equal(count('crew0'), 1, 'the Foreman is not doubled');
   assert.equal(count('crew1'), 2, 'level 1: 1 x 2');
-  assert.equal(count('crew2'), 4, 'level 2: 2 x 2');
+  assert.equal(count('crew2'), 2, 'level 2: 1 x 2');
   assert.equal(count('miner1'), 1, 'another type: as normal');
   // It lasts until the end of the turn only.
   drive(state, (s) => s.turn.player === 1, (actions) => actions.find((a) => a.type === 'skipStep') ?? actions.find((a) => a.type === 'closeCongress') ?? actions.find((a) => a.type === 'endFreeActions') ?? actions[0]);

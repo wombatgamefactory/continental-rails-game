@@ -221,22 +221,23 @@ export function specialistSlotUse(player) {
  * R8.6.3 with R7.4. What hiring `specialist` costs this player now.
  *   mode 'bonusAction' - the Hire Specialist bonus action: variant `hireCostModel`
  *                        decides between fee + table, fee only, table only.
- *   mode 'table'       - the hire cost only, no fee (Pony Express card 9).
+ *   mode 'table'       - the hire cost only, no fee (Pony Express cards 9 and 28).
  *   mode 'free'        - nothing (R8.6.4).
+ * Under `fee-only` there is no hire cost at all (R8.6.3), so 'table' costs nothing.
  * Returns `{ cost, fee, table, level }`, or null when no slot is empty.
  */
 export function hireCost(state, playerId, specialist, mode) {
   const K = getConstants(state);
   const where = nextSpecialistSlot(state.players[playerId]);
   if (where === null) return null;
+  const model = state.variants.hireCostModel;
   let fee = {};
   let table = {};
   if (mode === 'bonusAction') {
-    const model = state.variants.hireCostModel;
     if (model !== 'table-only') fee = K.BONUS_ACTIONS.hire.cost;
     if (model !== 'fee-only') table = K.TRAIN.hireCosts[specialist][where.level - 1];
   } else if (mode === 'table') {
-    table = K.TRAIN.hireCosts[specialist][where.level - 1];
+    if (model !== 'fee-only') table = K.TRAIN.hireCosts[specialist][where.level - 1];
   }
   return { cost: addCosts(fee, table), fee, table, level: where.level };
 }

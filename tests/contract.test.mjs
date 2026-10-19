@@ -459,19 +459,15 @@ suite.check('E1 (R22): Gather Iron with M = 2, then the Hire Specialist bonus ac
 
   assert.equal(topFrame(state).kind, 'bonusAction');
   assert.equal(topFrame(state).bonus, 'hire');
-  // A Financier: 1 Coin fee + 1 Coin + 1 Iron, and she has 1 Coin.
-  const fin = hireCost(state, 0, 'financier', 'bonusAction');
-  assert.deepEqual(fin.cost, { coins: 2, iron: 1 });
-  assert.match(
-    getBlockReason(state, { type: 'hireSpecialist', specialist: 'financier' }),
-    /Hiring a Financier into your level 1 carriage costs 2 Coins \+ 1 Iron and you have 1 Coin\./,
-  );
-  assert.ok(!getValidActions(state).some((a) => a.specialist === 'financier'));
-  // A Crew: 1 Coin fee + 1 Iron + 1 Gunpowder. She pays it.
+  // Any type costs the 1 Coin and nothing else (R7.4, R8.6.3).
+  for (const type of ['crew', 'miner', 'engineer', 'financier']) {
+    assert.deepEqual(hireCost(state, 0, type, 'bonusAction').cost, { coins: 1 }, type);
+    assert.ok(getValidActions(state).some((a) => a.specialist === type), type);
+  }
   act(state, { type: 'hireSpecialist', specialist: 'crew' });
   assert.equal(anna.coins, 0);
-  assert.deepEqual(anna.resources, { iron: 4, wood: 1, gunpowder: 0 });
-  assert.equal(storageUsed(anna), 5);
+  assert.deepEqual(anna.resources, { iron: 5, wood: 1, gunpowder: 1 });
+  assert.equal(storageUsed(anna), 7);
   assert.deepEqual(anna.train.specialistCarriages[0].slots, ['crew', 'crew']);
   assert.equal(state.supply.specialists.crew, RULES.TRAIN.specialistsPerType - 2 - 3, 'two for Anna, one each for the other three');
   // The turn is over: once per Gather action (R7.2), and no free actions in the core game.
@@ -817,7 +813,7 @@ suite.check('R7.4, R8.6: hiring fills slots in order, respects the supply, and f
     assert.deepEqual([price.fee, price.table, price.level], [fee, table, 1], model);
     assert.deepEqual(price.cost, expected[model], model);
     assert.deepEqual(hireCost(state, 0, 'engineer', 'free').cost, {}, 'R8.6.4');
-    assert.deepEqual(hireCost(state, 0, 'engineer', 'table').cost, K.TRAIN.hireCosts.engineer[0]);
+    assert.deepEqual(hireCost(state, 0, 'engineer', 'table').cost, model === 'fee-only' ? {} : K.TRAIN.hireCosts.engineer[0], 'fee-only has no hire cost');
   }
 
   const state = start(2);
@@ -841,10 +837,13 @@ suite.check('R7.4, R8.6: hiring fills slots in order, respects the supply, and f
   probe.stack.pop();
   probe.stack.push({ kind: 'bonusAction', player: 0, bonus: 'hire', remaining: 1 });
   assert.match(getBlockReason(probe, { type: 'hireSpecialist', specialist: 'crew' }), /Every specialist slot in your train is full \(2 of 2\): add a specialist carriage before you hire/);
-  // A level 2 carriage costs more (R8.6.3).
+  // A level 2 carriage costs the same 1 Coin; with fee-plus-table it costs more (R8.6.3).
   probe.players[0].train.specialistCarriages.push({ slots: [null, null] });
   assert.equal(hireCost(probe, 0, 'crew', 'bonusAction').level, 2);
-  assert.deepEqual(hireCost(probe, 0, 'crew', 'table').cost, K.TRAIN.hireCosts.crew[1]);
+  assert.deepEqual(hireCost(probe, 0, 'crew', 'bonusAction').cost, { coins: 1 });
+  const priced = start(2, { variants: { hireCostModel: 'fee-plus-table' } });
+  priced.players[0].train.specialistCarriages = [{ slots: ['crew', 'miner'] }, { slots: [null, null] }];
+  assert.deepEqual(hireCost(priced, 0, 'crew', 'table').cost, K.TRAIN.hireCosts.crew[1]);
 });
 
 suite.check('R7.1, R7.2: a bonus action only at its own district, once-per-game marks it used', () => {
@@ -992,7 +991,7 @@ suite.check('R20.5: the later tie-break steps - owned slots, then cargo, then tu
 });
 
 suite.check('getStructuralBlockReason answers "could I, if it were my move?" and leaves timing aside', () => {
-  const state = start(3);
+  const state = start(3, { variants: { hireCostModel: 'fee-plus-table' } }); // a hire that costs more than she holds
   // It is Anna's worker step. Hiring belongs to a later moment of a Gather Iron action.
   const crew = { type: 'hireSpecialist', specialist: 'crew' };
   const financier = { type: 'hireSpecialist', specialist: 'financier' };

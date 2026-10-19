@@ -39,7 +39,8 @@ function sim(name, args) {
 }
 
 const single = sim('single', ['--label=t-single']);
-const baseline = sim('baseline', ['--baseline', '--variant.conversionRate=1:1', '--label=t-baseline']);
+// The scoring-card constant is there to make a difference of more than 2 standard errors certain in 6 games.
+const baseline = sim('baseline', ['--baseline', '--variant.conversionRate=1:1', '--const.SCORING.scoringCardVpPerSlot=20', '--label=t-baseline']);
 const fast = sim('fast', ['--fast', '--seed=2', '--label=t-fast']);
 const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 

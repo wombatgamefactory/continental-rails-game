@@ -32,7 +32,7 @@ function waitLobby(s, n) {
 }
 
 /** Trains whose Lobby Congress activation gives exactly 2, 3 or 4 lobby points (the Foreman included). */
-const POINTS = { 2: [['financier', null]], 3: [['financier', 'financier']], 4: [['financier', null], ['financier', null]] };
+const POINTS = { 2: [['financier', null]], 3: [['financier', 'financier']], 4: [['financier', 'financier'], ['financier', null]] };
 
 /**
  * Takes `entry` in the LAST Congress window of an activation that gives exactly `tier + 1` lobby points,
@@ -150,8 +150,8 @@ export default function part2() {
     assert.equal(kind(s), 'bonusAction');
     assert.ok(!offered(s, 'buyHat') && !offered(s, 'addCarriage'), 'only the bonus action printed on this district');
     assert.ok(offered(s, 'skipBonusAction'), 'it is optional');
-    act(s, { type: 'hireSpecialist', specialist: 'crew' }); // 1 Coin + 1 Iron + 1 Gunpowder
-    assert.deepEqual(held(s.players[0]), { iron: 1, wood: 0, gunpowder: 0, coins: 0 });
+    act(s, { type: 'hireSpecialist', specialist: 'crew' }); // 1 Coin and nothing else (R7.4)
+    assert.deepEqual(held(s.players[0]), { iron: 2, wood: 0, gunpowder: 1, coins: 0 });
     const t = game(2);
     placeAndChoose(t, 'W2', 'D2');
     assert.notEqual(kind(t), 'bonusAction', 'no bonus action after a district that is not a Gather');
@@ -226,7 +226,7 @@ export default function part2() {
     placeAndChoose(t, 'W1', 'D1');
     assert.equal(t.turn.player, 1, 'no Iron, no upgrade');
   });
-  check('R7.4', 'Hire Specialist at Gather Iron: 1 Coin plus the hire cost; hireCostModel fee-only and table-only', () => {
+  check('R7.4', 'Hire Specialist at Gather Iron: 1 Coin and nothing else; hireCostModel fee-plus-table and table-only', () => {
     const run = (model) => {
       const s = game(2, { hireCostModel: model });
       give(s, 0, { resources: { iron: 0, gunpowder: 2, wood: 0 }, coins: 3 });
@@ -277,10 +277,14 @@ export default function part2() {
     assert.equal(s.turn.player, 1);
     assert.equal(s.players[0].train.storageCarriages, 1);
     const t = game(2);
-    give(t, 0, { resources: { iron: 0, wood: 1, gunpowder: 1 }, coins: 1 });
-    placeAndChoose(t, 'W2', 'D3'); // 2 Iron; a Financier needs 2 Coins in all
-    assert.ok(!offered(t, 'hireSpecialist', { specialist: 'financier' }));
-    assert.ok(offered(t, 'hireSpecialist', { specialist: 'crew' }));
+    give(t, 0, { coins: 0 });
+    placeAndChoose(t, 'W2', 'D3'); // no Coin, no hire
+    assert.equal(t.turn.player, 1);
+    const u = game(2, { hireCostModel: 'fee-plus-table' });
+    give(u, 0, { resources: { iron: 0, wood: 1, gunpowder: 1 }, coins: 1 });
+    placeAndChoose(u, 'W2', 'D3'); // 2 Iron; a Financier needs 2 Coins in all
+    assert.ok(!offered(u, 'hireSpecialist', { specialist: 'financier' }));
+    assert.ok(offered(u, 'hireSpecialist', { specialist: 'crew' }));
   });
 
   // ----- R8 ------------------------------------------------------------------
@@ -323,7 +327,7 @@ export default function part2() {
     while (kind(s) === 'trainActivation' && s.turn.player === 0) ev.push(...act(s, { type: 'useStep' }));
     assert.deepEqual(
       eventsOf(ev, 'build').map((e) => `${e.level}:${e.terrain}`),
-      ['0:ground', '1:ground', '2:tunnel', '2:tunnel', '3:bridge', '3:bridge', '3:bridge'],
+      ['0:ground', '1:ground', '2:tunnel', '3:bridge'],
     );
   });
   check('R8.5.1', 'storage capacity is 9 x storage carriages: 9 at the start, 27 at most', () => {
@@ -544,7 +548,7 @@ export default function part2() {
     give(s, 0, { coins: 0 });
     assert.equal(eventsOf(goTo(s, 'D2'), 'lobbyPoint').length, 1);
   });
-  check('R9.3', 'activations per piece: Foreman M, level 1 specialist 1, level 2 specialist 2, level 3 specialist 3', () => {
+  check('R9.3', 'activations per piece: Foreman M, every specialist 1 whatever its level; by-level gives 1, 2, 3', () => {
     const builds = (variants) => {
       const s = game(2, variants);
       setTrain(s, 0, [['crew', null], ['crew', null], ['crew', null]]);
@@ -555,22 +559,24 @@ export default function part2() {
       while (kind(s) === 'trainActivation' && s.turn.player === 0) act(s, { type: 'useStep' });
       return s.players[0].builtTiles.ground;
     };
-    assert.equal(builds({}), 2 + 1 + 2 + 3);
-    assert.equal(builds({ specialistActivations: 'once' }), 2 + 1 + 1 + 1);
+    assert.equal(builds({}), 2 + 1 + 1 + 1);
+    assert.equal(builds({ specialistActivations: 'by-level' }), 2 + 1 + 2 + 3);
   });
-  check('R9.4.2', 'the step list: Foreman M times, then for each carriage in level order slot 1 and then slot 2, each repeated by its level', () => {
-    const s = game(2);
-    setTrain(s, 0, [['engineer', 'crew'], ['crew', 'engineer']]);
-    s.players[0].train.storageCarriages = 2;
-    give(s, 0, { resources: { iron: 10, wood: 6 } });
-    put(s, 0, 'W3'); // M = 2
-    const ev = placeAndChoose(s, 'W6', 'D4');
-    assert.equal(eventOf(ev, 'trainActivation').steps, 2 + 1 + 1 + 2 + 2);
-    while (kind(s) === 'trainActivation' && s.turn.player === 0) ev.push(...act(s, { type: 'useStep' }));
-    assert.deepEqual(
-      eventsOf(ev, 'build').map((e) => `${e.level}:${e.terrain}`),
-      ['0:ground', '0:ground', '1:bridge', '1:ground', '2:ground', '2:ground', '2:bridge', '2:bridge'],
-    );
+  check('R9.4.2', 'the step list: Foreman M times, then for each carriage in level order slot 1 and then slot 2, each repeated as R9.3 says', () => {
+    const run = (variants) => {
+      const s = game(2, variants);
+      setTrain(s, 0, [['engineer', 'crew'], ['crew', 'engineer']]);
+      s.players[0].train.storageCarriages = 2;
+      give(s, 0, { resources: { iron: 10, wood: 6 } });
+      put(s, 0, 'W3'); // M = 2
+      const ev = placeAndChoose(s, 'W6', 'D4');
+      const steps = eventOf(ev, 'trainActivation').steps;
+      while (kind(s) === 'trainActivation' && s.turn.player === 0) ev.push(...act(s, { type: 'useStep' }));
+      return [steps, eventsOf(ev, 'build').map((e) => `${e.level}:${e.terrain}`)];
+    };
+    assert.deepEqual(run({}), [2 + 1 + 1 + 1 + 1, ['0:ground', '0:ground', '1:bridge', '1:ground', '2:ground', '2:bridge']]);
+    assert.deepEqual(run({ specialistActivations: 'by-level' }),
+      [2 + 1 + 1 + 2 + 2, ['0:ground', '0:ground', '1:bridge', '1:ground', '2:ground', '2:ground', '2:bridge', '2:bridge']]);
   });
   check('R9.4.3/use', 'a Crew, Miner or Engineer step: use (pay, take 1 built tile) or skip; use only if the cost can be paid', () => {
     const s = game(2);

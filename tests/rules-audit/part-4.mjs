@@ -872,8 +872,8 @@ export default function part4() {
     act(s, { type: 'chooseOption', option: hireFirst });
     assert.equal(kind(s), 'hireSpecialist');
     assert.ok(offered(s, 'skipEffect'));
-    act(s, { type: 'hireSpecialist', specialist: 'crew' }); // level 1: 1 Iron + 1 Gunpowder, no Coin
-    assert.deepEqual(held(s.players[1]), { iron: 0, wood: 1, gunpowder: 0, coins: 1 });
+    act(s, { type: 'hireSpecialist', specialist: 'crew' }); // no fee, and no hire cost by default (R8.6.3)
+    assert.deepEqual(held(s.players[1]), { iron: 1, wood: 1, gunpowder: 1, coins: 1 });
     assert.equal(kind(s), 'addCarriage');
     assert.ok(offered(s, 'skipEffect'));
     act(s, { type: 'addCarriage', carriage: 'specialist' });
@@ -1073,7 +1073,13 @@ export default function part4() {
     idleTurn(t);
     act(t, { type: 'usePonyCard', card: 'PX28' });
     act(t, { type: 'hireSpecialist', specialist: 'crew' });
-    assert.deepEqual(held(t.players[1]), { iron: 0, wood: 1, gunpowder: 0, coins: 1 }, 'the hire cost, not the 1-Coin fee');
+    assert.deepEqual(held(t.players[1]), { iron: 1, wood: 1, gunpowder: 1, coins: 1 }, 'no 1-Coin fee, and no hire cost by default (R8.6.3)');
+    const u = game(2, { ...PONY, hireCostModel: 'fee-plus-table' });
+    ownCard(u, 1, 'PX28');
+    idleTurn(u);
+    act(u, { type: 'usePonyCard', card: 'PX28' });
+    act(u, { type: 'hireSpecialist', specialist: 'crew' });
+    assert.deepEqual(held(u.players[1]), { iron: 0, wood: 1, gunpowder: 0, coins: 1 }, 'with fee-plus-table: the hire cost, not the 1-Coin fee');
   });
   check('R18.7/29', 'card 29 Rails and Riders: your first connections score +3 VP', () => {
     const s = layGame('POR', 'MIN', PONY);
@@ -1130,13 +1136,13 @@ export default function part4() {
     if (kind(s) === 'freeActions') act(s, { type: 'endFreeActions' });
     const ev = placeAndChoose(s, 'W8', 'D4');
     while (kind(s) === 'trainActivation' && s.turn.player === 1) ev.push(...act(s, { type: 'useStep' }));
-    assert.equal(s.players[1].builtTiles.ground, 1 + 2 + 4, 'Foreman 1, level 1 Crew 2, level 2 Crew 4');
+    assert.equal(s.players[1].builtTiles.ground, 1 + 2 + 2, 'Foreman 1, level 1 Crew 2, level 2 Crew 2');
     idleUntil(s, 1);
     if (kind(s) === 'freeActions') act(s, { type: 'endFreeActions' });
     give(s, 1, { resources: { iron: 20 }, tiles: {} });
     const next = choose(s, act(s, { type: 'removeWorker', from: 'W8' }), 'D4');
     while (kind(s) === 'trainActivation' && s.turn.player === 1) next.push(...act(s, { type: 'useStep' }));
-    assert.equal(s.players[1].builtTiles.ground, 1 + 1 + 2, 'the next turn is back to normal');
+    assert.equal(s.players[1].builtTiles.ground, 1 + 1 + 1, 'the next turn is back to normal');
   });
   check('R18.7/34', 'card 34 Telegraph Tycoon: the telegraph row VP of your placements are doubled', () => {
     const s = layGame('POR', 'MIN', PONY);

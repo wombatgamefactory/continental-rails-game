@@ -54,12 +54,12 @@ const SPEC_R21_3 = [
   ['endRoutesPerPlayer', 8],
   ['maxTurnsPerPlayer', 80],
   ['bonusActionLimit', 'once-per-turn'],
-  ['hireCostModel', 'fee-plus-table'],
+  ['hireCostModel', 'fee-only'],
   ['bothBuildingsSameOwner', true],
   ['buildingScoreCurve', 'rising'],
   ['scoringCard', 'random'],
   ['upgradeVpTiming', 'per-activation'],
-  ['specialistActivations', 'by-level'],
+  ['specialistActivations', 'once'],
   ['gridLayout', 'fixed'],
 ];
 

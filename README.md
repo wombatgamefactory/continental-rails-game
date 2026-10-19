@@ -66,12 +66,12 @@ The variants (the engine's table in `src/engine/variants.js` is the one list; th
 | `endRoutesPerPlayer` | 0 to 23 (default 8) | Game end is triggered when claimed routes reach this number x players (0 = off) |
 | `maxTurnsPerPlayer` | 0 to 500 (default 80) | Digital safety stop: the game end is triggered when a player has taken this many turns (0 = off) |
 | `bonusActionLimit` | once-per-turn* / once-per-game / multiplied | How often a bonus action may be taken |
-| `hireCostModel` | fee-plus-table* / fee-only / table-only | What the Hire Specialist bonus action costs |
+| `hireCostModel` | fee-plus-table / fee-only* / table-only | What the Hire Specialist bonus action costs |
 | `bothBuildingsSameOwner` | true* / false | Whether one player may own both buildings of a city |
 | `buildingScoreCurve` | rising* / 2018 | The end-game building table |
 | `scoringCard` | none / random* / ground / tunnel / bridge | One terrain scores 3 VP per slot when laid |
 | `upgradeVpTiming` | per-activation* / on-install | Whether the three VP upgrade tiles score every activation or once |
-| `specialistActivations` | by-level* / once | Whether level 2 and 3 specialists act 2 and 3 times |
+| `specialistActivations` | by-level / once* | Whether level 2 and 3 specialists act 2 and 3 times |
 | `gridLayout` | fixed* / shuffle-resources | Whether three Gather districts are shuffled at setup |
 
 ## Tests

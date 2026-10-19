@@ -171,7 +171,7 @@ suite.check('--baseline writes two arms on the same seeds, in one file, with a c
   assert.equal(JSON.stringify(stripTiming(file.arms[1].games)), JSON.stringify(stripTiming(plainRun.result.arms[0].games)));
   assert.ok(file.comparison && file.comparison.counted.metrics.length > 0 && file.comparison.allFinished.metrics.length > 0);
   const row = file.comparison.allFinished.metrics.find((m) => m.id === 'score.mean');
-  assert.ok(Math.abs(row.diff - (row.test - row.baseline)) < 1e-9);
+  assert.ok(Math.abs(row.diff - (row.test - row.baseline)) < 2e-6, 'the file rounds figures to 6 decimal places');
   assert.ok(r.out.includes('Test arm against baseline'));
   assert.equal(runA1.result.comparison, null);
 });

@@ -840,9 +840,6 @@ const ONLY_WITH_TOKENS_HANDED_OUT = Object.fromEntries(
   // players and the bots spend them on cheaper cards as they collect them, so in games as played nobody gets to 5.
   [
     ...RULES.PONY_CARDS.filter((c) => c.rank === 'C').map((c) => [c.id, 'rank C costs 5 tokens held at once; games as played do not collect that many in one hand']),
-    // Rank B cards are bought 0 to 8 times each in these runs. Double Time was bought twice before spec v4 (scoring card
-    // drawn every game) moved the random stream, and not at all after. Chance, not a rule: remove this line when it is bought again.
-    ['PX22', 'rank B, bought 0 to 2 times in the random runs; 0 since spec v4 moved the random stream'],
   ],
 );
 const COUNTED = {

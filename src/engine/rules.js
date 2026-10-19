@@ -202,7 +202,7 @@ export const GRID = {
 export const BONUS_ACTIONS = {
   /** R7.3. Needs the carriage upgrades module. */
   upgrade: { name: 'Carriage Upgrade', cost: { iron: 1 }, rule: 'R7.3', module: 'upgrades' },
-  /** R7.4. The 1 Coin is the FEE; the hire cost of R8.6 is paid as well (variant `hireCostModel`). */
+  /** R7.4. The 1 Coin is the FEE; by default it is all a hire costs (variant `hireCostModel`, R8.6.3). */
   hire: { name: 'Hire Specialist', cost: { coins: 1 }, rule: 'R7.4', module: null },
   /** R7.5. */
   hat: { name: 'Buy Hat', cost: { gunpowder: 1 }, rule: 'R7.5', module: null },
@@ -227,6 +227,7 @@ export const TRAIN = {
   specialistsPerType: 12,
   /**
    * R8.6.3. Hire cost by specialist type; index = carriage level - 1.
+   * Paid only with `hireCostModel` fee-plus-table or table-only; the default fee-only has no hire cost.
    * Read by eye from the 2018 rulebook images (spec R24 item 1).
    */
   hireCosts: {
@@ -261,7 +262,7 @@ export const TRAIN = {
   },
   /** R8.8. Tiles made by one use of a Crew, Miner or Engineer. */
   tilesPerUse: 1,
-  /** R9.3. Activations of a specialist; index = carriage level - 1 (variant `specialistActivations = by-level`). */
+  /** R9.3. Activations of a specialist; index = carriage level - 1. Used only by variant `specialistActivations = by-level`; the default `once` uses index 0. */
   activationsByLevel: [1, 2, 3],
   /** R9.3. Foreman activations when a card starts the train activation. */
   cardActivationMultiplier: 1,
