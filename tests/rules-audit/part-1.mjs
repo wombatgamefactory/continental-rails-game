@@ -187,12 +187,12 @@ export default function part1() {
     const s = fresh(4);
     assert.deepEqual(s.supply.specialists, { crew: 12, miner: 12, engineer: 12, financier: 12 });
   });
-  check('R2.1/modules', '16 upgrade tiles (6/5/5), 12 goals, 10 milestones, 20 Legislative Agenda cards, 38 Pony Express cards (13/11/14), 17 tokens', () => {
+  check('R2.1/modules', '16 upgrade tiles (6/5/5), 12 goals, 10 milestones, 17 Legislative Agenda cards (4 to 20), 38 Pony Express cards (13/11/14), 17 tokens', () => {
     const byLevel = [1, 2, 3].map((l) => RULES.UPGRADE_TILES.filter((t) => t.level === l).length);
     assert.deepEqual(byLevel, [6, 5, 5]);
     assert.equal(RULES.GOAL_CARDS.length, 12);
     assert.equal(RULES.MILESTONE_TILES.length, 10);
-    assert.equal(RULES.LEGISLATIVE_CARDS.length, 20);
+    assert.equal(RULES.LEGISLATIVE_CARDS.length, 17);
     assert.deepEqual(['A', 'B', 'C'].map((r) => RULES.PONY_CARDS.filter((c) => c.rank === r).length), [13, 11, 14]);
     const s = game(2, PONY);
     assert.equal(Object.values(s.modules.pony.tokens).filter(Boolean).length, 17);
@@ -381,9 +381,10 @@ export default function part1() {
     const seen = new Set();
     for (let seed = 1; seed <= 25; seed++) seen.add(fresh(2, { moduleLegislativeAgenda: true }, { seed }).modules.legislative.card);
     assert.ok(seen.size > 3, 'the card is drawn at random');
-    for (let n = 1; n <= 20; n++) {
+    for (let n = 4; n <= 20; n++) {
       assert.equal(fresh(2, { moduleLegislativeAgenda: true, legislativeAgendaCard: n }).modules.legislative.card, `LA${n}`);
     }
+    for (const n of [1, 2, 3]) assert.throws(() => fresh(2, { moduleLegislativeAgenda: true, legislativeAgendaCard: n }), 'cards 1 to 3 are retired (R17.2)');
   });
   check('R3.8.4', 'Pony Express: a token on each of the 17 inland cities, three decks by rank, 2 cards face up from each', () => {
     const s = fresh(2, PONY);
@@ -401,8 +402,9 @@ export default function part1() {
     for (let seed = 1; seed <= 10; seed++) tops.add(fresh(2, PONY, { seed }).modules.pony.market.A.join());
     assert.ok(tops.size > 1, 'the decks are shuffled');
   });
-  check('R3.8.5', 'scoring card: none by default; random draws one of three; a named value fixes it', () => {
-    assert.equal(fresh(2).scoringCard, null);
+  check('R3.8.5', 'scoring card: drawn every game by default; random draws one of three; a named value fixes it; none plays without', () => {
+    assert.ok(['ground', 'tunnel', 'bridge'].includes(fresh(2).scoringCard), 'drawn by default');
+    assert.equal(fresh(2, { scoringCard: 'none' }).scoringCard, null);
     for (const t of ['ground', 'tunnel', 'bridge']) assert.equal(fresh(2, { scoringCard: t }).scoringCard, t);
     const seen = new Set();
     for (let seed = 1; seed <= 30; seed++) seen.add(fresh(2, { scoringCard: 'random' }, { seed }).scoringCard);

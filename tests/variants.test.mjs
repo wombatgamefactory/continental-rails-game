@@ -57,7 +57,7 @@ const SPEC_R21_3 = [
   ['hireCostModel', 'fee-plus-table'],
   ['bothBuildingsSameOwner', true],
   ['buildingScoreCurve', 'rising'],
-  ['scoringCard', 'none'],
+  ['scoringCard', 'random'],
   ['upgradeVpTiming', 'per-activation'],
   ['specialistActivations', 'by-level'],
   ['gridLayout', 'fixed'],
@@ -127,8 +127,9 @@ suite.check('resolveVariants rejects illegal values with a message that says wha
     }
     assert.throws(() => resolveVariants({ [def.name]: null }), /Illegal value/, `${def.name} null`);
   }
-  assert.throws(() => resolveVariants({ legislativeAgendaCard: 'first' }), /"random", or an integer from 1 to 20/);
+  assert.throws(() => resolveVariants({ legislativeAgendaCard: 'first' }), /"random", or an integer from 4 to 20/);
   assert.equal(resolveVariants({ legislativeAgendaCard: 20 }).legislativeAgendaCard, 20);
+  assert.throws(() => resolveVariants({ legislativeAgendaCard: 3 }), /4 to 20/, 'cards 1 to 3 are retired');
 });
 
 suite.check('goalsInPlay is capped at 11 when goal 6 is removed (R3.8.2)', () => {
@@ -243,8 +244,9 @@ suite.check('gridLayout: fixed is the printed grid, shuffle-resources permutes o
   assert.equal(seen.size, 6, 'all 6 layouts should turn up over 80 seeds');
 });
 
-suite.check('scoringCard: none, fixed and random (R3.8.5)', () => {
-  assert.equal(createGame({ playerCount: 2, seed: 1 }).scoringCard, null);
+suite.check('scoringCard: random by default, none, fixed and random (R3.8.5)', () => {
+  assert.ok(RULES.TERRAINS.includes(createGame({ playerCount: 2, seed: 1 }).scoringCard), 'drawn by default');
+  assert.equal(createGame({ playerCount: 2, seed: 1, variants: { scoringCard: 'none' } }).scoringCard, null);
   assert.equal(createGame({ playerCount: 2, seed: 1, variants: { scoringCard: 'tunnel' } }).scoringCard, 'tunnel');
   const drawn = new Set();
   for (let seed = 0; seed < 40; seed++) drawn.add(createGame({ playerCount: 2, seed, variants: { scoringCard: 'random' } }).scoringCard);

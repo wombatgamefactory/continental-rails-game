@@ -704,14 +704,14 @@ suite.check('R11.5.5, R13.9: entering a city with another player\'s railway stat
   assert.equal(vpBySource(ownEvents, 0).toll, undefined);
 });
 
-suite.check('R11.9: the scoring card adds 1 VP to every slot of its terrain, booked to track', () => {
+suite.check('R11.9: the scoring card adds 2 VP to every slot of its terrain (3 in all), booked to track', () => {
   const state = layTurn({ variants: { scoringCard: 'bridge' } });
   assert.equal(state.scoringCard, 'bridge');
   const events = take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
   assert.equal(vpBySource(events, 0).track, 2 * (K.SCORING.vpPerSlot + K.SCORING.scoringCardVpPerSlot));
   const plain = layTurn();
   assert.equal(vpBySource(take(plain, 'claimRoute', { route: 'POR-SPO', from: 'POR' }), 0).track, 2 * K.SCORING.vpPerSlot);
-  // Ground slots are not doubled by the Bridge card.
+  // Ground slots stay at 1 VP under the Bridge card.
   const g = layTurn({ tiles: { ground: 2, bridge: 2 }, heads: ['SEA', 'MIN'], variants: { scoringCard: 'bridge' } });
   assert.equal(vpBySource(take(g, 'claimRoute', { route: 'SEA-SPO', from: 'SEA' }), 0).track, 2);
 });

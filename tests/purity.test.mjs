@@ -120,7 +120,7 @@ suite.check('module states are plain JSON at every decision, with every module o
   const variants = { endGameScoring: 'both', goalsInPlay: 12, milestonesInPlay: 10 };
   for (const [i, mode] of ['line', 'sprawl', 'line', 'sprawl'].entries()) {
     for (const extra of [{}, { turnStructure: 'rounds' }, { claimFrom: 'network' }]) {
-      const state = createGame({ playerCount: 3, seed: `t9-pure-${i}-${JSON.stringify(extra)}`, variants: { ...variants, legislativeAgendaCard: 1 + ((i * 7) % 20), ...extra } });
+      const state = createGame({ playerCount: 3, seed: `t9-pure-${i}-${JSON.stringify(extra)}`, variants: { ...variants, legislativeAgendaCard: 4 + ((i * 7) % 17), ...extra } });
       const rng = makeRng(`t9-bots-${i}-${JSON.stringify(extra)}`);
       const choose = makeBuilder(mode);
       let n = 0;

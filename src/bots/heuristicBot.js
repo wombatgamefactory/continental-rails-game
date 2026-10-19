@@ -734,7 +734,6 @@ function makeCtx(state, pid, W) {
 function readFlags(ctx) {
   const { state, pid, K } = ctx;
   const f = {
-    terrainVp: { ground: 0, tunnel: 0, bridge: 0 },
     firstConn: 0,
     firstConnPerSlot: 0,
     completion: 0,
@@ -765,9 +764,6 @@ function readFlags(ctx) {
       const where = effect.where || {};
       const cond = effect.condition || null;
       switch (effect.on) {
-        case 'laySlot':
-          if (e.type === 'vp' && where.terrain) f.terrainVp[where.terrain] += e.amount;
-          break;
         case 'firstConnection':
           if (e.type === 'vp') f.firstConn += e.amount;
           else if (e.type === 'vpPerSlot') f.firstConnPerSlot += e.amount;
@@ -1420,7 +1416,7 @@ function routeValue(ctx, r, arrival) {
     const t = TERRAINS3[i];
     const n = r.cost[t];
     if (n === 0) continue;
-    let per = S.vpPerSlot + flags.terrainVp[t];
+    let per = S.vpPerSlot;
     if (state.scoringCard === t) per += S.scoringCardVpPerSlot;
     vp += n * per * W[BIAS_OF[t]];
   }

@@ -1,4 +1,4 @@
-// Data tables of the designer's rules text, transcribed mechanically on 11/10/2026 for the rules audit
+// Data tables of the designer's rules text, transcribed mechanically on 11/10/2026 for the rules audit, updated to spec v4 on 19/10/2026
 // (R10.1, R15.2, R16.5, R16.8, R17.3, R18.7, R20.3, R21.3, Appendix A.1 and A.2).
 // The rules text is not part of this repository, so its tables are kept here as data.
 // "machine" is the spec's own "Machine form" column, as text. DO NOT edit a value
@@ -53,9 +53,6 @@ export const R16_8 = [
 ];
 
 export const R17_3 = [
-  {"number":1,"name":"Mountain Railway Initiative","text":"Each Tunnel slot you lay scores +1 VP (2 instead of 1)","machine":"{ on: \"laySlot\", terrain: \"tunnel\", vp: 1 }"},
-  {"number":2,"name":"Bridge Construction Program","text":"Each Bridge slot you lay scores +1 VP","machine":"{ on: \"laySlot\", terrain: \"bridge\", vp: 1 }"},
-  {"number":3,"name":"Heartland Expansion Act","text":"Each Ground slot you lay scores +1 VP","machine":"{ on: \"laySlot\", terrain: \"ground\", vp: 1 }"},
   {"number":4,"name":"Transcontinental Priority","text":"The completion bonus (R19.2) is 10 VP higher: 35 VP + 3 per slot","machine":"{ on: \"completeTranscontinental\", vp: 10 }"},
   {"number":5,"name":"Infrastructure Diversity","text":"When the slots you laid in one Lay Tracks action include at least 2 different terrains, gain 3 VP","machine":"{ on: \"layTracksActionEnd\", if: \"distinctTerrainsLaid >= 2\", vp: 3 }"},
   {"number":6,"name":"Rapid Construction Bonus","text":"When you laid 5 or more slots in one Lay Tracks action, gain 5 VP","machine":"{ on: \"layTracksActionEnd\", if: \"slotsLaid >= 5\", vp: 5 }"},
@@ -257,7 +254,7 @@ export const R21_3 = [
   {"name":"goalsInPlay","type":"integer","allowed":"1 to 12","default":"3","rule":"R16.2"},
   {"name":"milestonesInPlay","type":"integer","allowed":"1 to 10","default":"6","rule":"R16.7"},
   {"name":"moduleLegislativeAgenda","type":"boolean","allowed":"true, false","default":"true","rule":"R17"},
-  {"name":"legislativeAgendaCard","type":"enum or integer","allowed":"random, or an integer 1 to 20","default":"random","rule":"R3.8.3"},
+  {"name":"legislativeAgendaCard","type":"enum or integer","allowed":"random, or an integer 4 to 20","default":"random","rule":"R3.8.3"},
   {"name":"modulePonyExpress","type":"boolean","allowed":"true, false","default":"true","rule":"R18"},
   {"name":"ponyOngoingCap","type":"integer","allowed":"0 to 15 (0 = no cap)","default":"2","rule":"R18.6"},
   {"name":"startCompensation","type":"enum","allowed":"graduated, none","default":"graduated","rule":"R3.7"},
@@ -271,7 +268,7 @@ export const R21_3 = [
   {"name":"hireCostModel","type":"enum","allowed":"fee-plus-table, fee-only, table-only","default":"fee-plus-table","rule":"R7.4, R8.6"},
   {"name":"bothBuildingsSameOwner","type":"boolean","allowed":"true, false","default":"true","rule":"R13.7"},
   {"name":"buildingScoreCurve","type":"enum","allowed":"rising, 2018","default":"rising","rule":"R20.3"},
-  {"name":"scoringCard","type":"enum","allowed":"none, random, ground, tunnel, bridge","default":"none","rule":"R11.9"},
+  {"name":"scoringCard","type":"enum","allowed":"none, random, ground, tunnel, bridge","default":"random","rule":"R11.9"},
   {"name":"upgradeVpTiming","type":"enum","allowed":"per-activation, on-install","default":"per-activation","rule":"R15.6"},
   {"name":"specialistActivations","type":"enum","allowed":"by-level, once","default":"by-level","rule":"R9.3"},
   {"name":"gridLayout","type":"enum","allowed":"fixed, shuffle-resources","default":"fixed","rule":"R5.8"},

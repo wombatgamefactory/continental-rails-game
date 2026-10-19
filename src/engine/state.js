@@ -318,8 +318,8 @@ function setupModules(state, rng, K) {
 
 /**
  * Builds the table before the first decision: seats (R3.2), player boards
- * (R3.3), the grid (R5.1, R5.8), the map, the Congress strip (R3.1.2), the
- * scoring card (R3.8.5). All randomness of setup is drawn here, from the
+ * (R3.3), the scoring card (R3.8.5), the grid (R5.1, R5.8), the map, the
+ * Congress strip (R3.1.2). All randomness of setup is drawn here, from the
  * game's own RNG, before anybody chooses anything.
  *
  * Does NOT advance to the first decision: use `createGame` (game.js).
@@ -401,6 +401,11 @@ export function createInitialState(config, options = {}) {
     mapId: MAP_ID,
   });
 
+  // R3.8.5, R11.9 - the scoring card. Drawn before the grid, so that shuffling
+  // the grid (gridLayout) never changes which card a seed draws.
+  if (variants.scoringCard === 'random') state.scoringCard = rngPick(rng, K.TERRAINS);
+  else if (variants.scoringCard !== 'none') state.scoringCard = variants.scoringCard;
+
   // R5.1, R5.8 - the action grid.
   const tiles = { ...K.GRID.defaultTiles };
   if (variants.gridLayout === 'shuffle-resources') {
@@ -438,10 +443,6 @@ export function createInitialState(config, options = {}) {
     if (!entry.reset) used[entry.id] = false;
   }
   state.congress = { used };
-
-  // R3.8.5, R11.9 - the scoring card.
-  if (variants.scoringCard === 'random') state.scoringCard = rngPick(rng, K.TERRAINS);
-  else if (variants.scoringCard !== 'none') state.scoringCard = variants.scoringCard;
 
   // R3.8.1 to R3.8.4 - module setup. Drawn from the game RNG AFTER every core
   // draw above, so a module being on or off never changes seats, grid or

@@ -35,14 +35,15 @@ export const MODULES_OFF = Object.freeze({
 /**
  * A game past setup, seats in the order given, waiting at Anna's worker step.
  * Everybody has the same free specialist and the same "2" house track unless
- * options say otherwise.
+ * options say otherwise. No scoring card (R11.9) unless options name one, so
+ * that track VP are the base 1 per slot.
  */
 export function start(players, options = {}) {
   const state = createGame({
     players: NAMES.slice(0, players).map((name) => ({ name })),
     seed: options.seed ?? 1,
     shuffleSeats: false,
-    variants: { startCompensation: 'none', ...MODULES_OFF, ...(options.variants ?? {}) },
+    variants: { startCompensation: 'none', scoringCard: 'none', ...MODULES_OFF, ...(options.variants ?? {}) },
     constants: options.constants,
   });
   drive(

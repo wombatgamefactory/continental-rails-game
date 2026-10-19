@@ -895,36 +895,20 @@ suite.check('R3.8.3, R17.1: one card is in force, drawn from the seed or named b
   for (const p of off.players) assert.ok(!('legislative' in p.vp));
 });
 
-suite.check('R17.3 cards 1 to 3: each slot of the card\'s terrain scores +1 VP, booked to legislative; the track VP stay at 1 per slot', () => {
-  const cases = [
-    [1, 'tunnel', 'POR-REN'], // 2 tunnel slots
-    [2, 'bridge', 'POR-SPO'], // 2 bridge slots
-    [3, 'ground', 'SEA-SPO'], // 2 ground slots
-  ];
-  for (const [number, terrain, routeId] of cases) {
-    const state = startWith(2, legislative(number));
-    const route = MAP.routeById[routeId];
-    const from = MAP.cityById[route.a].kind === 'inland' ? route.b : route.a;
-    const events = claimTurn(state, routeId, from);
-    const vp = vpOf(events, 0);
-    assert.equal(vp.track, route.length * K.SCORING.vpPerSlot, `card ${number}: the base track VP are the base`);
-    assert.equal(vp.legislative, route.cost[terrain], `card ${number}: +1 per ${terrain} slot`);
-    assert.equal(state.players[0].vp.legislative, route.cost[terrain]);
-  }
-  // A mixed route (Los Angeles - Phoenix: 4 Tunnel, 1 Ground, 1 Bridge): only the matching slots count.
-  for (const [number, terrain] of [[1, 'tunnel'], [2, 'bridge'], [3, 'ground']]) {
-    const state = startWith(2, legislative(number));
-    const events = claimTurn(state, 'LAX-PHX', 'LAX');
-    assert.equal(vpOf(events, 0).legislative, MAP.routeById['LAX-PHX'].cost[terrain], `card ${number} on a mixed route`);
+suite.check('R17.2: cards 1 to 3 are retired (the scoring card does their job); naming one is refused, and a random draw never finds one', () => {
+  for (const number of [1, 2, 3]) assert.throws(() => startWith(2, legislative(number)), /4 to 20/);
+  for (let seed = 1; seed <= 60; seed++) {
+    const card = startWith(2, { moduleLegislativeAgenda: true }, { seed }).modules.legislative.card;
+    assert.ok(!['LA1', 'LA2', 'LA3'].includes(card), card);
   }
 });
 
 suite.check('R17.1, R17.2: the card applies to every player equally (here Ben, in seat 2)', () => {
-  const state = startWith(2, legislative(3));
+  const state = startWith(2, legislative(9)); // a first connection scores +3 VP
   gatherCoinsTurn(state);
   const events = claimTurn(state, 'SEA-SPO', 'SEA');
-  assert.equal(vpOf(events, 1).legislative, 2);
-  assert.equal(state.players[1].vp.legislative, 2);
+  assert.equal(vpOf(events, 1).legislative, 3);
+  assert.equal(state.players[1].vp.legislative, 3);
   assert.equal(state.players[0].vp.legislative, 0);
 });
 

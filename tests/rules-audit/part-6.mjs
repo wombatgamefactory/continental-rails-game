@@ -291,7 +291,7 @@ export default function part6() {
       else assert.deepEqual([t.id, t.condition.op, t.condition.value, t.condition.filter], ['MS7', '>=', 1, { owner: 'any' }]);
     });
   });
-  check('R17.3/table', 'R17.3: all 20 Legislative Agenda cards - number, name, event, numbers', () => {
+  check('R17.3/table', 'R17.3: all 17 Legislative Agenda cards - number, name, event, numbers', () => {
     assert.deepEqual(RULES.LEGISLATIVE_CARDS.map((c) => [c.number, c.name]), SPEC.R17_3.map((r) => [r.number, r.name]));
     const KIND = { telegraph: 'telegraphStation', railway: 'railwayStation' };
     RULES.LEGISLATIVE_CARDS.forEach((c, i) => {

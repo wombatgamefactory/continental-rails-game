@@ -67,13 +67,18 @@ import { playGame, drive, makeSuite } from './helpers/play.mjs';
 const suite = makeSuite('contract');
 const NAMES = ['Anna', 'Ben', 'Cara', 'Dev'];
 
-/** A game past setup, seats in the order given, waiting at Anna's worker step. */
+/**
+ * A game past setup, seats in the order given, waiting at Anna's worker step.
+ * No scoring card, and Legislative Agenda card 10 (Expansion Leader, the card
+ * seed 1 drew before spec v4), unless options say otherwise: the worked
+ * examples count resources and VP that a gather or per-slot bonus would change.
+ */
 function start(players, options = {}) {
   const state = createGame({
     players: NAMES.slice(0, players).map((name) => ({ name })),
     seed: options.seed ?? 1,
     shuffleSeats: false,
-    variants: { startCompensation: 'none', ...(options.variants ?? {}) },
+    variants: { startCompensation: 'none', scoringCard: 'none', legislativeAgendaCard: 10, ...(options.variants ?? {}) },
     constants: options.constants,
   });
   drive(

@@ -1850,12 +1850,12 @@
     "name": "Scoring card: Ground",
     "width": 400,
     "height": 563,
-    "shows": "The Ground scoring card: a card face with the Ground terrain motif and a table of VP by route length.",
-    "usedFor": "Scoring cards, used only if variant scoringCard is not none (R2.1, R11.9).",
+    "shows": "The Ground scoring card: a card face with the Ground terrain motif and \"3 VP per Ground slot\".",
+    "usedFor": "Scoring cards, one drawn every game (R2.1, R3.8.5, R11.9).",
     "source": null,
-    "notes": "Optional component: only needed if that variant is shipped.",
+    "notes": "Core component since rules spec v4: one of the three is in play every game unless variant scoringCard is none.",
     "unused": true,
-    "unusedNote": "No screen shows the scoring card (variant scoringCard) as a picture yet."
+    "unusedNote": "The game shows the scoring card as a label in the header and a brass outline on its terrain's map slots; no screen shows the card picture yet."
   },
   {
     "id": "card-scoring-tunnel",
@@ -1864,12 +1864,12 @@
     "name": "Scoring card: Tunnel",
     "width": 400,
     "height": 563,
-    "shows": "The Tunnel scoring card: a card face with the Tunnel terrain motif and a table of VP by route length.",
-    "usedFor": "Scoring cards, used only if variant scoringCard is not none (R2.1, R11.9).",
+    "shows": "The Tunnel scoring card: a card face with the Tunnel terrain motif and \"3 VP per Tunnel slot\".",
+    "usedFor": "Scoring cards, one drawn every game (R2.1, R3.8.5, R11.9).",
     "source": null,
-    "notes": "Optional component: only needed if that variant is shipped.",
+    "notes": "Core component since rules spec v4: one of the three is in play every game unless variant scoringCard is none.",
     "unused": true,
-    "unusedNote": "No screen shows the scoring card (variant scoringCard) as a picture yet."
+    "unusedNote": "The game shows the scoring card as a label in the header and a brass outline on its terrain's map slots; no screen shows the card picture yet."
   },
   {
     "id": "card-scoring-bridge",
@@ -1878,12 +1878,12 @@
     "name": "Scoring card: Bridge",
     "width": 400,
     "height": 563,
-    "shows": "The Bridge scoring card: a card face with the Bridge terrain motif and a table of VP by route length.",
-    "usedFor": "Scoring cards, used only if variant scoringCard is not none (R2.1, R11.9).",
+    "shows": "The Bridge scoring card: a card face with the Bridge terrain motif and \"3 VP per Bridge slot\".",
+    "usedFor": "Scoring cards, one drawn every game (R2.1, R3.8.5, R11.9).",
     "source": null,
-    "notes": "Optional component: only needed if that variant is shipped.",
+    "notes": "Core component since rules spec v4: one of the three is in play every game unless variant scoringCard is none.",
     "unused": true,
-    "unusedNote": "No screen shows the scoring card (variant scoringCard) as a picture yet."
+    "unusedNote": "The game shows the scoring card as a label in the header and a brass outline on its terrain's map slots; no screen shows the card picture yet."
   },
   {
     "id": "upgrade-u1-vp",

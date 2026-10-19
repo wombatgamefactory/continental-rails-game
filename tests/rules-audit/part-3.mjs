@@ -292,19 +292,16 @@ export default function part3() {
     assert.ok(!offers(s, 'claimRoute').some((a) => a.from === 'POR'));
     assert.ok(offered(s, 'moveTrain', { from: 'POR', to: 'SPO' }));
   });
-  check('R11.9', 'scoring card: every slot of its terrain is worth +1 VP when laid, booked to track; it stacks with Legislative Agenda cards 1 to 3', () => {
-    const s = layGame('SPO', 'MIN', { scoringCard: 'tunnel' });
-    lay(s);
-    const ev = act(s, { type: 'claimRoute', route: 'BOI-SPO', from: 'SPO' }); // G-T-T
-    assert.equal(vpBySource(ev, 0).track, 3 + 2);
-    const g = layGame('SPO', 'MIN', { scoringCard: 'bridge' });
-    lay(g);
-    assert.equal(vpBySource(act(g, { type: 'claimRoute', route: 'BOI-SPO', from: 'SPO' }), 0).track, 3);
-    const both = layGame('SPO', 'MIN', { scoringCard: 'tunnel', ...legislative(1) });
-    lay(both);
-    const ev2 = act(both, { type: 'claimRoute', route: 'BOI-SPO', from: 'SPO' });
-    assert.deepEqual([vpBySource(ev2, 0).track, vpBySource(ev2, 0).legislative], [5, 2]);
-    assert.equal(layGame().scoringCard, null, 'none by default');
+  check('R11.9', 'scoring card: every slot of its terrain scores 3 VP when laid, every other slot the base 1, all booked to track', () => {
+    // BOI-SPO is G-T-T.
+    for (const [card, track] of [['tunnel', 1 + 2 * 3], ['ground', 3 + 2], ['bridge', 3], ['none', 3]]) {
+      const s = layGame('SPO', 'MIN', { scoringCard: card });
+      lay(s);
+      const vp = vpBySource(act(s, { type: 'claimRoute', route: 'BOI-SPO', from: 'SPO' }), 0);
+      assert.equal(vp.track, track, card);
+      assert.equal(vp.legislative ?? 0, 0, 'nothing else adds to a slot');
+    }
+    assert.ok(['ground', 'tunnel', 'bridge'].includes(game(2, { scoringCard: 'random' }).scoringCard));
   });
   check('R11.10', 'whole-action bonuses are checked once, when the action ends, on all its claims together', () => {
     const s = layGame('POR', 'MIN', legislative(6));

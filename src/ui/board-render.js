@@ -97,6 +97,7 @@ export function renderHeader(ctx) {
   return `
     <div class="hdr__title">Continental Rails</div>
     <div class="hdr__meta" title="Use this seed to reproduce the game">Seed <b data-field="seed">${esc(state.config.seed)}</b></div>
+    ${scoringCardBadge(state)}
     <div class="hdr__meta hdr__variants" aria-label="Rules variants in this game">${variantChips(state.variants)}</div>
     <div class="hdr__spacer"></div>
     <div class="hdr__group" role="group" aria-label="Bot speed">
@@ -108,6 +109,16 @@ export function renderHeader(ctx) {
     </div>
     <button type="button" class="btn btn--small" data-ui="undo" data-undo-available="${ctx.undo.available ? 1 : 0}" ${ctx.undo.available ? '' : 'disabled'} title="${esc(undoWhy)}">Undo</button>
     <button type="button" class="btn btn--small" data-ui="new-game">New game</button>`;
+}
+
+/** R11.9 - the scoring card in force, always in view: it changes what every route is worth. */
+function scoringCardBadge(state) {
+  const t = state.scoringCard;
+  if (t === null) return '';
+  const S = getConstants(state).SCORING;
+  const vp = S.vpPerSlot + S.scoringCardVpPerSlot;
+  const tip = `Scoring card: every ${NAMES[t]} slot you lay scores ${vp} VP; every other slot scores ${S.vpPerSlot}.`;
+  return `<div class="hdr__meta hdr__scoring" data-field="scoring-card" data-card="${esc(t)}" title="${esc(tip)}">${trackTile(t, { cls: 'tile--mini', label: `${NAMES[t]} scoring card` })}<span>${esc(NAMES[t])} slots score <b>${vp} VP</b></span></div>`;
 }
 
 /** One number with its picture, for the player cards: "[coin] 3". */
@@ -616,8 +627,9 @@ export function renderMap(ctx) {
         if (colour) {
           return `<g class="slot slot--laid" transform="${t}"><rect class="slot__bed" x="${-sl / 2}" y="${-sw / 2}" width="${sl}" height="${sw}" rx="1.8" style="fill:${colour}"/>${svgTrackTile(s.terrain, 1.25)}</g>`;
         }
-        // An unclaimed slot is an empty socket in its terrain colour, waiting for a tile of that kind.
-        return `<g class="slot slot--open slot--${s.terrain}" transform="${t}"><rect class="slot__socket" x="${-sl / 2}" y="${-sw / 2}" width="${sl}" height="${sw}" rx="1.8"/><text class="slot__t" x="0" y="2.4" text-anchor="middle" transform="rotate(${-s.angle})">${letter}</text></g>`;
+        // An unclaimed slot is an empty socket in its terrain colour, waiting for a tile of that kind;
+        // the scoring card's terrain (R11.9) is outlined in brass.
+        return `<g class="slot slot--open slot--${s.terrain}${s.terrain === state.scoringCard ? ' slot--favoured' : ''}" transform="${t}"><rect class="slot__socket" x="${-sl / 2}" y="${-sw / 2}" width="${sl}" height="${sw}" rx="1.8"/><text class="slot__t" x="0" y="2.4" text-anchor="middle" transform="rotate(${-s.angle})">${letter}</text></g>`;
       })
       .join('');
     // A cost badge on a claimable route, and on any unclaimed route that starts at one of the player's railheads.

@@ -185,7 +185,6 @@ export function gainItems(state, playerId, items, cause) {
  * tests/data-integrity.test.mjs checks that every `on` used by a card is here.
  */
 export const TRIGGER_SITES = {
-  laySlot: 'hookRouteClaimed (R11.5.2): once per terrain of the claimed route, times = its slots of that terrain',
   completeTranscontinental: 'hookCompletion (R19.2)',
   layTracksActionEnd: 'hookLayTracksEnd (R11.10): the whole-action totals are the context',
   placeBuilding: 'hookBuildingPlaced (R13.2, R13.3)',
@@ -282,14 +281,6 @@ function hookActivationEnd(state, frame) {
 /** R17.3 card 20. A Congress entry has been taken in a train activation (`frame`), before its benefit is resolved. */
 function hookCongressEntryTaken(state, playerId, entry, frame) {
   fireTrigger(state, playerId, 'congressEntryTaken', { entry, activation: frame });
-}
-
-/** R17.3 cards 1 to 3. One call per claim, after the core track VP; per-slot bonuses are booked to `legislative` (R20.1). */
-function hookRouteClaimed(state, playerId, route) {
-  if (state.modules.legislative === undefined && state.modules.pony === undefined) return;
-  for (const terrain of getConstants(state).TERRAINS) {
-    if (route.cost[terrain] > 0) fireTrigger(state, playerId, 'laySlot', { terrain, times: route.cost[terrain], route });
-  }
 }
 
 /**
@@ -1135,12 +1126,11 @@ export const MUTATORS = {
     for (const t of K.TERRAINS) player.builtTiles[t] -= route.cost[t];
     state.map.routeOwner[route.id] = player.id;
     emit({ type: 'routeClaimed', player: player.id, route: route.id, from: action.from, to: arrival, slots: route.length, cost: { ...route.cost } });
-    // R11.5.2 Track VP: 1 per slot, plus the scoring card's terrain (R11.9); both are `track` (R20.1).
+    // R11.5.2 Track VP: 1 per slot, plus 2 more per slot of the scoring card's terrain (R11.9); both are `track` (R20.1).
     addVp(state, player.id, 'track', K.SCORING.vpPerSlot * route.length, 'R11.5.2');
     if (state.scoringCard !== null) {
       addVp(state, player.id, 'track', K.SCORING.scoringCardVpPerSlot * route.cost[state.scoringCard], 'R11.9');
     }
-    hookRouteClaimed(state, player.id, route);
     // R11.5.3 Advance the railhead used from X to Y (railheads never move in network mode, R11.11.1).
     if (!network) player.railheads[idx] = arrival;
     const inland = arrival !== null && MAP.cityById[arrival].kind === 'inland';

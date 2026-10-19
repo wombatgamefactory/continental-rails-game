@@ -405,8 +405,8 @@ export const MAP_RULES = {
 export const SCORING = {
   /** R11.5.2. */
   vpPerSlot: 1,
-  /** R11.9. Extra VP per slot of the scoring card's terrain. */
-  scoringCardVpPerSlot: 1,
+  /** R11.9. Extra VP per slot of the scoring card's terrain (3 in all with vpPerSlot). */
+  scoringCardVpPerSlot: 2,
   /** R11.5.4. */
   firstConnectionVp: 5,
   /** R13.9. */
@@ -739,29 +739,10 @@ export const MILESTONE_TILES = [
 //
 // One card is in force for the whole game and applies to every player.
 // Every VP a card adds is booked to the VP source `legislative` (R20.1).
+// Cards 1 to 3 (+1 VP per slot of one terrain) were retired in spec v4: the
+// scoring card (R11.9) does their job. The rest keep their numbers (R17.2).
 
 export const LEGISLATIVE_CARDS = [
-  {
-    id: 'LA1',
-    number: 1,
-    name: 'Mountain Railway Initiative',
-    text: 'Each Tunnel slot you lay scores +1 VP (2 instead of 1)',
-    effects: [{ type: 'trigger', on: 'laySlot', where: { terrain: 'tunnel' }, effect: { type: 'vp', amount: 1 } }],
-  },
-  {
-    id: 'LA2',
-    number: 2,
-    name: 'Bridge Construction Program',
-    text: 'Each Bridge slot you lay scores +1 VP',
-    effects: [{ type: 'trigger', on: 'laySlot', where: { terrain: 'bridge' }, effect: { type: 'vp', amount: 1 } }],
-  },
-  {
-    id: 'LA3',
-    number: 3,
-    name: 'Heartland Expansion Act',
-    text: 'Each Ground slot you lay scores +1 VP',
-    effects: [{ type: 'trigger', on: 'laySlot', where: { terrain: 'ground' }, effect: { type: 'vp', amount: 1 } }],
-  },
   {
     id: 'LA4',
     number: 4,
@@ -1374,7 +1355,6 @@ export const EFFECT_TYPES = [
 
 /** Events a `trigger` may listen to (`on`). */
 export const TRIGGER_EVENTS = [
-  'laySlot', // each slot laid by a claim; where: { terrain }
   'completeTranscontinental', // R19.2
   'layTracksActionEnd', // R11.10, whole-action totals
   'placeBuilding', // where: { kind }

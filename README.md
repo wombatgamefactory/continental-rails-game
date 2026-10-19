@@ -55,7 +55,7 @@ The variants (the engine's table in `src/engine/variants.js` is the one list; th
 | `goalsInPlay` | 1 to 12 (default 3) | Goal cards revealed (used when goals are in play; at most 11 when carriage upgrades are off, because goal 6 is then removed) |
 | `milestonesInPlay` | 1 to 10 (default 6) | Milestone tiles revealed (used when milestones are in play) |
 | `moduleLegislativeAgenda` | true* / false | One Legislative Agenda card in force |
-| `legislativeAgendaCard` | random or 1 to 20 (default random) | Which Legislative Agenda card, when the module is on: random, or a card number |
+| `legislativeAgendaCard` | random or 4 to 20 (default random) | Which Legislative Agenda card, when the module is on: random, or a card number |
 | `modulePonyExpress` | true* / false | Pony Express tokens and cards in play |
 | `ponyOngoingCap` | 0 to 15 (default 2) | Most ongoing Pony Express cards one player may hold (0 = no cap) |
 | `startCompensation` | graduated* / none | Extra starting resources for later seats |
@@ -69,7 +69,7 @@ The variants (the engine's table in `src/engine/variants.js` is the one list; th
 | `hireCostModel` | fee-plus-table* / fee-only / table-only | What the Hire Specialist bonus action costs |
 | `bothBuildingsSameOwner` | true* / false | Whether one player may own both buildings of a city |
 | `buildingScoreCurve` | rising* / 2018 | The end-game building table |
-| `scoringCard` | none* / random / ground / tunnel / bridge | One terrain scores double when laid |
+| `scoringCard` | none / random* / ground / tunnel / bridge | One terrain scores 3 VP per slot when laid |
 | `upgradeVpTiming` | per-activation* / on-install | Whether the three VP upgrade tiles score every activation or once |
 | `specialistActivations` | by-level* / once | Whether level 2 and 3 specialists act 2 and 3 times |
 | `gridLayout` | fixed* / shuffle-resources | Whether three Gather districts are shuffled at setup |

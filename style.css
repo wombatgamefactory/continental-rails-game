@@ -349,6 +349,8 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .hdr__spacer { flex: 0 0 0; }
 .hdr__group { display: flex; align-items: center; gap: 4px; }
 .hdr__label { font-size: var(--fs-s); color: var(--parchment-2); margin-right: 2px; }
+.hdr__scoring { display: flex; align-items: center; gap: 5px; flex: none; white-space: nowrap; }
+.hdr__scoring b { color: var(--brass-light); }
 .hdr .btn { background: var(--wood-600); color: var(--parchment); border-color: var(--wood-500); box-shadow: none; }
 .hdr .btn:hover:not(:disabled) { background: var(--wood-500); border-color: var(--brass); }
 .hdr .btn.is-on { background: var(--brass); color: var(--ink); border-color: var(--brass-light); }
@@ -548,6 +550,8 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .slot--tunnel .slot__socket { fill: color-mix(in srgb, var(--tunnel) 82%, var(--map-bg)); stroke: color-mix(in srgb, var(--tunnel) 60%, #000); }
 .slot--bridge .slot__socket { fill: color-mix(in srgb, var(--bridge) 82%, var(--map-bg)); stroke: color-mix(in srgb, var(--bridge) 60%, #000); }
 .slot__t { font: 700 6.2px var(--font); fill: #fff; paint-order: stroke; stroke: rgba(20, 12, 6, .7); stroke-width: 1.2px; stroke-linejoin: round; pointer-events: none; }
+.slot--favoured .slot__socket { stroke: var(--brass-light); stroke-width: 1.6; }
+.slot--favoured .slot__t { fill: var(--brass-light); }
 .slot__bed { stroke: var(--tok-ink); stroke-width: 1; }
 .route.is-legal { cursor: pointer; }
 .route.is-legal .slot__socket { stroke: var(--hl); stroke-width: 2.4; filter: drop-shadow(0 0 1.2px var(--hl-edge)) drop-shadow(0 0 3px var(--hl)); }

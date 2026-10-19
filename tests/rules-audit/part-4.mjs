@@ -502,21 +502,10 @@ export default function part4() {
       assert.equal(vpBySource(ev, pid).legislative, 3);
     }
   });
-  check('R17.2', 'the deck has 20 cards', () => {
-    assert.deepEqual(RULES.LEGISLATIVE_CARDS.map((c) => c.number), Array.from({ length: 20 }, (_, i) => i + 1));
+  check('R17.2', 'the deck has 17 cards, numbered 4 to 20; cards 1 to 3 are retired and cannot be named', () => {
+    assert.deepEqual(RULES.LEGISLATIVE_CARDS.map((c) => c.number), Array.from({ length: 17 }, (_, i) => i + 4));
+    for (const n of [1, 2, 3]) assert.throws(() => game(2, legislative(n)), /4 to 20/);
   });
-  for (const [n, terrain, perRoute] of [[1, 'tunnel', { 'BOI-SPO': 2, 'POR-SPO': 0 }], [2, 'bridge', { 'BOI-SPO': 0, 'POR-SPO': 2 }], [3, 'ground', { 'BOI-SPO': 1, 'POR-SPO': 0 }]]) {
-    check(`R17.3/${n}`, `card ${n}: each ${terrain} slot laid scores +1 VP`, () => {
-      for (const [route, from] of [['BOI-SPO', 'SPO'], ['POR-SPO', 'SPO']]) {
-        const s = layGame('SPO', 'MIN', legislative(n));
-        claim(s, 1, 'SEA-SPO', 'HEL-BOI'); // no first connection either way
-        const ev = claimNow(s, route, from);
-        const vp = vpBySource(ev, 0);
-        assert.equal(vp.track, MAP.routeById[route].length, 'the base stays 1 VP per slot');
-        assert.equal(vp.legislative ?? 0, perRoute[route], route);
-      }
-    });
-  }
   check('R17.3/4', 'card 4: the completion bonus is 10 VP higher', () => {
     const s = layGame('HEL', 'OMA', legislative(4));
     claim(s, 0, 'SEA-HEL', 'BIS-MIN');

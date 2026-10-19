@@ -396,11 +396,11 @@ suite.check('milestone tiles: 10, 5 to 8 VP each, declarative conditions (R16.8)
   assert.ok(engine.getVariantDef('milestonesInPlay').max === tiles.length);
 });
 
-suite.check('Legislative Agenda cards: 20, numbered 1 to 20, every effect in the vocabulary (R17.3)', () => {
+suite.check('Legislative Agenda cards: 17, numbered 4 to 20 (1 to 3 retired), every effect in the vocabulary (R17.2, R17.3)', () => {
   const cards = RULES.LEGISLATIVE_CARDS;
   uniqueIds(cards, 'Legislative Agenda');
-  assert.deepEqual(cards.map((c) => c.number), Array.from({ length: 20 }, (_, i) => i + 1));
-  assert.equal(new Set(cards.map((c) => c.name)).size, 20);
+  assert.deepEqual(cards.map((c) => c.number), Array.from({ length: 17 }, (_, i) => i + 4));
+  assert.equal(new Set(cards.map((c) => c.name)).size, 17);
   for (const c of cards) {
     assert.equal(c.id, `LA${c.number}`);
     assert.ok(c.text.length > 0);
@@ -410,10 +410,11 @@ suite.check('Legislative Agenda cards: 20, numbered 1 to 20, every effect in the
       checkEffect(e, `${c.id} effect ${i + 1}`);
     });
   }
-  assert.equal(engine.getVariantDef('legislativeAgendaCard').max, cards.length);
-  // Cards 1 to 3 and 11 to 14 come in families that differ only in terrain or resource.
-  assert.deepEqual(cards.slice(0, 3).map((c) => c.effects[0].where.terrain).sort(), RULES.TERRAINS.slice().sort());
-  assert.deepEqual(cards.slice(10, 14).map((c) => c.effects[0].where.resource).sort(), RULES.PLAYER_BOARD.houseTracks.slice().sort());
+  assert.equal(engine.getVariantDef('legislativeAgendaCard').min, cards[0].number);
+  assert.equal(engine.getVariantDef('legislativeAgendaCard').max, cards[cards.length - 1].number);
+  // Cards 11 to 14 come in a family that differs only in resource.
+  const byNumber = (n) => cards.find((c) => c.number === n);
+  assert.deepEqual([11, 12, 13, 14].map((n) => byNumber(n).effects[0].where.resource).sort(), RULES.PLAYER_BOARD.houseTracks.slice().sort());
 });
 
 suite.check('Pony Express cards: 38 as 13 A, 11 B, 14 C, every effect in the vocabulary (R18.7)', () => {
