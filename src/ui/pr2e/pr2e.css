@@ -1,0 +1,166 @@
+/* =====================================================================
+   The second edition's screens (src/ui/pr2e). Loaded after style.css.
+   Everything here is scoped by a class only those screens use (or by
+   #app[data-rules="pr2e"]), so no Continental Rails screen is touched.
+   ===================================================================== */
+
+@media (min-width: 1341px) and (min-height: 821px) {
+  #app[data-rules="pr2e"] { --col-left: clamp(470px, 37vw, 620px); }
+}
+#app[data-rules="pr2e"] .region--trains { overflow: auto; }
+#app[data-rules="pr2e"] .score { flex-shrink: 0; padding: 3px 8px; gap: 1px; }
+#app[data-rules="pr2e"] .col-side .region--log { flex-basis: 70px; min-height: 70px; }
+@media (min-width: 1101px) {
+  #app[data-rules="pr2e"] { --ws-track: 30px; --wspace: 28px; }
+  /* the prompt takes what is left and scrolls inside itself; the grid and Congress keep their natural height */
+  #app[data-rules="pr2e"] .col-left { grid-template-rows: minmax(0, 1fr) auto auto; }
+  #app[data-rules="pr2e"] .region--prompt { max-height: none; min-height: 0; }
+}
+.congress__head .region__title { flex: 1 1 auto; }
+.congress__head .region__title small b { color: var(--accent-congress); }
+
+/* ---------- the action grid: district pictures cropped to a common shape, with building sites and the special action ---------- */
+.grid3--pr2e { align-items: start; }
+.pr-district { line-height: 1.2; overflow: visible; background: var(--parchment-2); }
+.pd__art { width: 100%; height: auto; aspect-ratio: 480 / 290; object-fit: cover; object-position: center bottom; display: block; border-radius: 5px; }
+.pd__name { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-direction: column; background: rgba(24, 14, 6, .76); color: #fff; padding: 2px 5px 3px; border-radius: 5px 5px 0 0; font-size: 11px; line-height: 1.15; }
+.pd__name b { font-size: 11.5px; letter-spacing: .01em; }
+.pd__special { font-size: 9.5px; color: var(--brass-light); font-weight: 600; }
+.pr-district .centre { top: 40%; left: 89%; width: calc(var(--wspace) - 6px); height: calc(var(--wspace) - 6px); --piece-size: calc(var(--wspace) - 12px); }
+.pr-district .district__badge { bottom: auto; top: 30px; left: 4px; }
+.pd__sites { position: absolute; left: 19%; width: 62%; height: 26%; padding: 0; border: 0; border-radius: 6px; background: transparent; cursor: default; }
+.pd__sites.is-legal { outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge), 0 0 12px 3px var(--hl); animation: pulse 1.4s ease-in-out infinite; cursor: pointer; }
+.pd__sites.is-illegal { outline: 2px dashed rgba(255, 255, 255, .7); outline-offset: -2px; cursor: help; }
+.pd__site { position: absolute; width: 12.5%; aspect-ratio: 1; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; pointer-events: none; --piece-size: 100%; }
+.pd__site .piece { width: 100%; height: 100%; }
+.pd__modes { position: absolute; left: 4px; right: 4px; bottom: 4px; display: flex; gap: 4px; justify-content: center; }
+.pd__modes .btn { flex: 1 1 0; line-height: 1.2; padding: 2px 4px; background: #fff; }
+.hat-pick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--fs-s); }
+.hat-pick .btn.is-on { font-weight: 700; }
+
+/* ---------- the Congress panel: eight columns built from the individual cells ---------- */
+.pc-panel { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; }
+.pc { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 0; border: 0; background: transparent; cursor: default; min-width: 0; text-align: center; font: inherit; color: inherit; border-radius: 6px; }
+.pc__cost { display: flex; align-items: center; justify-content: center; gap: 3px; border-radius: 4px; font-weight: 700; font-size: 12px; padding: 1px 0; color: #fff; border: 1px solid rgba(0, 0, 0, .35); }
+.pc__cost--low { background: #4f8a3c; }
+.pc__cost--mid { background: #2f8a8f; }
+.pc__cost--high { background: #a8402a; }
+.pc__coin { width: 14px; height: 14px; }
+.pc__cell { position: relative; display: block; aspect-ratio: 160 / 158; border-radius: 4px; overflow: hidden; background: #2f64a8; }
+.pc__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pc__senator { position: absolute; left: 50%; bottom: 2%; width: 56%; height: auto; transform: translateX(-50%); filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); pointer-events: none; }
+.pc__cell--top .pc__senator { bottom: 6%; }
+.pc__number { position: absolute; left: 12%; right: 12%; top: 6%; height: 44%; display: flex; align-items: center; justify-content: center; background: #3a73b8; color: #14110d; font: 900 26px/1 var(--font-display); }
+/* the reward in words: for screen readers and the tooltip; the picture says it on screen */
+.pc__text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.pc__why { display: block; font-size: 9.5px; line-height: 1.2; color: var(--refuse); }
+.pc.is-down .pc__cell--reward .pc__img { filter: saturate(.55) brightness(.8); }
+.pc.is-down .pc__text { opacity: .55; }
+.pc.is-legal .pc__cell, .pc.is-legal .pc__cost { outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge), 0 0 10px 2px var(--hl); }
+.pc.is-legal { cursor: pointer; animation: pulse 1.4s ease-in-out infinite; }
+.pc.is-illegal { cursor: help; }
+.pc.is-illegal:hover .pc__cell { outline: 2px dashed var(--refuse); }
+.pc.is-out { opacity: .9; }
+.pc-reset { display: flex; align-items: center; gap: 6px; flex: none; margin: 0; padding: 1px 8px; min-height: 26px; border: 1px dashed var(--line); border-radius: var(--r2); background: var(--card); color: var(--ink); text-align: left; font-size: var(--fs-s); cursor: default; flex-wrap: wrap; }
+.pc-reset.is-idle { opacity: .7; }
+.pc-reset.is-legal { outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge), 0 0 12px 3px var(--hl); animation: pulse 1.4s ease-in-out infinite; cursor: pointer; }
+.pc-reset.is-illegal { cursor: help; }
+
+/* ---------- the goals beside the players ---------- */
+.pgoals { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 6px; }
+.pgoals__title { font: 700 var(--fs-s) var(--font); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); margin: 0 0 4px; }
+.pgoals__title small { font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+.pgoals__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pgoal { display: flex; gap: 6px; align-items: center; border: 1px solid var(--line-soft); border-radius: var(--r1); background: var(--card); padding: 1px 4px; }
+.pgoal.has-leader { border-color: var(--brass-dark); }
+.pgoal__img { width: 40px; height: auto; border-radius: 3px; flex: none; display: block; }
+.pgoal__body { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; gap: 1px; }
+.pgoal__name { font-size: var(--fs-s); font-weight: 700; }
+.pgoal__ms { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: var(--fs-s); }
+.pgoal__m { display: inline-flex; align-items: center; gap: 3px; }
+.pgoal__m.is-lead { font-weight: 700; color: var(--ok); }
+.pgoal__lead { font-size: var(--fs-xs); color: var(--ink-soft); margin-left: auto; }
+.pgoal.has-leader .pgoal__lead { color: var(--ok); }
+
+/* ---------- the lay being built ---------- */
+.layplan { border-left: 4px solid var(--slate); background: #eef2f6; border-radius: var(--r1); padding: 4px 8px; font-size: var(--fs-s); display: flex; flex-direction: column; gap: 2px; }
+.layplan__title { font-weight: 700; }
+.layplan__steps { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 1px 12px; }
+.layplan__step { display: flex; gap: 4px; align-items: baseline; }
+.layplan__n { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--slate); color: #fff; font-size: 10px; font-weight: 700; flex: none; }
+.layplan__row--warn { color: var(--refuse); }
+.layplan b { color: var(--ink); }
+
+/* ---------- the map in a path lay ---------- */
+.slot__bed--nobody { fill: #6c5a46; }
+.route--inpath .slot__socket, .route--inpath .slot__bed { stroke: #fff; stroke-width: 2.1; }
+.route--inpath .slot { filter: drop-shadow(0 0 2px var(--slate)); }
+.routestep circle { fill: var(--slate); stroke: #fff; stroke-width: 1; }
+.routestep text { font: 700 6px var(--font); fill: #fff; }
+.city--inpath .city__disc { stroke: var(--slate); stroke-width: 2.6; }
+.city--pathend .city__disc { fill: #fff; stroke: var(--slate); stroke-width: 3.2; }
+.railhead--active .railhead__plate { stroke: #fff; stroke-width: 2.2; }
+.railhead.is-legal { pointer-events: auto; cursor: pointer; }
+.railhead.is-legal .railhead__plate { stroke: var(--hl); stroke-width: 2.6; filter: drop-shadow(0 0 3px var(--hl)); }
+.railhead.is-illegal { pointer-events: auto; cursor: help; }
+
+/* ---------- the player board on its printed art, and its carriages ---------- */
+.pb { display: flex; flex-direction: column; gap: 4px; border-left: 7px solid var(--pc); padding-left: var(--s2); --pb-h: 160px; --piece-size: 18px; }
+@media (min-width: 1700px) and (min-height: 1000px) { .pb { --pb-h: 200px; } }
+.pb__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.pb__name { font: 700 var(--fs-l) var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb__vp { font: 700 var(--fs-l) var(--font-display); white-space: nowrap; }
+.pb__head .storage { flex: 1 1 280px; padding: 2px 8px; }
+.pb__row { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+.pb__board, .pb__car { position: relative; height: var(--pb-h); flex: none; border-radius: 6px; overflow: hidden; box-shadow: 0 0 0 1px var(--wood-900); background: var(--wood-700); }
+.pb__board { aspect-ratio: 1200 / 591; }
+.pb__car { aspect-ratio: 480 / 444; }
+.pb__boardimg, .pb__carimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.pbt { position: absolute; inset: 0; pointer-events: none; }
+.pbt.is-legal { pointer-events: auto; }
+.pbh, .pbp, .pbs, .pbhat, .pbr, .pbw, .pbk { position: absolute; transform: translate(-50%, -50%); }
+.pbh { width: 5.4%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; --piece-size: 100%; }
+.pbh .piece { width: 100%; height: 100%; }
+.pbp { min-width: 4.2%; padding: 0 2px; aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--brass-light); color: var(--ink); border: 1px solid var(--brass-dark); font: 700 11px/1 var(--font); box-shadow: 0 1px 2px rgba(0, 0, 0, .5); }
+.pbs { width: 6.6%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; --piece-size: 100%; }
+.pbs .piece { width: 100%; height: 100%; }
+.pbs.is-next { outline: 2px solid var(--hl); outline-offset: 1px; border-radius: 4px; }
+.pbs.is-placed { opacity: 0; }
+.pbhat { width: 7.4%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+.pbhat__img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .7)); }
+.pbt.is-legal .pbh, .pbt.is-legal .pbp { outline: 2px solid var(--hl); }
+.pbr { width: 6.4%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+.pbr--car { width: 14%; }
+.pbu { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; }
+.pbu__img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .6)); }
+.pbu--tile .tile { --tile-w: 100%; width: 100%; }
+.pbw { width: 24%; height: 28%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; text-align: center; color: #fff; font-size: 9px; line-height: 1.05; text-shadow: 0 1px 2px rgba(0, 0, 0, .9); }
+.pbw__img { width: 78%; height: auto; max-height: 70%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .7)); }
+.pbw.has-spec { background: rgba(20, 12, 6, .3); border-radius: 4px; }
+.pbw.is-acting, .pbk.is-acting { outline: 3px solid var(--hl); box-shadow: 0 0 10px 2px var(--hl); border-radius: 4px; }
+.pbw__vp { position: absolute; left: 50%; top: 100%; transform: translate(-50%, -30%); font-style: normal; font-weight: 700; font-size: 9px; background: var(--brass); color: var(--ink); border: 1px solid var(--brass-dark); border-radius: 8px; padding: 0 4px; text-shadow: none; white-space: nowrap; }
+.pbk { width: 40%; }
+.pbk__img { width: 100%; height: auto; display: block; border-radius: 3px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .7)); }
+.pb__carno { position: absolute; left: 6px; bottom: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--signal-red); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+.pb__car.is-legal { outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge), 0 0 12px 3px var(--hl); animation: pulse 1.4s ease-in-out infinite; cursor: pointer; }
+.pb__car.is-illegal { cursor: help; outline: 2px dashed rgba(255, 255, 255, .6); outline-offset: -3px; }
+.pb__ghost { flex: 1 1 140px; min-width: 120px; max-width: 220px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 8px; border: 2px dashed var(--line); border-radius: 6px; background: var(--card); font-size: var(--fs-s); color: var(--ink-soft); }
+.pb__ghost b { color: var(--ink); }
+.pb__count b { color: var(--ink); }
+
+/* ---------- the dock: goals in full, the upgrade supply, the specialists ---------- */
+.spiles { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.spile { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: var(--r2); background: var(--card); padding: 3px 8px; font-size: var(--fs-s); }
+.spec__recipes { margin: 0 0 4px; padding-left: 16px; font-size: var(--fs-s); }
+.spec__costs { border-collapse: collapse; font-size: var(--fs-s); }
+.spec__costs th, .spec__costs td { border: 1px solid var(--line); padding: 2px 8px; text-align: left; }
+.spec__costs.is-off { opacity: .5; }
+.gsec .muted { margin: 0 0 6px; font-size: var(--fs-s); }
+.gcard .gcard__img { width: 110px; flex: none; }
+.end__goals { margin: 6px 0 0; padding-left: 18px; font-size: var(--fs-s); color: var(--ink-soft); }
+
+/* the goals tab: four tiles across, each with the picture on top */
+#app[data-rules="pr2e"] .gsec[data-section="goals"] .gcards { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+#app[data-rules="pr2e"] .gsec[data-section="goals"] .gcard { flex-direction: column; }
+#app[data-rules="pr2e"] .gsec[data-section="goals"] .gcard .gcard__img { width: 100%; height: 84px; object-fit: cover; }
+#app[data-rules="pr2e"] .gsec[data-section="goals"] .mcard__head { flex-wrap: wrap; }

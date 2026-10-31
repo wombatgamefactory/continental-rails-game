@@ -54,7 +54,9 @@ import { applyQuery, renderSetup, handleSetupEvent, buildGame, buildDemoGame, se
 import { createBotDriver } from './bot-driver.js';
 import { renderDock, tabsInPlay, TAB_TITLES } from './module-panels.js';
 import { scoringBreakdown, scoringSummary, renderPopup } from './scoring-popup.js';
-import { tipFor, refusalMessage } from './explain.js';
+import { tipFor as tipForCR, refusalMessage as refusalMessageCR } from './explain.js';
+import * as PR2E from './pr2e/hooks.js';
+import { viewsFor } from './ruleset-views.js';
 // bug reporter and analytics (hooks only: the logic lives in these modules)
 import { CONFIG } from './config.js';
 import { installBugReporter } from './bug-report-ui.js';
@@ -107,6 +109,11 @@ const app = {
 let bugApi = null;
 
 let driver = null;
+
+// The second edition's rules have their own targets, words and log (src/ui/pr2e/hooks.js); every other game uses the page's own.
+const isPr2e = () => app.rules === 'pr2e';
+const tipFor = (ctx, key) => (isPr2e() ? PR2E.tipFor(ctx, key) : tipForCR(ctx, key));
+const refusalMessage = (ctx, key) => (isPr2e() ? PR2E.refusalMessage(ctx, key) : refusalMessageCR(ctx, key));
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -399,8 +406,8 @@ function commitAction(action, source) {
   const human = source === 'human';
   recordApplied(action, events, source, snapshot.actor);
   if (human) app.undoStack.push(snapshot);
-  const entries = entriesFromEvents(app.state, events, human ? 'human' : 'bot', who);
-  const groups = scoringBreakdown(app.state, events, who);
+  const entries = (isPr2e() ? PR2E.entriesFromEvents : entriesFromEvents)(app.state, events, human ? 'human' : 'bot', who);
+  const groups = (isPr2e() ? PR2E.scoringBreakdown : scoringBreakdown)(app.state, events, who);
   if (groups.length > 0 && entries.length > 0) {
     // The arithmetic is kept in the log as well as shown in the pop-up.
     for (const g of groups) entries[0].details.push({ text: scoringSummary(g), kind: 'score' });
@@ -409,7 +416,7 @@ function commitAction(action, source) {
   for (const ev of events) {
     if (ev.type === 'milestoneClaimed') UI.getView().milestoneTurns[ev.milestone] = snapshot.state.turn.number;
   }
-  UI.setFlash({ ...flashFromEvents(events), seq: app.state.seq });
+  UI.setFlash({ ...(isPr2e() ? PR2E.flashFromEvents : flashFromEvents)(events), seq: app.state.seq });
   // Undo is cleared when control passes to another player, when a bot acted, when the game ended,
   // or when the action revealed hidden information (a card from a deck).
   if (!human || app.state.toAct !== snapshot.actor || app.state.toAct === null || revealsHiddenInformation(events)) app.undoStack = [];
@@ -480,7 +487,8 @@ function buildContext() {
   const interactive = state.phase !== 'ended' && isHuman(state.toAct) && !cover;
   const actions = interactive ? getValidActions(state) : [];
   const hat = UI.hatOn();
-  const targets = buildTargets(state, actions, { generic: view.generic, hat });
+  const hats = UI.hatsSpent();
+  const targets = isPr2e() ? PR2E.buildTargets(state, actions, { generic: view.generic, hats }) : buildTargets(state, actions, { generic: view.generic, hat });
   app.actions = actions;
   app.targets = targets;
   // A decision that concerns a module opens its panel, once per decision (closing it keeps it closed until the next).
@@ -507,6 +515,8 @@ function buildContext() {
     mode: UI.getMode(),
     modeData: UI.getModeData(),
     hat,
+    /** Cowboy hats the district choice will spend (0 or 1 under Continental Rails; 0 to 2 under the second edition). */
+    hats,
     hasPending: UI.hasPending(),
     seats: app.seats,
     who,
@@ -519,7 +529,7 @@ function buildContext() {
     flashAge: UI.flashAge(),
     activeTab: tabs.includes(view.dock.tab) ? view.dock.tab : tabs[0] ?? null,
     tabTitles: TAB_TITLES,
-    labels: { vp: VP_LABELS, endReason: END_REASON_TEXT, tieBreak: TIE_BREAK_TEXT },
+    labels: isPr2e() ? { vp: PR2E.VP_LABELS, endReason: PR2E.END_REASON_TEXT, tieBreak: PR2E.TIE_BREAK_TEXT } : { vp: VP_LABELS, endReason: END_REASON_TEXT, tieBreak: TIE_BREAK_TEXT },
     describe: (a) => describeAction(state, a),
     keyOf: actionKey,
   };
@@ -538,6 +548,7 @@ function render() {
   root.dataset.seq = String(state.seq);
   root.dataset.phase = state.phase;
   root.dataset.kind = ctx.frame ? ctx.frame.kind : '';
+  root.dataset.rules = app.rules;
   root.dataset.cover = ctx.cover ? '1' : '0';
   root.dataset.turn = String(state.turn.number);
   if (app.test) root.dataset.hash = hashState(state);
@@ -545,7 +556,7 @@ function render() {
   const oldBody = dockEl.querySelector('.dock__body');
   const keepScroll = oldBody ? { tab: oldBody.dataset.tab, top: oldBody.scrollTop } : null;
   // A ruleset may replace any region's renderer with its own (ruleset.ui.views); the page's own is the default.
-  const views = ctx.ruleset.ui.views;
+  const views = { ...ctx.ruleset.ui.views, ...viewsFor(ctx.ruleset.id) };
   const viewFor = (name, standard) => (typeof views[name] === 'function' ? views[name] : standard);
   $('region-header').innerHTML = viewFor('renderHeader', renderHeader)(ctx);
   $('region-scores').innerHTML = viewFor('renderScores', renderScores)(ctx);
@@ -749,6 +760,10 @@ function handleUiAction(name, el) {
       UI.cancelPending();
       render();
       break;
+    case 'hats':
+      UI.setHats(arg);
+      render();
+      break;
     case 'tab':
       UI.setTab(arg);
       render();
@@ -857,14 +872,22 @@ function handleTarget(key) {
   if (UI.getMode() === 'choose') UI.cancelChoice();
   UI.clearNotice();
   let pick = null;
-  if (entry.kind === 'district') pick = pickDistrictAction(entry, UI.hatOn());
+  let options = entry.actions;
+  let title = null;
+  if (entry.kind === 'district' && isPr2e()) {
+    // The hats chosen narrow the list; at the Lay Track or Hire Specialists district two actions remain and the player is asked which.
+    const wanted = PR2E.districtCandidates(entry, UI.hatsSpent());
+    options = wanted.actions;
+    title = wanted.title;
+    if (options.length === 1) pick = options[0];
+  } else if (entry.kind === 'district') pick = pickDistrictAction(entry, UI.hatOn());
   else if (entry.actions.length === 1) pick = entry.actions[0];
   if (pick) {
     commitAction(pick, 'human');
     return;
   }
-  logEvent('info', `several actions share ${key}; the player is asked which`, { count: entry.actions.length });
-  UI.beginChoice({ title: `${entry.actions.length} things you can do here`, actions: entry.actions, key });
+  logEvent('info', `several actions share ${key}; the player is asked which`, { count: options.length });
+  UI.beginChoice({ title: title ?? `${options.length} things you can do here`, actions: options, key });
   render();
 }
 
@@ -1048,7 +1071,7 @@ function installTestHook() {
     renders: () => app.renders,
     incidents: () => app.incidents.slice(),
     /** The UI's own pending selection: { mode, hat, dock, card } (for the tests of Cancel and Escape). */
-    pendingUi: () => ({ mode: UI.getMode(), hat: UI.hatOn(), dock: UI.getView().dock.open, card: UI.getView().cardOpen }),
+    pendingUi: () => ({ mode: UI.getMode(), hat: UI.hatOn(), hats: UI.hatsSpent(), dock: UI.getView().dock.open, card: UI.getView().cardOpen }),
     /** The running game as a saved game: JSON text `{ savedGame: 1, rules, state }` (loadState reads it back). */
     saveGame: () => saveGameText(),
     /** The ruleset id of the running game, and of the page's active ruleset (they agree once a game is on). */

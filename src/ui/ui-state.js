@@ -28,8 +28,8 @@
 /** The pending-action machine: { mode, data, step }. */
 const machine = { mode: 'idle', data: null, step: 0 };
 
-/** Per-question flags. */
-const pending = { hat: false };
+/** Per-question flags. `hats` is how many cowboy hats the district choice will spend: 0 or 1 under Continental Rails (the toggle), 0 to 2 under the second edition (src/ui/pr2e). */
+const pending = { hats: 0 };
 
 /** How long a highlight lasts (ms). The animation is resumed, not restarted, by a re-render inside this time. */
 export const FLASH_MS = 1600;
@@ -68,7 +68,7 @@ const view = {
 let messageCounter = 0;
 
 function emptyFlash() {
-  return { routes: [], cities: [], districts: [], spaces: [], players: [], milestones: [], tabs: [], seq: -1, at: -1 };
+  return { routes: [], cities: [], districts: [], spaces: [], players: [], milestones: [], tabs: [], congress: [], carriages: [], seq: -1, at: -1 };
 }
 
 // ---- the pending-action machine --------------------------------------------
@@ -96,35 +96,44 @@ export function cancelChoice() {
 
 /** Whether the UI holds a selection of its own that Cancel would clear. */
 export function hasPending() {
-  return machine.mode === 'choose' || pending.hat;
+  return machine.mode === 'choose' || pending.hats > 0;
 }
 
 /** Clears every selection the UI itself holds (the choice, the hat). Returns whether anything was cleared. */
 export function cancelPending() {
   const had = hasPending();
   cancelChoice();
-  pending.hat = false;
+  pending.hats = 0;
   return had;
 }
 
 /** Whether the cowboy hat toggle is on for the district choice. */
 export function hatOn() {
-  return pending.hat;
+  return pending.hats > 0;
 }
 
 export function setHat(on) {
-  pending.hat = !!on;
+  pending.hats = on ? 1 : 0;
 }
 
 export function toggleHat() {
-  pending.hat = !pending.hat;
-  return pending.hat;
+  pending.hats = pending.hats > 0 ? 0 : 1;
+  return pending.hats > 0;
+}
+
+/** How many cowboy hats the district choice will spend (second edition: 0 to 2). */
+export function hatsSpent() {
+  return pending.hats;
+}
+
+export function setHats(n) {
+  pending.hats = Math.max(0, Math.floor(Number(n)) || 0);
 }
 
 /** Back to the start of a question. Called after every applied action and every undo. */
 export function resetPending() {
   cancelChoice();
-  pending.hat = false;
+  pending.hats = 0;
   view.notice = null;
   view.cardOpen = null;
 }

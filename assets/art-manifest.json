@@ -2387,9 +2387,7 @@
     "shows": "Goal tile \"Most Coin in storage\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 1 of 12 (spec P18.2, machine id coinsStored); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-02-iron",
@@ -2401,9 +2399,7 @@
     "shows": "Goal tile \"Most Iron in storage\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 2 of 12 (spec P18.2, machine id ironStored); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-03-wood",
@@ -2415,9 +2411,7 @@
     "shows": "Goal tile \"Most Wood in storage\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 3 of 12 (spec P18.2, machine id woodStored); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-04-district-houses",
@@ -2429,9 +2423,7 @@
     "shows": "Goal tile \"Most district houses on building sites\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 4 of 12 (spec P18.2, machine id districtHouses); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-05-railway-stations",
@@ -2443,9 +2435,7 @@
     "shows": "Goal tile \"Most railway stations on the map\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 5 of 12 (spec P18.2, machine id railwayStations); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-06-telegraph-stations",
@@ -2457,9 +2447,7 @@
     "shows": "Goal tile \"Most telegraph stations on the map\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 6 of 12 (spec P18.2, machine id telegraphStations); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-07-gunpowder",
@@ -2471,9 +2459,7 @@
     "shows": "Goal tile \"Most Gunpowder in storage\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 7 of 12 (spec P18.2, machine id gunpowderStored); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-08-crew",
@@ -2485,9 +2471,7 @@
     "shows": "Goal tile \"Most Crew specialists in carriages\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 8 of 12 (spec P18.2, machine id crew); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-09-miner",
@@ -2499,9 +2483,7 @@
     "shows": "Goal tile \"Most Miners in carriages\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 9 of 12 (spec P18.2, machine id miners); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-10-financier",
@@ -2513,9 +2495,7 @@
     "shows": "Goal tile \"Most Financiers in carriages\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 10 of 12 (spec P18.2, machine id financiers); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-11-upgrades",
@@ -2527,9 +2507,7 @@
     "shows": "Goal tile \"Most upgrade tokens on carriages\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 11 of 12 (spec P18.2, machine id upgradesInstalled); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-goal-tile-12-engineer",
@@ -2541,9 +2519,7 @@
     "shows": "Goal tile \"Most Engineers in carriages\": a picture of the thing counted, with an arrow to the item. No text on the tile.",
     "usedFor": "Goal tile 12 of 12 (spec P18.2, machine id engineers); 4 are in play. The goal is worth 5 VP to a sole leader.",
     "source": "the 2020 game graphics, desert.pdf (goal tile sheet)",
-    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 360 px wide, the whole punch-board cell including its grass edge. The picture carries no text; the UI writes the name beneath. Separate from the Continental Rails goal cards."
   },
   {
     "id": "pr2e-upgrade-token-u1-gunpowder",
@@ -2555,9 +2531,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (1 Gunpowder) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 1 Gunpowder each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u1-coin",
@@ -2569,9 +2543,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (1 Coin) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 1 Coin each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u1-wood",
@@ -2583,9 +2555,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (1 Wood) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 1 Wood each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u1-iron",
@@ -2597,9 +2567,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (1 Iron) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 1 Iron each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u2-iron",
@@ -2611,9 +2579,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (2 Iron) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 2 Iron each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u2-coin",
@@ -2625,9 +2591,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (2 Coin) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 2 Coin each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u2-gunpowder",
@@ -2639,9 +2603,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (2 Gunpowder) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 2 Gunpowder each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u2-wood",
@@ -2653,9 +2615,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (2 Wood) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 2 Wood each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-upgrade-token-u3-choice",
@@ -2667,9 +2627,7 @@
     "shows": "Upgrade token with a red level disc and the items it gives (3 resources of your choice) behind iron bars.",
     "usedFor": "Upgrade token (spec P12.1), gives 3 resources of your choice each board activation. Several tokens share each design; the picture is one design.",
     "source": "the 2020 game graphics, houses-telegraphs-1.pdf (token sheet)",
-    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, opaque, dark frame edge included. The level 3 token shows all four resources and gives any three. Not the Continental Rails upgrade tiles."
   },
   {
     "id": "pr2e-senator-token",
@@ -2681,9 +2639,7 @@
     "shows": "A black top hat with a grey band, transparent background.",
     "usedFor": "Senator on the 8-column Congress panel (spec P10); full colour, not tinted. Slides from the top space to the bottom space of its column.",
     "source": "the 2020 game graphics, res-1.pdf (resource token sheet)",
-    "notes": "PNG with transparency, cut out by flood fill from a low-resolution source, so it is soft when shown above about 100 px. Not the Continental Rails senator placeholder.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "PNG with transparency, cut out by flood fill from a low-resolution source, so it is soft when shown above about 100 px. Not the Continental Rails senator placeholder."
   },
   {
     "id": "pr2e-district-collect-gunpowder",
@@ -2695,9 +2651,7 @@
     "shows": "District tile \"Collect Gunpowder\" of the 3 x 3 action grid. Collect districts show three building sites for district houses and a special-action strip.",
     "usedFor": "District Collect Gunpowder (spec P2.6, P5, P6). Collect districts show three building sites for district houses and a special-action strip.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-collect-iron",
@@ -2709,9 +2663,7 @@
     "shows": "District tile \"Collect Iron\" of the 3 x 3 action grid. Collect districts show three building sites for district houses and a special-action strip.",
     "usedFor": "District Collect Iron (spec P2.6, P5, P6). Collect districts show three building sites for district houses and a special-action strip.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-collect-wood",
@@ -2723,9 +2675,7 @@
     "shows": "District tile \"Collect Wood\" of the 3 x 3 action grid. Collect districts show three building sites for district houses and a special-action strip.",
     "usedFor": "District Collect Wood (spec P2.6, P5, P6). Collect districts show three building sites for district houses and a special-action strip.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-collect-coins",
@@ -2737,9 +2687,7 @@
     "shows": "District tile \"Collect Coins\" of the 3 x 3 action grid. Collect districts show three building sites for district houses and a special-action strip.",
     "usedFor": "District Collect Coins (spec P2.6, P5, P6). Collect districts show three building sites for district houses and a special-action strip.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-crew",
@@ -2751,9 +2699,7 @@
     "shows": "District tile \"Crew\" of the 3 x 3 action grid.",
     "usedFor": "District Crew (spec P2.6, P5, P6).",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-miner",
@@ -2765,9 +2711,7 @@
     "shows": "District tile \"Miner\" of the 3 x 3 action grid.",
     "usedFor": "District Miner (spec P2.6, P5, P6).",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-engineer",
@@ -2779,9 +2723,7 @@
     "shows": "District tile \"Engineer\" of the 3 x 3 action grid.",
     "usedFor": "District Engineer (spec P2.6, P5, P6).",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-financier",
@@ -2793,9 +2735,7 @@
     "shows": "District tile \"Financier\" of the 3 x 3 action grid.",
     "usedFor": "District Financier (spec P2.6, P5, P6).",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-district-lay-track-or-hire",
@@ -2807,9 +2747,7 @@
     "shows": "District tile \"Lay Track or Hire Specialists\" of the 3 x 3 action grid.",
     "usedFor": "District Lay Track or Hire Specialists (spec P2.6, P5, P6).",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide, no text. The edge of a worker-space footprint circle can show at the top or bottom edge. Production icon and special-action strip are part of the picture."
   },
   {
     "id": "pr2e-congress-panel",
@@ -2823,7 +2761,7 @@
     "source": "the 2020 game graphics, the action board (large PNG export)",
     "notes": "WebP, 900 px wide. The printed rewards do not match spec P10.1 exactly (column 4 of the picture is spec K5; there is no hats column); see the cell images.",
     "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "unusedNote": "Kept on purpose: the printed panel is from an older board (its rewards differ from the rules), so the second edition builds its Congress panel from the individual cells. A possible backdrop."
   },
   {
     "id": "pr2e-congress-reward-col1-wood",
@@ -2835,9 +2773,7 @@
     "shows": "Blue reward cell of printed Congress column 1: Gain 2 Wood.",
     "usedFor": "Reward cell of printed Congress column 1 (spec P10.1); the UI may use these in place of the whole panel.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8."
   },
   {
     "id": "pr2e-congress-reward-col2-gunpowder",
@@ -2849,9 +2785,7 @@
     "shows": "Blue reward cell of printed Congress column 2: Gain 2 Gunpowder.",
     "usedFor": "Reward cell of printed Congress column 2 (spec P10.1); the UI may use these in place of the whole panel.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8."
   },
   {
     "id": "pr2e-congress-reward-col3-iron",
@@ -2863,9 +2797,7 @@
     "shows": "Blue reward cell of printed Congress column 3: Gain 2 Iron.",
     "usedFor": "Reward cell of printed Congress column 3 (spec P10.1); the UI may use these in place of the whole panel.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8."
   },
   {
     "id": "pr2e-congress-reward-col4-house-or-upgrade",
@@ -2877,9 +2809,7 @@
     "shows": "Blue reward cell of printed Congress column 4: Place a district house or install an upgrade.",
     "usedFor": "Reward cell of printed Congress column 4 (spec P10.1); the UI may use these in place of the whole panel.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8."
   },
   {
     "id": "pr2e-congress-reward-col5-telegraph-house-map",
@@ -2891,9 +2821,7 @@
     "shows": "Blue reward cell of printed Congress column 5: Telegraph station and house, then map: place buildings.",
     "usedFor": "Reward cell of printed Congress column 5 (spec P10.1); the UI may use these in place of the whole panel.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8."
   },
   {
     "id": "pr2e-congress-reward-col6-three-resources",
@@ -2905,9 +2833,7 @@
     "shows": "Blue reward cell of printed Congress column 6: Three resources of your choice (III).",
     "usedFor": "Reward cell of printed Congress column 6 (spec P10.1); the UI may use these in place of the whole panel.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8."
   },
   {
     "id": "pr2e-congress-reward-col7-two-tiles",
@@ -2921,7 +2847,7 @@
     "source": "the 2020 game graphics, the action board (large PNG export)",
     "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
     "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "unusedNote": "Kept on purpose: column 8 (two built tiles) uses the other II cell; this twin is not needed."
   },
   {
     "id": "pr2e-congress-reward-col8-two-tiles",
@@ -2933,9 +2859,7 @@
     "shows": "Blue reward cell of printed Congress column 8: Two track tiles of any types (II).",
     "usedFor": "Reward cell of printed Congress column 8 (spec P10.1); the UI may use these in place of the whole panel.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px, cut from the panel. Printed picture order, which is not the order of spec P10.1 K1 to K8."
   },
   {
     "id": "pr2e-congress-top-1vp",
@@ -2947,9 +2871,7 @@
     "shows": "Blue cell with a gold laurel marked 1 and a plus.",
     "usedFor": "Top space of every Congress column (spec P10.1), where the senator starts.",
     "source": "the 2020 game graphics, the action board (large PNG export)",
-    "notes": "WebP, 160 px.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px."
   },
   {
     "id": "pr2e-congress-reward-hats-composite",
@@ -2961,9 +2883,7 @@
     "shows": "Blue cell with two cowboy hats.",
     "usedFor": "Reward of Congress column K4 (spec P10.1): gain 2 cowboy hats.",
     "source": "composite: a blue cell sampled from the Congress panel plus the existing cowboy hat icon",
-    "notes": "WebP, 160 px. Made by compositing because the printed panel has no hats cell. Replace it if a proper cell is drawn.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 160 px. Made by compositing because the printed panel has no hats cell. Replace it if a proper cell is drawn."
   },
   {
     "id": "pr2e-specialist-panel",
@@ -2977,7 +2897,7 @@
     "source": "the 2020 game graphics, the action board (large PNG export)",
     "notes": "WebP, 900 px wide. No printed words. The recipe bar shows 1 in, 1 out: Iron to Ground, Gunpowder to Tunnel, Wood to Bridge, Coin to Congress.",
     "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "unusedNote": "Kept on purpose: the Tycoon Mode hiring costs are drawn as a table in code, from the engine's own cost table, so they follow the rules and the variant."
   },
   {
     "id": "pr2e-carriage-1",
@@ -2989,9 +2909,7 @@
     "shows": "Red passenger carriage numbered 1: four storage places on the roof, two specialist windows, an upgrade box under them. Carriage 1 has a plus over its left window (free specialist) and a silhouette in it.",
     "usedFor": "Carriage 1 of the three numbered kinds (spec P7.5, P8). The UI draws specialists and the upgrade over it.",
     "source": "the 2020 game graphics, the player board pack, file 1.pdf",
-    "notes": "WebP, 480 px wide. Opaque: sky, hills and rail are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide. Opaque: sky, hills and rail are part of the picture."
   },
   {
     "id": "pr2e-carriage-2",
@@ -3003,9 +2921,7 @@
     "shows": "Red passenger carriage numbered 2: four storage places on the roof, two specialist windows, an upgrade box under them. Carriage 2 has a 2 plate.",
     "usedFor": "Carriage 2 of the three numbered kinds (spec P7.5, P8). The UI draws specialists and the upgrade over it.",
     "source": "the 2020 game graphics, the player board pack, file 2.pdf",
-    "notes": "WebP, 480 px wide. Opaque: sky, hills and rail are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide. Opaque: sky, hills and rail are part of the picture."
   },
   {
     "id": "pr2e-carriage-3",
@@ -3017,9 +2933,7 @@
     "shows": "Red passenger carriage numbered 3: four storage places on the roof, two specialist windows, an upgrade box under them. Carriage 3 has a 3 plate and two gold laurels over its windows (the 2 VP and 5 VP spaces).",
     "usedFor": "Carriage 3 of the three numbered kinds (spec P7.5, P8). The UI draws specialists and the upgrade over it.",
     "source": "the 2020 game graphics, the player board pack, file 3.pdf",
-    "notes": "WebP, 480 px wide. Opaque: sky, hills and rail are part of the picture.",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 480 px wide. Opaque: sky, hills and rail are part of the picture."
   },
   {
     "id": "pr2e-player-board",
@@ -3031,9 +2945,7 @@
     "shows": "Locomotive with two cowboy hat spaces on the cab roof, the telegraph pole with seven spaces (9, 6, 5, 4, 3, 2, 1 from the top), and the wagon with four house tracks (+1, +2, +3 each) and six storage places on the roof.",
     "usedFor": "The whole player board (spec P2.3).",
     "source": "the 2020 game graphics, PlayerBoards_Main_Fin.pdf",
-    "notes": "WebP, 1200 px wide, opaque with a scenery backdrop. Wagon tracks read +1, +2, +3, matching spec P2.3. The loco carries a plate numbered 160 (decoration).",
-    "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "notes": "WebP, 1200 px wide, opaque with a scenery backdrop. Wagon tracks read +1, +2, +3, matching spec P2.3. The loco carries a plate numbered 160 (decoration)."
   },
   {
     "id": "pr2e-telegraph-row",
@@ -3047,6 +2959,6 @@
     "source": "the 2020 game graphics, PlayerBoards_Main_Fin.pdf",
     "notes": "WebP, 128 px wide, tall. Cropped from the player board; the pole edge and some of the locomotive show at the sides.",
     "unused": true,
-    "unusedNote": "Not wired in yet: needed by the Pacific Rails, second edition ruleset screens."
+    "unusedNote": "Kept on purpose: the telegraph row is part of the player board picture, which the second edition draws whole."
   }
 ]

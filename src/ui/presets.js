@@ -32,10 +32,35 @@ const CONTINENTAL_PRESETS = [
 ];
 
 /**
- * The second edition's engine is still a copy of the Continental Rails engine, so its variants
- * (and these presets) are the same for now. Replace them when its own variants are written.
+ * The second edition has its own variants (src/engine-pr2e/variants.js), so it has its own presets:
+ * the rules as published, and three ways to change how a game plays or how long it runs.
  */
-const PR2E_PRESETS = CONTINENTAL_PRESETS.map((p) => ({ ...p, variants: { ...p.variants } }));
+const PR2E_PRESETS = [
+  {
+    id: 'published',
+    label: 'As published',
+    note: 'Path lays, a compulsory building on arrival, free hiring. The default.',
+    variants: {},
+  },
+  {
+    id: 'tycoon',
+    label: 'Tycoon Mode',
+    note: 'Hiring a specialist costs resources, by type and by carriage.',
+    variants: { tycoonMode: true },
+  },
+  {
+    id: 'one-route',
+    label: 'One new route per lay',
+    note: 'A lay travels over laid track, then lays a single new route.',
+    variants: { layShape: 'one-new-route' },
+  },
+  {
+    id: 'short',
+    label: 'Short game',
+    note: 'A digital stop after 15 turns each, for a quick look or a demo.',
+    variants: { maxTurnsPerPlayer: 15 },
+  },
+];
 
 export const PRESETS_BY_RULESET = {
   continental: CONTINENTAL_PRESETS,

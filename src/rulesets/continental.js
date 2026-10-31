@@ -10,7 +10,7 @@ import { defineRuleset } from './define.js';
 export const continental = defineRuleset({
   id: 'continental',
   name: 'Continental Rails',
-  description: 'The current design: one worker a turn, no rounds, a train that builds the track you lay.',
+  description: 'The current design: one worker a turn, no rounds, and a player board of specialists that builds the track you lay.',
   engine,
   engineDir: 'src/engine',
   makePolicies: createHeuristicPolicies,

@@ -36,7 +36,7 @@
 import { BOT_LEVELS } from '../bots/index.js';
 import { RULESETS, DEFAULT_RULESET_ID, isRulesetId, rulesetIds, getRuleset } from '../rulesets/index.js';
 import { parseVariantValue, getVariantDef, VARIANTS, useRuleset } from './active-ruleset.js';
-import { PRESETS } from './presets.js';
+import { presetsFor } from './presets.js';
 import { renderVariantsPanel, checkVariants, tidy, variantsToQuery } from './variants-panel.js';
 import { CONFIG } from './config.js';
 import { art, realArt, isRealArt } from './art.js';
@@ -262,6 +262,48 @@ export const COPY = {
   },
 };
 
+/**
+ * The words that differ for the second edition's rules (the rest of COPY is shared): what a turn is, and what is different.
+ * Terminology follows the rules: the player board is never a train, a house is the piece on the player board, a district is on the action grid.
+ */
+const COPY_PR2E = {
+  hook: 'Run a railway company across the continent: collect, build with your specialists, and lay track before the coasts are joined.',
+  intro:
+    'This is the published 2020 rulebook, played on the Continental Rails map so the two designs can be compared side by side. Each turn you place or remove one worker on the action grid and take a district beside it: collect resources, run a board activation, or lay track and hire specialists. There are no rounds; the game ends when a line of laid routes joins the west edge of the map to the east.',
+  steps: [
+    {
+      id: 'collect',
+      n: '1',
+      title: 'Collect',
+      text: 'Place a worker on a worker space, or take one back, and choose a district beside it. The four Collect districts pay out your production, and each has a special action: a telegraph station, a district house, an upgrade token or a railway station.',
+    },
+    {
+      id: 'build',
+      n: '2',
+      title: 'Build',
+      text: 'The Crew, Miner, Engineer and Financier districts start a board activation: the Foreman and then every specialist in your carriages each turn one resource into a built track tile, or take a column of Congress. Tiles wait in storage on your player board.',
+    },
+    {
+      id: 'lay',
+      n: '3',
+      title: 'Lay',
+      text: 'Lay Track spends built tiles to lay printed routes on the map, one route at a time along a path from one of your trains, over laid track or new. Every slot scores, and you must build a railway station or a telegraph station where you stop.',
+    },
+  ],
+  stepsNote: 'Building and laying are two separate actions. Laid track belongs to nobody: any train may travel over it, and passing a building that belongs to another player pays its owner a toll.',
+  distinctive: [
+    ['One worker, every turn, no rounds.', 'Place a worker or take one back. There is no refresh phase and no passing, so the action grid never stops moving.'],
+    ['Carriages come from the map.', 'Your first three railway stations placed by laying track bring carriages 1, 2 and 3, and with them storage, specialist spaces and upgrade tokens.'],
+    ['A shared Congress.', 'Eight columns, each with one senator: a Financier pays Coins for a reward, and a Reset sends every senator home for VP.'],
+    ['Four goals, one winner each.', 'Four of twelve goal tiles are in play; the sole leader of each scores 5 VP when the game ends.'],
+  ],
+};
+
+/** The copy for the rules chosen on the page: the shared words, with the second edition's where they differ. */
+function copy() {
+  return form.rules === 'pr2e' ? { ...COPY, ...COPY_PR2E } : COPY;
+}
+
 const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
 const words = (n) => NUMBER_WORDS[n] ?? String(n);
 
@@ -271,7 +313,7 @@ function prototypeBullets() {
   return [
     ['Bots at ' + words(BOT_LEVELS.length) + ' levels.', `${levels}. Fill any seat with one, or all four and watch.`],
     ['Hot-seat for 2 to 4.', 'Any mix of people and bots on one device, with a hand-over screen between human turns.'],
-    ['Switchable rule variants.', `${VARIANTS.length} rules can be changed from the set-up panel, including all four add-on modules, and the choice is kept in the address of the page.`],
+    ['Switchable rule variants.', form.rules === 'pr2e' ? `${VARIANTS.length} rules can be changed from the set-up panel, and the choice is kept in the address of the page.` : `${VARIANTS.length} rules can be changed from the set-up panel, including all four add-on modules, and the choice is kept in the address of the page.`],
     ['A problem-report button.', 'On every screen. It saves the exact position and the moves that led to it, so a fault can be replayed.'],
   ];
 }
@@ -327,7 +369,7 @@ function hero() {
       <div class="hero__text">
         <p class="hero__kicker">${esc(COPY.kicker)}</p>
         <h1 class="hero__title">${title}</h1>
-        <p class="hero__hook" data-field="hook">${esc(COPY.hook)}</p>
+        <p class="hero__hook" data-field="hook">${esc(copy().hook)}</p>
         ${statStrip()}
         <div class="hero__cta">
           <button type="button" class="btn btn--primary btn--big" data-setup="play">Play now</button>
@@ -375,7 +417,7 @@ function setupPanel() {
 }
 
 function howATurnWorks() {
-  const cards = COPY.steps
+  const cards = copy().steps
     .map(
       (s) => `<li class="step" data-step="${s.id}">
         <div class="step__art">${realArt(PAGE_ART[s.id], { cls: 'step__img', alt: '', lazy: true })}</div>
@@ -386,7 +428,7 @@ function howATurnWorks() {
   return `<section class="pitch pitch--steps" aria-labelledby="steps-title" data-field="loop">
       <h2 id="steps-title">How a turn works</h2>
       <ol class="steps">${cards}</ol>
-      <p class="steps__note" data-field="build-lay-note">${esc(COPY.stepsNote)}</p>
+      <p class="steps__note" data-field="build-lay-note">${esc(copy().stepsNote)}</p>
     </section>`;
 }
 
@@ -398,11 +440,11 @@ function bulletList(items) {
 export function renderSetup(root) {
   root.innerHTML = `<div class="landing setup" data-screen="setup">
     ${hero()}
-    <p class="landing__intro">${esc(COPY.intro)}</p>
+    <p class="landing__intro">${esc(copy().intro)}</p>
     ${setupPanel()}
     ${howATurnWorks()}
     <div class="pitch__cols">
-      <section class="pitch" aria-labelledby="why-title" data-field="distinctive"><h2 id="why-title">What makes it different</h2>${bulletList(COPY.distinctive)}</section>
+      <section class="pitch" aria-labelledby="why-title" data-field="distinctive"><h2 id="why-title">What makes it different</h2>${bulletList(copy().distinctive)}</section>
       <section class="pitch" aria-labelledby="proto-title" data-field="prototype"><h2 id="proto-title">In this digital prototype</h2>${bulletList(prototypeBullets())}
         <p class="pitch__cta"><button type="button" class="btn btn--primary" data-setup="play">Set up a game</button> <button type="button" class="btn" data-setup="demo">Watch a demo game</button></p></section>
     </div>
@@ -527,7 +569,7 @@ export function handleSetupEvent(root, target, eventType = 'click') {
     form.advancedOpen = !form.advancedOpen;
   } else if (action === 'preset') {
     // A preset is chosen from the row that is always visible; it does not unfold the 25 switches.
-    const preset = PRESETS.find((p) => p.id === arg);
+    const preset = presetsFor(form.rules).find((p) => p.id === arg);
     if (preset) form.variants = tidy(preset.variants);
     syncUrl();
   } else if (action === 'variants-reset') {

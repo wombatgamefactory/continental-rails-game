@@ -36,6 +36,7 @@ import * as E from '../src/engine/index.js';
 import { getRuleset } from '../src/rulesets/index.js';
 import { start, put, give, setHeads, setTrain, claim } from './helpers/rig.mjs';
 import { startWith, giveTokens, stock, ownCard, installTile, gatherCoinsTurn } from './helpers/modules.mjs';
+import * as R from './pr2e/rig.mjs';
 
 // Test-only dummy values for the configuration override; built from parts so that the source holds no address or id.
 const DUMMY_USER = 'tester';
@@ -2578,6 +2579,798 @@ async function finalScreenshots(browser) {
 }
 
 // ---------------------------------------------------------------------------
+// 21 - the second edition's screens (src/ui/pr2e)
+//
+// States are built with the pr2e engine in Node (tests/pr2e/rig.mjs), serialised and loaded through the test hook;
+// every decision is then taken by CLICKING a control the page drew (a target on the board, a panel button, a banner
+// button). Which kinds of pending decision were reached, and how, is recorded in REACHED and reported at the end.
+// ---------------------------------------------------------------------------
+
+const P = getRuleset('pr2e').engine;
+const PR2E_NAME = getRuleset('pr2e').name;
+
+/** Frame kind -> how clicking reached it: a 'target' on the board, a 'panel' button, a 'button' of the banner, a 'choice', or only the 'generic' layer. */
+const REACHED = new Map();
+function reached(kindName, how) {
+  if (!REACHED.has(kindName)) REACHED.set(kindName, new Set());
+  REACHED.get(kindName).add(how);
+}
+
+/** Words that must never appear on a second-edition screen: Continental Rails vocabulary and the banned spellings. */
+const WRONG_WORDS = /\bsteel\b|railhead|train activation|lobby point|pony express|legislative|milestone|lay tracks|move train|first connection/i;
+
+function pr2eState(trains = [['SEA', 'OMA'], ['POR', 'KCY'], ['LAX', 'MSP']], players = 3) {
+  return paint(R.start(players, { trains: trains.slice(0, players) }));
+}
+
+/** A mid-game position for Anna: 2 carriages (Crew, Financier / Miner), a token, hats, houses gone, buildings and laid track about. */
+function pr2eMid() {
+  const s = pr2eState();
+  R.layRoutes(s, ['SEA-SPO'], 1);
+  R.build(s, 'railwayStation', 'SPO', 1, 'iron');
+  R.build(s, 'telegraphStation', 'HEL', 2);
+  R.setStorage(s, 0, { iron: 1, wood: 1, gunpowder: 1, coins: 3, ground: 3, tunnel: 3, bridge: 2 });
+  R.giveCarriages(s, 0, [['crew', 'financier'], ['miner', null]]);
+  s.players[0].train.specialistCarriages[0].upgrade = 'U1-iron';
+  s.supply.upgrades.splice(s.supply.upgrades.indexOf('U1-iron'), 1);
+  s.players[0].hats = 2;
+  s.players[0].telegraphsPlaced = 1;
+  s.players[0].houses.wood = 1;
+  s.players[0].houses.coins = 2;
+  s.grid.sites.D3[0] = 1;
+  s.grid.sites.D3[1] = 0;
+  s.grid.sites.D1[2] = 2;
+  s.congress.down.K1 = true;
+  s.congress.down.K5 = true;
+  return s;
+}
+
+async function loadPr2e(page, state, seats = ['human', 'random', 'random'], { paused = true } = {}) {
+  await page.goto(`${BASE}?test=1&rules=pr2e`);
+  await page.waitForFunction(() => window.__cr && window.__cr.ready);
+  const text = P.serialiseState(state);
+  await page.evaluate(([t, s, p]) => {
+    window.__cr.loadState(t, s, 'pr2e');
+    window.__cr.pause(p);
+  }, [text, seats, paused]);
+}
+
+const stateOf = (page) => page.evaluate(() => JSON.parse(window.__cr.serialise()));
+const bodyText = (page) => page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
+
+/** Clicks a target of any kind, noting how the decision was reached. */
+async function tap(page, key) {
+  const k = await kind(page);
+  const [type] = key.split(':');
+  const selector = type === 'route' ? `g[data-target="${key}"][data-legal="1"] rect >> nth=0` : type === 'city' || type === 'train' ? `g[data-target="${key}"][data-legal="1"] ${type === 'city' ? '.city__disc' : 'circle'} >> nth=0` : `[data-target="${key}"][data-legal="1"]`;
+  try {
+    await page.locator(selector).first().click({ timeout: 3000, force: type === 'route' || type === 'city' || type === 'train' });
+  } catch (err) {
+    throw new Error(`target ${key} is not clickable as a legal bespoke control (kind ${k}): ${err.message.split('\n')[0]}`);
+  }
+  reached(k, 'target');
+}
+
+/** Clicks an action button (a panel button, a banner button, a choice), noting how. */
+async function press(page, akey) {
+  const k = await kind(page);
+  const loc = page.locator(`[data-akey="${akey}"][data-legal="1"]`).first();
+  const via = await loc.evaluate((el) => (el.closest('[data-field="choice"]') ? 'choice' : el.closest('[data-panel]') ? 'panel' : el.closest('[data-field="generic"]') ? 'generic' : 'button'));
+  try {
+    await loc.click({ timeout: 3000 });
+  } catch (err) {
+    throw new Error(`action button ${akey} not available (kind ${k}): ${err.message.split('\n')[0]}`);
+  }
+  reached(k, via);
+}
+
+/** The text of the one message (toast), or ''. */
+async function toastText(page) {
+  const el = page.locator('[data-field="notice"]');
+  return (await el.count()) ? (await el.first().textContent()).replace(/\s+/g, ' ').trim() : '';
+}
+
+// ---- 21a set-up page ---------------------------------------------------------------------------
+
+async function pr2eSetup(browser) {
+  const page = await newPage(browser);
+  await page.goto(`${BASE}?test=1`);
+  await waitSetup(page);
+  const crBlurb = (await page.locator('[data-setup="rules:continental"]').textContent()).replace(/\s+/g, ' ');
+  assert(!/\btrain\b/i.test(crBlurb), `the Continental Rails blurb no longer calls the player board a train: "${crBlurb}"`);
+  assert(/player board/.test(crBlurb), `and names the player board: "${crBlurb}"`);
+  const crPresets = await page.$$eval('.vpreset .btn__label', (els) => els.map((e) => e.textContent.trim()));
+  assert(crPresets.join(',') === 'Full game,Base game,Core only', `Continental Rails keeps its own presets (${crPresets})`);
+  const crIntro = await page.textContent('.landing__intro');
+  await shot(page, 'cr-setup', 1440, 900);
+
+  await page.click('[data-setup="rules:pr2e"]');
+  await page.waitForSelector('[data-setup="rules:pr2e"][aria-pressed="true"]');
+  const presets = await page.$$eval('.vpreset .btn__label', (els) => els.map((e) => e.textContent.trim()));
+  assert(presets.join(',') === 'As published,Tycoon Mode,One new route per lay,Short game', `pr2e has its own presets (${presets})`);
+  const names = P.VARIANTS.map((v) => v.name);
+  await page.click('[data-setup="variants-toggle"]');
+  const shown = await page.$$eval('.vrow[data-variant]', (els) => els.map((e) => e.dataset.variant));
+  assert(shown.slice().sort().join() === names.slice().sort().join(), `the variants panel lists the pr2e variants only (${shown})`);
+  const text = await bodyText(page);
+  assert(!/conversionRate|moduleCarriageUpgrades|modulePonyExpress|endGameScoring/.test(text), 'no Continental Rails variant name on the pr2e set-up page');
+  const intro = await page.textContent('.landing__intro');
+  assert(intro !== crIntro && /board activation/.test(intro), `the pr2e set-up copy describes the second edition: "${intro.slice(0, 80)}"`);
+  assert(!WRONG_WORDS.test(text), `the pr2e set-up page has no Continental Rails vocabulary (${(WRONG_WORDS.exec(text) || [])[0]})`);
+  // A preset is applied through the page: Tycoon Mode reaches the address and the game.
+  await page.click('[data-setup="preset:tycoon"]');
+  assert(new URL(page.url()).searchParams.get('variants') === 'tycoonMode=true', `the preset reaches the address (${page.url()})`);
+  await page.click('[data-setup="preset:published"]');
+  assert(!new URL(page.url()).searchParams.has('variants'), 'and the published preset clears it');
+  await page.click('[data-setup="variants-toggle"]');
+  await page.mouse.move(5, 5);
+  await shot(page, 'pr2e-setup', 1440, 900);
+  await page.evaluate(() => document.getElementById('setup-panel').scrollIntoView());
+  await page.mouse.move(5, 5);
+  writeEvidence(path.join(SHOTS, 'pr2e-setup-panel-1440x900.png'), await page.screenshot());
+  await page.close();
+}
+
+// ---- 21b player board, Congress panel, goals, action grid --------------------------------------------------
+
+async function pr2eBoardScreens(browser, takeShots) {
+  const page = await newPage(browser);
+  const mid = pr2eMid();
+  await loadPr2e(page, mid);
+  await waitKind(page, 'workerStep');
+  const root = await page.evaluate(() => document.getElementById('app').dataset.rules);
+  assert(root === 'pr2e', 'the page root says which rules it shows');
+
+  // The player board: four house tracks in the printed order, with production.
+  const tracks = await page.$$eval('.pbt', (els) => els.map((e) => [e.dataset.track, Number(e.querySelector('.pbp').textContent), e.querySelectorAll('.pbh.has-house').length]));
+  assert(tracks.map((t) => t[0]).join() === 'wood,iron,gunpowder,coins', `house tracks in order: Wood, Iron, Gunpowder, Coin (${tracks.map((t) => t[0])})`);
+  const K = P.getConstants(mid);
+  for (const [track, prod, houses] of tracks) {
+    assert(prod === P.production(mid, 0, track), `${track} production ${prod} is the engine's ${P.production(mid, 0, track)}`);
+    assert(houses === mid.players[0].houses[track], `${track} shows ${mid.players[0].houses[track]} houses, found ${houses}`);
+  }
+  // The telegraph row: 1, 2, 3, 4, 5, 6, 9 from the bottom; one station is placed.
+  const tele = await page.$$eval('.pbs', (els) => els.map((e) => ({ placed: e.classList.contains('is-placed'), title: e.title, next: e.classList.contains('is-next') })));
+  assert(tele.length === 7, `seven telegraph spaces, found ${tele.length}`);
+  assert(tele[0].placed && !tele[1].placed && tele[1].next, 'the bottom station is placed; the next one is marked');
+  assert(tele.slice(1).map((t) => /worth (\d+) VP/.exec(t.title)[1]).join() === '2,3,4,5,6,9', `the stations left are worth 2, 3, 4, 5, 6, 9 (${tele.map((t) => t.title)})`);
+  // Storage counts the Coins and the carriages: 6 + 3 x 2.
+  const storage = (await page.textContent('[data-field="storage"]')).replace(/\s+/g, '');
+  assert(storage === `${P.storageUsed(mid.players[0])}/${6 + 3 * 2}`, `storage reads used/capacity: ${storage}`);
+  assert((await page.locator('.stock--coins').count()) === 1 && (await page.locator('.stock--coins').getAttribute('data-count')) === '3', 'Coins are among the storage items');
+  assert((await page.locator('.stock--tile').count()) === 3, 'built tiles are shown');
+  // Carriages as earned, with their specialists, the token and the 2 and 5 VP spaces of carriage 3 in words.
+  assert((await page.locator('.pb__car').count()) === 2, 'two carriages are drawn (the ones earned)');
+  assert((await page.locator('.pbw.has-spec').count()) === 3, 'three specialists sit in the carriages');
+  assert((await page.locator('.pbk[data-installed="U1-iron"]').count()) === 1, 'the upgrade token is in its carriage');
+  assert((await page.locator('[data-field="next-carriage"]').count()) === 1, 'the next carriage is explained');
+  assert((await page.locator('.pbhat.has-hat').count()) === 2, 'two cowboy hats, the most there can be');
+  // Carriage 3: the VP numbers are written.
+  const three = pr2eState();
+  R.giveCarriages(three, 0, [['crew', 'miner'], ['engineer', null], [null, null]]);
+  await loadPr2e(page, three);
+  await waitKind(page, 'workerStep');
+  const vps = await page.$$eval('.pb__car[data-level="3"] .pbw__vp', (els) => els.map((e) => e.textContent.trim()));
+  assert(vps.join() === '2 VP,5 VP', `carriage 3 writes its 2 and 5 VP (${vps})`);
+  assert((await page.locator('[data-field="next-carriage"]').count()) === 0 && /all three carriages earned/.test(await page.textContent('[data-field="lay-stations"]')), 'with three carriages there is no next one');
+  assert((await page.locator('.pb__car').count()) === 3, 'three carriages drawn');
+  await loadPr2e(page, mid);
+  await waitKind(page, 'workerStep');
+  // None at the start.
+  const fresh = pr2eState();
+  await loadPr2e(page, fresh);
+  await waitKind(page, 'workerStep');
+  assert((await page.locator('.pb__car').count()) === 0 && (await page.locator('[data-field="next-carriage"]').count()) === 1, 'no carriage at the start');
+  await loadPr2e(page, mid);
+  await waitKind(page, 'workerStep');
+
+  // The Congress panel: eight columns costing 1, 1, 1, 1, 2, 2, 3, 3; senators; Reset.
+  const cols = await page.$$eval('.pc[data-entry]', (els) => els.map((e) => [e.dataset.entry, Number(e.dataset.cost), e.dataset.senator]));
+  assert(cols.map((c) => c[0]).join() === 'K1,K2,K3,K4,K5,K6,K7,K8', `eight columns (${cols.map((c) => c[0])})`);
+  assert(cols.map((c) => c[1]).join() === '1,1,1,1,2,2,3,3', `costs 1, 1, 1, 1, 2, 2, 3, 3 (${cols.map((c) => c[1])})`);
+  assert(cols.filter((c) => c[2] === 'down').map((c) => c[0]).join() === 'K1,K5', 'the senators of K1 and K5 are down');
+  assert((await page.locator('.pc-reset').count()) === 1, 'a Reset');
+  assert((await page.locator('.pc__number').textContent()).trim() === '4', 'column 6 says 4, not the printed III');
+  assert((await page.locator('.pc__cell--reward img[data-art-id="pr2e-congress-reward-hats-composite"]').count()) === 1, 'column 4 shows the two cowboy hats');
+  assert((await page.locator('[data-art-id="pr2e-congress-panel"]').count()) === 0, 'the printed panel picture (an older board) is not used');
+  // The goals: four tiles with every player's measure and who leads.
+  const goals = await page.$$eval('.pgoal', (els) => els.map((e) => [e.dataset.metric, e.querySelectorAll('.pgoal__m').length, e.dataset.leader]));
+  assert(goals.length === 4 && goals.every((g) => g[1] === 3), `four goals, each with three players' measures (${JSON.stringify(goals)})`);
+  const expected = P.goalsInPlay(mid).map((g) => g.metric).join();
+  assert(goals.map((g) => g[0]).join() === expected, 'the goals are the ones the engine drew, in order');
+  assert((await page.locator('.pgoal[data-leader="1"]').count()) + (await page.locator('.pgoal[data-leader="-1"]').count()) >= 1, 'a goal leader is named where there is one');
+  // The action grid: special actions, building sites with district houses, the centre district's choice.
+  assert((await page.locator('.pd__special').count()) === 4, 'four Collect districts with their special action');
+  const specialText = (await page.locator('.pd__special').allTextContents()).join(' | ');
+  assert(/1 Coin: telegraph station/.test(specialText) && /1 Wood: district house/.test(specialText) && /1 Gunpowder: upgrade token/.test(specialText) && /1 Iron: railway station/.test(specialText), `special actions with their costs (${specialText})`);
+  assert((await page.locator('.pd__site').count()) === 12 && (await page.locator('.pd__site.is-taken').count()) === 3, 'twelve building sites, three with a district house');
+  // Cowboy hats are chosen 0, 1 or 2 at the district choice; the Lay or Hire choice is on the centre district.
+  await tap(page, 'space:W6');
+  await waitKind(page, 'chooseDistrict');
+  const hatButtons = await page.$$eval('[data-ui^="hats:"]', (els) => els.map((e) => e.dataset.ui));
+  assert(hatButtons.join() === 'hats:0,hats:1,hats:2', `Anna may spend 0, 1 or 2 hats (${hatButtons})`);
+  assert((await page.locator('[data-field="lay-or-hire"] [data-mode]').count()) === 2, 'the centre district offers Lay Track and Hire');
+  await page.click('[data-ui="hats:2"]');
+  const badge = (await page.locator('.district[data-district="D5"] .district__badge').textContent()).replace(/\s+/g, ' ');
+  assert(/x3/.test(badge), `two hats make the multiplier x3 (${badge})`);
+  await page.click('[data-ui="cancel"]');
+  assert((await page.locator('[data-ui="hats:0"][aria-pressed="true"]').count()) === 1, 'Cancel puts the hats back');
+  await page.close();
+
+  if (takeShots) {
+    const shotPage = await newPage(browser);
+    await loadPr2e(shotPage, mid);
+    await waitKind(shotPage, 'workerStep');
+    await shotPage.mouse.move(5, 5);
+    await shot(shotPage, 'pr2e-in-play', 1440, 900);
+    writeEvidence(path.join(SHOTS, 'pr2e-player-board-1440x900.png'), await shotPage.locator('.region--trains').screenshot());
+    writeEvidence(path.join(SHOTS, 'pr2e-congress-1440x900.png'), await shotPage.locator('.region--congress').screenshot());
+    writeEvidence(path.join(SHOTS, 'pr2e-goals-1440x900.png'), await shotPage.locator('.pgoals').screenshot());
+    await shotPage.click('[data-ui="tab:goals"]');
+    await shotPage.mouse.move(5, 5);
+    await shot(shotPage, 'pr2e-goals-open', 1440, 900);
+    await shotPage.close();
+  }
+}
+
+// ---- 21c a path lay, by clicking -------------------------------------------------------------------
+
+async function pr2ePathLay(browser, takeShots) {
+  const page = await newPage(browser);
+  await loadPr2e(page, pr2eMid());
+  await waitKind(page, 'workerStep');
+  await tap(page, 'space:W6');
+  await waitKind(page, 'chooseDistrict');
+  await press(page, 'chooseDistrict:D5:0:mode=lay');
+  await waitKind(page, 'lay');
+  // No Move Train in this ruleset: no move controls anywhere.
+  assert((await page.locator('[data-akey^="moveTrain"]').count()) === 0, 'there is no Move Train');
+  // Pick the train: both of Anna's trains are lit on the map; starting from Seattle the one way on (over laid track) is taken for her.
+  assert((await page.locator('g.railhead[data-target="train:0"][data-legal="1"]').count()) === 1 && (await page.locator('g.railhead[data-target="train:1"][data-legal="1"]').count()) === 1, 'both trains are lit to start a lay');
+  assert((await page.locator('[data-panel="lay-start"] [data-akey]').count()) === 2, 'and offered as buttons');
+  await tap(page, 'train:0');
+  await page.waitForSelector('[data-field="lay-plan"] [data-route]');
+  let plan = (await page.textContent('[data-field="lay-plan"]')).replace(/\s+/g, ' ');
+  assert(/Seattle to Spokane: travel/.test(plan), `the laid route is travelled over: ${plan}`);
+  // Lay a new route from Spokane by clicking it on the map.
+  await tap(page, 'route:BOI-SPO');
+  await page.waitForFunction(() => document.querySelectorAll('[data-field="lay-plan"] li[data-route]').length === 2);
+  plan = (await page.textContent('[data-field="lay-plan"]')).replace(/\s+/g, ' ');
+  assert(/Spokane to Boise: lay 1G 2T, 2 VP a slot/.test(plan), `the unlaid route is laid at 2 VP a slot: ${plan}`);
+  assert(/Tiles used: 1 Ground, 2 Tunnel/.test(plan) && /you hold 3 Ground, 3 Tunnel, 2 Bridge/.test(plan), `tiles used against tiles held: ${plan}`);
+  assert(/Track VP if you end here: 6 \(3 slots\)/.test(plan), `the VP preview: ${plan}`);
+  assert(/Tolls: Ben scores 3 VP \(railway station in Spokane\)/.test(plan), `the toll it will pay: ${plan}`);
+  assert(/At Boise you must place one building/.test(plan), `the compulsory building at the destination: ${plan}`);
+  assert((await page.locator('.routestep').count()) === 2 && (await page.locator('g.route--inpath').count()) === 2, 'the running path is drawn on the map, numbered');
+  assert((await page.locator('g.city--pathend[data-city="BOI"]').count()) === 1, 'the destination is marked');
+  const expected = P.evaluateLay(await page.evaluate(() => window.__cr.getState()), 0, ['SEA', 'SPO', 'BOI'], ['SEA-SPO', 'BOI-SPO']);
+  assert(expected.trackVp === 6 && expected.tollVp === 3, 'the engine agrees with the preview');
+  if (takeShots) {
+    await page.mouse.move(5, 5);
+    await shot(page, 'pr2e-path-lay', 1440, 900);
+  }
+  // End the lay; the building at the destination is compulsory: panel buttons, no way to decline.
+  await press(page, 'endLay');
+  await waitKind(page, 'placeBuildings');
+  await page.waitForSelector('[data-field="scoring-popup"]');
+  const popup = (await page.textContent('[data-field="scoring-popup"]')).replace(/\s+/g, ' ');
+  assert(/Track laid/.test(popup) && /3 slots x 2 VP = 6/.test(popup) && /Spokane - Boise|Boise - Spokane/.test(popup), `the scoring pop-up shows the arithmetic: ${popup}`);
+  assert((await page.locator('[data-panel="building"] [data-akey^="placeRailwayStation"]').count()) >= 1 && (await page.locator('[data-akey="placeTelegraphStation:BOI"]').count()) === 1, 'a railway station (by house track) or a telegraph station is offered');
+  assert((await page.locator('[data-akey="skipBuilding"]').count()) === 0, 'there is no way to decline it');
+  await press(page, 'placeTelegraphStation:BOI');
+  const after = await stateOf(page);
+  assert(after.players[0].vp.track === 6 && after.players[0].vp.telegraph === 2 && after.players[1].vp.toll === 3, `track 6, telegraph 2, Ben's toll 3 (${JSON.stringify(after.players.map((p) => p.vp))})`);
+  assert(after.map.routeOwner['BOI-SPO'] === 0 && after.map.telegraphStation.BOI === 0 && after.players[0].railheads[0] === 'BOI', 'the route is laid, the building placed, the train moved');
+  const log = (await page.locator('[data-field="log"]').textContent()).replace(/\s+/g, ' ');
+  assert(/Lay from Seattle to Boise: 1 route laid, 1 laid route travelled/.test(log) && /Toll at Spokane: Ben's railway station scores 3 VP/.test(log), `the log tells the lay: ${log.slice(0, 300)}`);
+  assert(!WRONG_WORDS.test(await bodyText(page)), 'no Continental Rails vocabulary on screen after a lay');
+  await page.close();
+}
+
+// ---- 21d Congress through the Financier ------------------------------------------------------------
+
+function financierState() {
+  const s = pr2eState();
+  R.layRoutes(s, ['SEA-SPO'], 1);
+  R.build(s, 'railwayStation', 'BOI', 1, 'iron');
+  R.build(s, 'telegraphStation', 'HEL', 2);
+  R.setStorage(s, 0, { coins: 9 });
+  R.giveCarriages(s, 0, [['financier', 'financier'], [null, null], [null, null]]);
+  return s;
+}
+
+async function financierTurn(page) {
+  await tap(page, 'space:W2');
+  await waitKind(page, 'chooseDistrict');
+  await tap(page, 'district:D2');
+  await waitKind(page, 'boardActivation');
+}
+
+async function pr2eCongress(browser, takeShots) {
+  const page = await newPage(browser);
+  await loadPr2e(page, financierState());
+  await waitKind(page, 'workerStep');
+  // No Financier step pending: no column is lit.
+  assert((await page.locator('.pc[data-legal="1"]').count()) === 0, 'Congress is not lit outside a Financier step');
+  await financierTurn(page);
+  // Three Financier steps (the Foreman and two Financiers): every affordable column is lit, and so is nothing else.
+  const lit = await page.$$eval('.pc[data-legal="1"]', (els) => els.map((e) => e.dataset.entry));
+  assert(lit.join() === 'K1,K2,K3,K4,K5,K6,K7,K8', `all eight columns are lit for a Financier step with 9 Coins (${lit})`);
+  const noteText = await page.textContent('[data-field="financier-step"]');
+  assert(/Financier step/.test(noteText), 'the panel says a Financier step is waiting');
+  if (takeShots) {
+    await page.mouse.move(5, 5);
+    writeEvidence(path.join(SHOTS, 'pr2e-congress-financier-1440x900.png'), await page.locator('.region--congress').screenshot());
+  }
+  // Step 1: column 6, 4 resources of choice (not Coins), by four panel clicks.
+  await tap(page, 'congress:K6');
+  await waitKind(page, 'chooseResource');
+  assert((await page.locator('[data-panel="resource"] [data-akey]').count()) === 3, 'column 6 offers Wood, Iron and Gunpowder (no Coin)');
+  for (let i = 0; i < 4; i++) {
+    await press(page, 'chooseResource:wood');
+    if (i < 3) await waitKind(page, 'chooseResource');
+  }
+  await waitKind(page, 'boardActivation');
+  let s = await stateOf(page);
+  assert(s.players[0].resources.wood === 4 && s.players[0].coins === 7 && s.congress.down.K6 === true, `K6 paid 2 Coins and gave 4 Wood (${s.players[0].coins} Coins, ${s.players[0].resources.wood} Wood)`);
+  assert((await page.locator('.pc[data-entry="K6"][data-senator="down"]').count()) === 1, 'its senator is down on screen');
+  // A column whose senator is down is not lit, and a click says why.
+  assert((await page.locator('.pc[data-entry="K6"][data-legal="1"]').count()) === 0, 'K6 is not lit any more');
+  await page.locator('.pc[data-entry="K6"]').click();
+  assert(/senator|Reset/i.test(await toastText(page)), `a click on a closed column says why: ${await toastText(page)}`);
+  // Step 2: column 8, two built tiles.
+  await tap(page, 'congress:K8');
+  await waitKind(page, 'chooseBuiltTile');
+  await press(page, 'chooseBuiltTile:ground');
+  await waitKind(page, 'chooseBuiltTile');
+  await press(page, 'chooseBuiltTile:bridge');
+  await waitKind(page, 'boardActivation');
+  s = await stateOf(page);
+  assert(s.players[0].builtTiles.ground === 1 && s.players[0].builtTiles.bridge === 1 && s.players[0].coins === 4, 'K8 gave a Ground and a Bridge tile for 3 Coins');
+  // Step 3: column 5: an upgrade token (no carriage holds a specialist besides carriage 1, so token U1 goes there), 1 VP.
+  await tap(page, 'congress:K5');
+  await waitKind(page, 'congressPlacement');
+  assert((await page.locator('[data-panel="upgrade"] [data-akey]').count()) >= 1, 'column 5 offers the upgrade tokens');
+  assert((await page.locator('.pd__sites[data-legal="1"]').count()) >= 1, 'and the building sites of the Collect districts are lit for a district house');
+  await page.locator('[data-panel="upgrade"] [data-akey]').first().click();
+  reached('congressPlacement', 'panel');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'congressPlacement');
+  s = await stateOf(page);
+  assert(s.players[0].vp.congress === 1 && s.players[0].train.specialistCarriages[0].upgrade !== null, 'K5 installed a token and scored 1 VP');
+  await page.close();
+
+  // Column 5 as a district house, by clicking the building sites; column 4 (hats); column 7 (buildings); Reset.
+  const second = financierState();
+  second.players[0].train.specialistCarriages[0].slots = ['financier', 'financier'];
+  second.congress.down.K1 = true;
+  second.congress.down.K2 = true;
+  const p2 = await newPage(browser);
+  await loadPr2e(p2, second);
+  await waitKind(p2, 'workerStep');
+  await financierTurn(p2);
+  await tap(p2, 'congress:K5');
+  await waitKind(p2, 'congressPlacement');
+  await tap(p2, 'site:D3');
+  await press(p2, 'placeDistrictHouse:D3:wood');
+  await waitKind(p2, 'boardActivation');
+  s = await stateOf(p2);
+  assert(s.grid.sites.D3[0] === 0 && s.players[0].vp.congress === 1 && s.players[0].vp.districtHouse === 0, 'K5 placed a district house for 1 VP (no 2 VP: that is the special action)');
+  await tap(p2, 'congress:K4');
+  await waitKind(p2, 'boardActivation');
+  s = await stateOf(p2);
+  assert(s.players[0].hats === 2, 'K4 gave two cowboy hats');
+  // The Reset, at the next Financier step: senators come back, 1 VP each.
+  const downBefore = Object.values(s.congress.down).filter(Boolean).length;
+  await tap(p2, 'congress:KR');
+  await waitKind(p2, 'workerStep').catch(() => {});
+  s = await stateOf(p2);
+  assert(Object.values(s.congress.down).filter(Boolean).length === 0 && s.players[0].vp.congress === 1 + downBefore, `the Reset returned ${downBefore} senators for ${downBefore} VP`);
+  await p2.close();
+
+  // Column 7: a railway station and / or a telegraph station: click a city, then another city or stop.
+  const third = financierState();
+  third.players[0].train.specialistCarriages[0].slots = ['financier', 'financier'];
+  const p3 = await newPage(browser);
+  await loadPr2e(p3, third);
+  await waitKind(p3, 'workerStep');
+  await financierTurn(p3);
+  await tap(p3, 'congress:K7');
+  await waitKind(p3, 'congressPlacement');
+  await tap(p3, 'city:SPO');
+  await press(p3, 'placeRailwayStation:SPO:wood');
+  await waitKind(p3, 'congressPlacement');
+  await press(p3, 'skipBuilding');
+  await waitKind(p3, 'boardActivation');
+  s = await stateOf(p3);
+  assert(s.map.railwayStation.SPO === 0 && s.players[0].layStationsPlaced === 3 && s.players[0].train.specialistCarriages.length === 3, 'K7 placed a railway station that counts for no carriage');
+  await p3.close();
+}
+
+// ---- 21e hire, discard, the free specialist, the four special actions ----------------------------------------
+
+async function pr2eOtherDecisions(browser) {
+  const page = await newPage(browser);
+
+  // Hire: panel buttons, then stop.
+  const hire = pr2eState();
+  R.giveCarriages(hire, 0, [['crew', null]]);
+  await loadPr2e(page, hire);
+  await tap(page, 'space:W6');
+  await waitKind(page, 'chooseDistrict');
+  await press(page, 'chooseDistrict:D5:0:mode=hire');
+  await waitKind(page, 'hire');
+  assert(/Carriage 1, space 2/.test((await page.textContent('[data-panel="hire"]')).replace(/\s+/g, ' ')), 'a hire says where the specialist goes');
+  await press(page, 'hireSpecialist:miner');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'hire');
+  assert((await stateOf(page)).players[0].train.specialistCarriages[0].slots.join() === 'crew,miner', 'the Miner went into the leftmost empty space');
+
+  // Discard: Collect Wood onto a full storage; click the item to throw away.
+  const full = pr2eState();
+  R.setStorage(full, 0, { iron: 4, wood: 1, gunpowder: 1, coins: 0 });
+  await loadPr2e(page, full);
+  await tap(page, 'space:W8');
+  await waitKind(page, 'chooseDistrict');
+  await tap(page, 'district:D7');
+  await waitKind(page, 'discard');
+  assert(/over capacity/.test(await page.textContent('.prompt__hint')), 'the discard decision says storage is over capacity');
+  await tap(page, 'store:iron');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'discard');
+
+  // A lay that places the first railway station: the free specialist.
+  const free = pr2eState();
+  R.setStorage(free, 0, { ground: 2 });
+  await loadPr2e(page, free);
+  await tap(page, 'space:W6');
+  await waitKind(page, 'chooseDistrict');
+  await press(page, 'chooseDistrict:D5:0:mode=lay');
+  // one train, one affordable route, one way to end: the engine takes the whole lay by itself and asks for the building
+  await waitKind(page, 'placeBuildings');
+  await press(page, 'placeRailwayStation:SPO:wood');
+  await waitKind(page, 'chooseFreeSpecialist');
+  assert(/carriage 1/.test(await page.textContent('.prompt__hint')), 'the free specialist comes with carriage 1');
+  await press(page, 'chooseFreeSpecialist:crew');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'chooseFreeSpecialist');
+  const got = await stateOf(page);
+  assert(got.players[0].train.specialistCarriages.length === 1 && got.players[0].train.specialistCarriages[0].slots[0] === 'crew' && got.players[0].layStationsPlaced === 1, 'carriage 1 with a free Crew');
+
+  // The four special actions after a Collect.
+  const special = pr2eState();
+  R.layRoutes(special, ['SEA-SPO'], 1);
+  R.build(special, 'railwayStation', 'SPO', 1, 'iron');
+  R.build(special, 'telegraphStation', 'HEL', 2);
+  R.setStorage(special, 0, { coins: 2, iron: 1, wood: 2, gunpowder: 2 });
+  R.giveCarriages(special, 0, [['crew', null]]);
+  const kinds = [];
+  // Collect Gunpowder (D1, from W1): 1 Coin, a telegraph station in a city holding another player's railway station.
+  await loadPr2e(page, special);
+  await tap(page, 'space:W3');
+  await waitKind(page, 'chooseDistrict');
+  await tap(page, 'district:D1');
+  await waitKind(page, 'specialAction');
+  assert(/telegraph station/.test(await page.textContent('.prompt__hint')), 'the special action is explained');
+  await tap(page, 'city:SPO');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'specialAction');
+  assert((await stateOf(page)).map.telegraphStation.SPO === 0, 'the Collect Gunpowder special action placed a telegraph station');
+  kinds.push('telegraph');
+  // Collect Iron (D3, from W5): 1 Wood, a district house on a building site, 2 VP.
+  await loadPr2e(page, special);
+  await tap(page, 'space:W5');
+  await waitKind(page, 'chooseDistrict');
+  await tap(page, 'district:D3');
+  await waitKind(page, 'specialAction');
+  await tap(page, 'site:D3');
+  await press(page, 'placeDistrictHouse:D3:wood');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'specialAction');
+  const house = await stateOf(page);
+  assert(house.grid.sites.D3.includes(0) && house.players[0].vp.districtHouse === 2, 'the Collect Iron special action placed a district house for 2 VP');
+  kinds.push('house');
+  // Collect Wood (D7, from W8): 1 Gunpowder, an upgrade token, 2 VP.
+  await loadPr2e(page, special);
+  await tap(page, 'space:W8');
+  await waitKind(page, 'chooseDistrict');
+  await tap(page, 'district:D7');
+  await waitKind(page, 'specialAction');
+  await page.locator('[data-panel="upgrade"] [data-akey]').first().click();
+  reached('specialAction', 'panel');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'specialAction');
+  assert((await stateOf(page)).players[0].vp.upgrade === 2, 'the Collect Wood special action installed a token for 2 VP');
+  kinds.push('upgrade');
+  // Collect Coins (D9, from W10): 1 Iron, a railway station in a city holding another player's telegraph station.
+  await loadPr2e(page, special);
+  await tap(page, 'space:W10');
+  await waitKind(page, 'chooseDistrict');
+  await tap(page, 'district:D9');
+  await waitKind(page, 'specialAction');
+  await tap(page, 'city:HEL');
+  await press(page, 'placeRailwayStation:HEL:wood');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'specialAction');
+  assert((await stateOf(page)).map.railwayStation.HEL === 0, 'the Collect Coins special action placed a railway station');
+  kinds.push('railway');
+  assert(kinds.length === 4, 'all four special actions were taken');
+
+  // A displaced worker's owner holding two hats chooses a resource (not their own turn).
+  const disp = pr2eState();
+  R.put(disp, 1, 'W1');
+  R.put(disp, 2, 'W3');
+  disp.players[1].hats = 2;
+  await loadPr2e(page, disp, ['human', 'human', 'random']);
+  await waitData(page, 'cover', '1');
+  await page.click('[data-ui="cover-ok"]');
+  await tap(page, 'centre:D1');
+  await waitData(page, 'cover', '1');
+  assert((await kind(page)) === 'chooseResource', 'the displaced owner is asked for a resource');
+  await page.click('[data-ui="cover-ok"]');
+  await press(page, 'chooseResource:coins');
+  await page.close();
+}
+
+// ---- 21f refusals, tooltips, vocabulary ---------------------------------------------------------------
+
+async function pr2eWords(browser) {
+  const page = await newPage(browser);
+  const s = pr2eMid();
+  await loadPr2e(page, s);
+  await waitKind(page, 'workerStep');
+  // Tooltips: Congress column, route, city, district, goal, a train.
+  const tipOfSel = async (sel) => {
+    await page.locator(sel).first().hover({ force: true });
+    await page.waitForSelector('#tip:not([hidden])');
+    const t = (await page.textContent('#tip')).replace(/\s+/g, ' ');
+    await page.mouse.move(5, 5);
+    return t;
+  };
+  const congress = await tipOfSel('.pc[data-entry="K5"]');
+  assert(/Column K5/.test(congress) && /costs 2 Coins/.test(congress) && /senator is down/.test(congress), `the column tooltip: ${congress}`);
+  const districtTip = await tipOfSel('.district[data-district="D3"] .pd__name b');
+  assert(/Collect Iron/.test(districtTip) && /pay 1 Wood for a district house/.test(districtTip) && /2 of 3 hold a district house/.test(districtTip.replace('Building sites: 2 of 3', '2 of 3')), `the district tooltip: ${districtTip}`);
+  const cityTip = await tipOfSel('g.city[data-city="SPO"] .city__disc');
+  assert(/Railway station: Ben/.test(cityTip) && /Connected/.test(cityTip) && /3 VP/.test(cityTip), `the city tooltip: ${cityTip}`);
+  const emptyCity = await tipOfSel('g.city[data-city="BOI"] .city__disc');
+  assert(/Not connected/.test(emptyCity) && /2 VP a slot/.test(emptyCity), `an empty city scores 2 VP a slot: ${emptyCity}`);
+  const goalTip = await tipOfSel('.pgoal');
+  assert(/5 VP/.test(goalTip) && /tie/.test(goalTip), `the goal tooltip: ${goalTip}`);
+  const routeTip = await tipOfSel('g.route[data-route="SEA-HEL"] .slot__socket');
+  assert(/Laying it takes/.test(routeTip) && /lack/.test(routeTip), `the route tooltip says what is lacking: ${routeTip}`);
+  const tokenTip = await tipOfSel('.pbk');
+  assert(/Upgrade token U1-iron/.test(tokenTip), `the token tooltip: ${tokenTip}`);
+  // A refused click: an occupied worker space and an unaffordable route in a lay.
+  const occupied = pr2eState();
+  R.put(occupied, 1, 'W7');
+  await loadPr2e(page, occupied, ['human', 'random', 'random']);
+  await waitKind(page, 'workerStep');
+  await page.locator('[data-space="W7"]').click();
+  const refusal = await toastText(page);
+  assert(/Ben's worker/.test(refusal) || /worker/.test(refusal), `an occupied space refuses with the engine's words: ${refusal}`);
+  assert((await page.locator('[data-space="W7"][data-state="illegal"]').count()) === 1, 'in scope but not legal: drawn plainly and clickable');
+  // The map in a lay: the train has no way to a route it cannot pay for.
+  await loadPr2e(page, pr2eMid());
+  await tap(page, 'space:W6');
+  await waitKind(page, 'chooseDistrict');
+  await press(page, 'chooseDistrict:D5:0:mode=lay');
+  await waitKind(page, 'lay');
+  await page.locator('g[data-route="SEA-HEL"] rect').first().click({ force: true });
+  const lay = await toastText(page);
+  assert(lay.length > 10 && !WRONG_WORDS.test(lay), `an unaffordable route refuses: ${lay}`);
+  // Vocabulary: the whole screen, in a hot-seat game's worth of states.
+  const text = await bodyText(page);
+  assert(!WRONG_WORDS.test(text), `no Continental Rails vocabulary (${(WRONG_WORDS.exec(text) || [])[0]})`);
+  assert(!/train (board|strip|storage|activation|carriage)|train's (storage|board|carriage)|your train's/i.test(text), 'the player board is never called a train (a train is a piece on the map)');
+  assert(/player board/i.test(text), 'the player board is called the player board');
+  await page.close();
+}
+
+// ---- 21g full games: hot-seat by clicking, and bots ---------------------------------------------------------
+
+/**
+ * One click of a human: reads what the page offers and clicks it, preferring the bespoke controls of the board
+ * (targets) and sometimes the panel and banner buttons. `rnd` is a seeded random number generator.
+ */
+async function clickDecision(page, rnd, seen) {
+  const snap = await page.evaluate(() => {
+    const app = document.getElementById('app');
+    const q = (s) => [...document.querySelectorAll(s)];
+    return {
+      kind: app.dataset.kind,
+      phase: app.dataset.phase,
+      cover: app.dataset.cover === '1',
+      human: app.dataset.human === '1',
+      choice: q('[data-field="choice"] [data-akey]').map((e) => e.dataset.akey),
+      targets: q('[data-target][data-legal="1"]').map((e) => e.dataset.target),
+      akeys: q('[data-akey][data-legal="1"]').filter((e) => !e.closest('[data-field="choice"]')).map((e) => ({ key: e.dataset.akey, via: e.closest('[data-panel]') ? 'panel' : e.closest('[data-field="generic"]') ? 'generic' : 'button' })),
+      hats0: !!document.querySelector('[data-ui="hats:0"][aria-pressed="true"]'),
+      hatButtons: q('[data-ui^="hats:"]').length,
+    };
+  });
+  if (snap.phase === 'ended') return 'ended';
+  if (snap.cover) {
+    await page.click('[data-ui="cover-ok"]');
+    return 'cover';
+  }
+  if (!snap.human) {
+    await page.waitForTimeout(20);
+    return 'wait';
+  }
+  const note = (how) => {
+    reached(snap.kind, how);
+    seen.set(snap.kind, (seen.get(snap.kind) ?? 0) + 1);
+  };
+  if (snap.choice.length) {
+    const key = snap.choice[Math.floor(rnd() * snap.choice.length)];
+    await page.locator(`[data-field="choice"] [data-akey="${key}"]`).click();
+    note('choice');
+    return 'choice';
+  }
+  const pick = (list, weight) => {
+    const total = list.reduce((n, x) => n + weight(x), 0);
+    let r = rnd() * total;
+    for (const x of list) {
+      r -= weight(x);
+      if (r <= 0) return x;
+    }
+    return list[list.length - 1];
+  };
+  if (snap.kind === 'chooseDistrict' && snap.hatButtons > 1 && snap.hats0 && rnd() < 0.3) {
+    await page.click(`[data-ui="hats:${1 + Math.floor(rnd() * (snap.hatButtons - 1))}"]`);
+    return 'hats';
+  }
+  const options = [
+    ...snap.targets.map((t) => ({ type: 'target', key: t })),
+    ...snap.akeys.map((a) => ({ type: 'akey', key: a.key, via: a.via })),
+  ];
+  const weight = (o) => {
+    const k = o.key;
+    if (o.type === 'akey' && o.via === 'generic') return 0.05;
+    if (/^(skip|stop)/.test(k)) return 0.35;
+    if (k === 'endLay') return 2.5;
+    if (k === 'useStep') return 4;
+    if (/mode=lay/.test(k)) return 12;
+    if (/mode=hire/.test(k)) return 2;
+    if (/^district:D[468]$/.test(k)) return 6;
+    if (k === 'district:D2') return 3;
+    if (/^congress:/.test(k)) return 2;
+    if (k.startsWith('space:')) return 1;
+    return 1;
+  };
+  const chosen = pick(options.length ? options : snap.akeys.map((a) => ({ type: 'akey', key: a.key, via: a.via })), weight);
+  if (!chosen) throw new Error(`nothing to click for ${snap.kind}`);
+  if (chosen.type === 'target') {
+    const [type] = chosen.key.split(':');
+    const selector = type === 'route' ? `g[data-target="${chosen.key}"][data-legal="1"] rect >> nth=0` : type === 'city' ? `g[data-target="${chosen.key}"][data-legal="1"] .city__disc >> nth=0` : type === 'train' ? `g[data-target="${chosen.key}"][data-legal="1"] circle >> nth=0` : `[data-target="${chosen.key}"][data-legal="1"]`;
+    await page.locator(selector).first().click({ timeout: 4000, force: type === 'route' || type === 'city' || type === 'train' });
+    note('target');
+  } else {
+    await page.locator(`[data-akey="${chosen.key}"][data-legal="1"]`).first().click({ timeout: 4000 });
+    note(chosen.via);
+  }
+  return 'clicked';
+}
+
+/** A tiny seeded generator (mulberry32), so a failing game can be replayed. */
+function seededRandom(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+async function pr2eHotSeatGame(browser, takeShots) {
+  const page = await newPage(browser);
+  const rnd = seededRandom(20261031);
+  const seen = new Map();
+  const started = Date.now();
+  await page.goto(`${BASE}?rules=pr2e&players=2&bots=human,human&seed=12&names=Anna,Ben&variants=maxTurnsPerPlayer=24&test=1&speed=instant`);
+  await page.waitForFunction(() => window.__cr && window.__cr.ready);
+  let steps = 0;
+  let stuck = 0;
+  let lastSeq = '';
+  for (; steps < 6000; steps++) {
+    const what = await clickDecision(page, rnd, seen);
+    if (what === 'ended') break;
+    const seq = await page.evaluate(() => document.getElementById('app').dataset.seq + document.getElementById('app').dataset.cover);
+    stuck = seq === lastSeq && what !== 'hats' && what !== 'choice' ? stuck + 1 : 0;
+    lastSeq = seq;
+    assert(stuck < 25, `the page stopped responding at step ${steps} (kind ${await kind(page)})`);
+  }
+  await page.waitForSelector('[data-screen="end"]', { timeout: 20000 });
+  assert(steps < 6000, 'the hot-seat game reached its end');
+  assert((await page.evaluate(() => window.__cr.incidents().length)) === 0, 'no incidents');
+  const final = await stateOf(page);
+  assert(final.phase === 'ended' && final.gameEnd.reason === 'turn-limit', `ended by the turn limit set in the address (${final.gameEnd && final.gameEnd.reason})`);
+  assert(/safety turn limit/.test(await page.textContent('[data-field="end-reason"]')), 'the end reason is given in words');
+  // The VP breakdown is by the pr2e sources.
+  const sources = await page.$$eval('[data-field="final-table"] tbody th', (els) => els.map((e) => e.textContent.trim()));
+  const allowed = ['Track laid', 'Transcontinental line', 'Telegraph stations', 'Tolls', 'District houses', 'Upgrade tokens', 'Congress', 'Carriage 3 specialists', 'Buildings on the map (final)', 'Built tiles in storage (final)', 'Scoring goals (final)'];
+  assert(sources.length > 0 && sources.every((s) => allowed.includes(s)), `the end table lists pr2e VP sources (${sources})`);
+  assert(/Tie-break 1: district houses/.test(await page.textContent('.end__table')) && /Tie-break 2: buildings on the map/.test(await page.textContent('.end__table')), 'the end table names the pr2e tie-breaks');
+  const totals = await page.$$eval('[data-total]', (els) => els.map((e) => Number(e.textContent)));
+  const score = P.scoreGame(final);
+  assert(totals.join() === score.ranking.map((id) => score.players[id].total).join(), 'the totals are the engine\'s');
+  assert(!WRONG_WORDS.test(await bodyText(page)), 'no Continental Rails vocabulary on the end screen');
+  if (takeShots) await shot(page, 'pr2e-end-hot-seat', 1440, 900);
+  const how = [...REACHED.entries()].map(([k, v]) => `${k}: ${[...v].join('/')}`).join('; ');
+  log(`       hot-seat game: ${steps} clicks in ${((Date.now() - started) / 1000).toFixed(1)} s; decisions clicked ${[...seen.entries()].map(([k, n]) => `${k} ${n}`).join(', ')}`);
+  log(`       reached so far: ${how}`);
+  await page.close();
+}
+
+async function pr2eBotGameScreens(browser, takeShots) {
+  const page = await newPage(browser);
+  await page.goto(`${BASE}?rules=pr2e&players=3&bots=medium,easy,random&fast=1&seed=8&test=1`);
+  await page.waitForSelector('[data-screen="end"]', { timeout: 240000 });
+  assert((await page.evaluate(() => window.__cr.incidents().length)) === 0, 'no bot incidents');
+  const text = await bodyText(page);
+  assert(!WRONG_WORDS.test(text), `no Continental Rails vocabulary on the bot game's end screen (${(WRONG_WORDS.exec(text) || [])[0]})`);
+  assert((await page.locator('.end__goals li').count()) === 4, 'the four goals are accounted for on the end screen');
+  const reason = (await page.textContent('[data-field="end-reason"]')).trim();
+  assert(reason.length > 20, `an end reason: ${reason}`);
+  if (takeShots) await shot(page, 'pr2e-end', 1440, 900);
+  await page.close();
+}
+
+async function pr2eSharedVictory(browser, takeShots) {
+  // Two players level on every count: a shared victory with two winners.
+  const s = pr2eState(undefined, 2);
+  s.phase = 'ended';
+  s.stack = [];
+  s.toAct = null;
+  s.gameEnd = { reason: 'transcontinental', triggeredBy: 0, triggeredOnTurn: 1 };
+  const page = await newPage(browser);
+  await loadPr2e(page, s, ['human', 'human']);
+  await page.waitForSelector('[data-screen="end"]');
+  const title = (await page.textContent('[data-field="winner"]')).trim();
+  assert(/Player 1 and Player 2 share the victory|Anna and Ben share the victory/.test(title), `a shared victory names every winner: ${title}`);
+  assert((await page.locator('.podium__seat.is-winner').count()) === 2, 'two winners on the podium');
+  assert(/share the victory/.test(await page.textContent('[data-field="tie-break"]')), 'the tie-break line says so');
+  assert(/A line of laid routes/.test(await page.textContent('[data-field="end-reason"]')), 'and the end reason is the line');
+  if (takeShots) await shot(page, 'pr2e-end-shared', 1440, 900);
+  await page.close();
+}
+
+// ---- 21h the same main screens under Continental Rails, for comparison -------------------------------
+
+async function crComparisonShots(browser) {
+  const page = await newPage(browser);
+  const mid = midGameState();
+  await loadPrepared(page, mid, ['human', 'random', 'random']);
+  await waitKind(page, 'workerStep');
+  await page.mouse.move(5, 5);
+  await shot(page, 'cr-in-play', 1440, 900);
+  writeEvidence(path.join(SHOTS, 'cr-train-1440x900.png'), await page.locator('.region--trains').screenshot());
+  writeEvidence(path.join(SHOTS, 'cr-congress-1440x900.png'), await page.locator('.region--congress').screenshot());
+  const lay = baseState();
+  setHeads(lay, 0, 'SEA', 'OMA');
+  give(lay, 0, { resources: { iron: 1, wood: 1, gunpowder: 1 }, tiles: { ground: 4, tunnel: 2, bridge: 1 }, hats: 0 });
+  claim(lay, 1, 'POR-SPO');
+  await loadPrepared(page, lay);
+  await clickTarget(page, 'space:W6');
+  await clickTarget(page, 'district:D5');
+  await waitKind(page, 'layTracks');
+  await page.mouse.move(5, 5);
+  await shot(page, 'cr-lay-tracks', 1440, 900);
+  await loadPrepared(page, endedState(), ['random', 'random', 'random', 'random'], { paused: true });
+  await page.waitForSelector('[data-screen="end"]');
+  await shot(page, 'cr-end', 1440, 900);
+  // The page root says Continental Rails, and no second-edition control is on a Continental Rails screen.
+  assert((await page.evaluate(() => document.getElementById('app').dataset.rules)) === 'continental', 'the page root says Continental Rails');
+  assert((await page.locator('.pb, .pc-panel, .pgoals, .grid3--pr2e').count()) === 0, 'no second-edition element on a Continental Rails screen');
+  await page.close();
+}
+
+/** After every 21 section: which kinds of pending decision were reached by clicking, and how. */
+function reportReach() {
+  const kinds = Object.keys(P.FRAMES);
+  const missing = kinds.filter((k) => !REACHED.has(k));
+  const genericOnly = kinds.filter((k) => REACHED.has(k) && [...REACHED.get(k)].every((h) => h === 'generic'));
+  for (const k of kinds) log(`       ${k}: ${REACHED.has(k) ? [...REACHED.get(k)].join(', ') : 'NOT REACHED'}`);
+  assert(missing.length === 0, `every pr2e decision kind is reachable by clicking; not reached: ${missing.join(', ')}`);
+  assert(genericOnly.length === 0, `every pr2e decision kind has a bespoke control (a target, a panel or a button); only the generic layer: ${genericOnly.join(', ')}`);
+}
+
+// ---------------------------------------------------------------------------
 
 async function main() {
   const server = await startServer(0);
@@ -2636,6 +3429,17 @@ async function main() {
     await test('20e prefers-reduced-motion: no running animation anywhere', () => reducedMotion(browser));
     await test('20f text contrast is at least AA on the landing page, in play, the end screen and the cover; keyboard focus is visible', () => contrastCheck(browser));
     await test('20g final screenshots at 1440 x 900, 1024 x 768 and 390 x 844', () => finalScreenshots(browser));
+    await test('21a pr2e set-up: its own presets and variants, its own copy; the Continental Rails blurb says player board, not train', () => pr2eSetup(browser));
+    await test('21b pr2e player board (four tracks, telegraph row, carriages, token, hats, storage with Coins), Congress panel (8 columns, senators), goals, action grid (special actions, sites, Lay or Hire, hats 0 to 2)', () => pr2eBoardScreens(browser, true));
+    await test('21c pr2e path lay by clicking: train, routes one at a time, the running path, tiles, VP, tolls, the compulsory building, the pop-up and the log', () => pr2ePathLay(browser, true));
+    await test('21d pr2e Congress by clicking at a Financier step: columns 4 to 8, the Reset, the senators', () => pr2eCongress(browser, true));
+    await test('21e pr2e other decisions by clicking: hire, discard, the free specialist, the four special actions, a displaced owner\'s choice', () => pr2eOtherDecisions(browser));
+    await test('21f pr2e tooltips, refusals and vocabulary', () => pr2eWords(browser));
+    await test('21g a whole pr2e hot-seat game played by clicking, to the end screen', () => pr2eHotSeatGame(browser, true));
+    await test('21h a whole pr2e bot game: the end screen', () => pr2eBotGameScreens(browser, true));
+    await test('21i a shared victory shows several winners', () => pr2eSharedVictory(browser, true));
+    await test('21j every kind of pr2e decision is reachable by clicking, through a bespoke control', () => reportReach());
+    await test('21k the same main screens under Continental Rails, for comparison', () => crComparisonShots(browser));
     for (const [w, h] of [[1440, 900], [1024, 768]]) {
       await test(`6 screenshots at ${w} x ${h}`, () => screenshots(browser, w, h));
       await test(`18 module and messaging screenshots at ${w} x ${h}`, () => moduleScreenshots(browser, w, h));
