@@ -17,9 +17,10 @@
 // (tests/helpers/engine.mjs; TEST_RULES, default Continental Rails), so
 // tests/rulesets.test.mjs runs this whole suite against every other ruleset.
 // Part A is the contract every engine must meet. Part B checks Continental
-// Rails rules; while the second edition's engine is still a copy it passes
-// them too, and when its rules are rewritten Part B must be guarded with
-// RULES_ID (or split) so that only Part A binds it.
+// Rails rules and runs only for `continental` (`crCheck`); another ruleset's
+// own rules are checked by its own suites (tests/pr2e/ for the second
+// edition). Where a Part A check needs a concrete position or action, the
+// ruleset's own is used (`IS_CR` below); the promise checked is the same.
 //
 // Harness note: states are built with createGame and then adjusted by hand
 // (a worker put on the grid, resources granted). The turn record is never
@@ -76,6 +77,12 @@ import { playGame, drive, makeSuite } from './helpers/play.mjs';
 
 const suite = makeSuite(`contract${RULES_TAG}`);
 const NAMES = ['Anna', 'Ben', 'Cara', 'Dev'];
+/** Continental Rails, whose rules Part B checks. */
+const IS_CR = RULES_ID === 'continental';
+/** A Part B check: Continental Rails rules, run only for that ruleset. */
+const crCheck = IS_CR ? (label, fn) => suite.check(label, fn) : () => {};
+/** A district choice of the ruleset under test, with no hat (`hat` in Continental Rails, `hats` in pr2e). */
+const noHatChoice = (district) => (IS_CR ? { type: 'chooseDistrict', district, hat: false } : { type: 'chooseDistrict', district, hats: 0 });
 
 /**
  * A game past setup, seats in the order given, waiting at Anna's worker step.
@@ -88,7 +95,9 @@ function start(players, options = {}) {
     players: NAMES.slice(0, players).map((name) => ({ name })),
     seed: options.seed ?? 1,
     shuffleSeats: false,
-    variants: { startCompensation: 'none', scoringCard: 'none', legislativeAgendaCard: 10, ...(options.variants ?? {}) },
+    variants: IS_CR
+      ? { startCompensation: 'none', scoringCard: 'none', legislativeAgendaCard: 10, ...(options.variants ?? {}) }
+      : { ...(options.variants ?? {}) },
     constants: options.constants,
   });
   drive(
@@ -161,9 +170,14 @@ suite.check('the tables that must agree do agree', () => {
   for (const bonus of Object.keys(BONUS_ACTION_TYPES)) assert.ok(RULES.BONUS_ACTIONS[bonus], `bonus action ${bonus}`);
   for (const [type, def] of Object.entries(ACTIONS)) {
     assert.ok(Array.isArray(def.params) && typeof def.block === 'function' && typeof def.space === 'function' && typeof def.describe === 'function', type);
-    assert.match(def.rule, /^R\d/, `${type}: rule`);
+    assert.match(def.rule, IS_CR ? /^R\d/ : /^P\d/, `${type}: rule`);
   }
-  assert.deepEqual(STOP_ACTION_TYPES, ['skipBonusAction', 'skipStep', 'closeCongress', 'stopLaying', 'skipBuilding', 'endFreeActions', 'skipEffect', 'declineFreeEntry']);
+  for (const type of STOP_ACTION_TYPES) assert.equal(ACTIONS[type].stop, true, `${type} is a stop action`);
+  if (IS_CR) {
+    assert.deepEqual(STOP_ACTION_TYPES, ['skipBonusAction', 'skipStep', 'closeCongress', 'stopLaying', 'skipBuilding', 'endFreeActions', 'skipEffect', 'declineFreeEntry']);
+  } else {
+    assert.deepEqual(STOP_ACTION_TYPES, ['skipStep', 'skipSpecialAction', 'skipBuilding', 'stopHiring', 'stopLaying']);
+  }
 });
 
 suite.check('getValidActions is exactly the set of actions whose block reason is null, and applyAction accepts each of them', () => {
@@ -173,7 +187,13 @@ suite.check('getValidActions is exactly the set of actions whose block reason is
     for (let g = 0; g < 3; g++) {
       let n = 0;
       playGame(
-        { playerCount: players, seed: `agree-${players}-${g}`, variants: { maxTurnsPerPlayer: 40, bonusActionLimit: g === 2 ? 'multiplied' : 'once-per-turn' } },
+        {
+          playerCount: players,
+          seed: `agree-${players}-${g}`,
+          variants: IS_CR
+            ? { maxTurnsPerPlayer: 40, bonusActionLimit: g === 2 ? 'multiplied' : 'once-per-turn' }
+            : { maxTurnsPerPlayer: 40, layShape: ['path', 'one-new-route', 'adjacent-only'][g], tycoonMode: g === 2 },
+        },
         {
           onDecision(state, actions) {
             n += 1;
@@ -250,8 +270,9 @@ suite.check('an illegal action is refused with a reason and the state is left un
   refuse({ type: 'flyToTheMoon' }, /not an action/);
   refuse({ type: 'placeWorker' }, /needs `space`/);
   refuse({ type: 'placeWorker', space: 'W99' }, /not a worker space/);
-  refuse({ type: 'discard', item: 'iron' }, /over capacity, and you hold 3 of 9/);
-  refuse({ type: 'chooseDistrict', district: 'D1', hat: false }, /right after your worker step/);
+  // (pr2e: 1 Wood, 1 Iron, 1 Gunpowder and 1 Coin in a storage of 6, P3.2.)
+  refuse({ type: 'discard', item: 'iron' }, IS_CR ? /over capacity, and you hold 3 of 9/ : /over capacity, and you hold 4 of 6/);
+  refuse(noHatChoice('D1'), /right after your worker step/);
   refuse({ type: 'placeWorker', space: 'W1', player: 1 }, /It is Anna's decision \(place, displace or remove a worker\), not yours/);
   refuse({ type: 'placeWorker', space: 'W1', player: 7 }, /no player 7/);
   refuse(null, /must be an object/);
@@ -280,11 +301,13 @@ suite.check('a forced action is applied by the engine and marked auto (the auto-
   // W6 lies between Ground Tracks and Lay Tracks / Move Train. With no route to
   // claim or move along, Lay Tracks cannot be chosen (R4.6.3), so with no hat
   // to spend there is one legal district: the engine chooses it.
+  // (pr2e: W6 lies between Crew and Lay Track or Hire Specialists; with no built
+  // tile and no carriage neither lay nor hire can be chosen, P4.4.3 and P4.4.4.)
   const state = start(2);
   const events = act(state, { type: 'placeWorker', space: 'W6' });
   const auto = events.filter((e) => e.type === 'action' && e.auto);
   assert.ok(auto.length >= 1, 'the only legal district must be chosen by the engine');
-  assert.deepEqual(auto[0].action, { type: 'chooseDistrict', district: 'D4', hat: false });
+  assert.deepEqual(auto[0].action, noHatChoice('D4'));
   assert.equal(auto[0].player, 0);
   // Whatever is pending now is a real choice.
   assert.ok(getValidActions(state).length >= 2);
@@ -292,6 +315,8 @@ suite.check('a forced action is applied by the engine and marked auto (the auto-
 
 suite.check('the last railhead of a 4-player draft is forced, so the engine places it', () => {
   const state = createGame({ playerCount: 4, seed: 3, shuffleSeats: false });
+  // pr2e: the starting production choices come before the draft (P3.3, P3.5).
+  if (!IS_CR) drive(state, (s) => topFrame(s).kind === 'setupProduction');
   const west = MAP.westStartCities;
   // Reverse seat order: everybody starts in the west.
   for (let i = 0; i < 4; i++) {
@@ -309,7 +334,7 @@ suite.check('the last railhead of a 4-player draft is forced, so the engine plac
   assert.equal(forced.player, 3);
   assert.equal(forced.action.type, 'placeRailhead');
   assert.ok(state.players.every((p) => p.railheads.every((c) => c !== null)));
-  assert.equal(topFrame(state).kind, 'setupProduction');
+  assert.equal(topFrame(state).kind, IS_CR ? 'setupProduction' : 'workerStep');
 });
 
 suite.check('actionKey, describeAction and describeDecision cover everything on offer', () => {
@@ -377,7 +402,7 @@ suite.check('the bot registry and the worker entry return legal actions and repe
 // Part B - the rules implemented so far
 // =============================================================================
 
-suite.check('R3.3 to R3.7: every player starts as the setup table says', () => {
+crCheck('R3.3 to R3.7: every player starts as the setup table says', () => {
   const K = RULES;
   for (const players of [2, 3, 4]) {
     const state = createGame({ playerCount: players, seed: 11, shuffleSeats: false });
@@ -422,7 +447,7 @@ suite.check('R3.3 to R3.7: every player starts as the setup table says', () => {
   }
 });
 
-suite.check('R3.2: seats are shuffled with the game RNG unless the order is fixed', () => {
+crCheck('R3.2: seats are shuffled with the game RNG unless the order is fixed', () => {
   const players = NAMES.map((name) => ({ name }));
   const fixed = createGame({ players, seed: 1, shuffleSeats: false });
   assert.deepEqual(fixed.players.map((p) => p.name), NAMES);
@@ -439,7 +464,7 @@ suite.check('R3.2: seats are shuffled with the game RNG unless the order is fixe
   assert.throws(() => createGame({ playerCount: 1, seed: 1 }), /2 to 4 players/);
 });
 
-suite.check('R3.5: block reasons of the railhead draft', () => {
+crCheck('R3.5: block reasons of the railhead draft', () => {
   const state = createGame({ players: NAMES.map((name) => ({ name })), seed: 1, shuffleSeats: false });
   assert.match(getBlockReason(state, { type: 'placeRailhead', city: 'DEN' }), /Denver is an inland city: railheads start on one of the 8 start cities/);
   act(state, { type: 'placeRailhead', city: 'SEA' }); // Dev
@@ -455,7 +480,7 @@ suite.check('R3.5: block reasons of the railhead draft', () => {
   assert.equal(getBlockReason(state, { type: 'placeRailhead', city: 'MIN' }), null);
 });
 
-suite.check('E1 (R22): Gather Iron with M = 2, then the Hire Specialist bonus action', () => {
+crCheck('E1 (R22): Gather Iron with M = 2, then the Hire Specialist bonus action', () => {
   const state = start(4, { production: 'iron', specialist: 'crew' });
   const anna = state.players[0];
   put(state, 0, 'W5'); // between Gather Iron and Bridge Tracks
@@ -485,7 +510,7 @@ suite.check('E1 (R22): Gather Iron with M = 2, then the Hire Specialist bonus ac
   assert.equal(anna.turnsTaken, 1);
 });
 
-suite.check('E3 (R22): Gather Wood, then Buy Hat; no Buy Hat at the limit of 2', () => {
+crCheck('E3 (R22): Gather Wood, then Buy Hat; no Buy Hat at the limit of 2', () => {
   const state = start(4);
   const cara = state.players[0];
   cara.hats = 1;
@@ -510,7 +535,7 @@ suite.check('E3 (R22): Gather Wood, then Buy Hat; no Buy Hat at the limit of 2',
   assert.equal(later.turn.player, 1);
 });
 
-suite.check('E4 (R22): Gather Coins, then Add Carriage; the new specialist carriage is level 2 and stays empty', () => {
+crCheck('E4 (R22): Gather Coins, then Add Carriage; the new specialist carriage is level 2 and stays empty', () => {
   const state = start(4);
   const dev = state.players[0];
   const events = placeAndChoose(state, 'W12', 'D9');
@@ -532,7 +557,7 @@ suite.check('E4 (R22): Gather Coins, then Add Carriage; the new specialist carri
   assert.match(getBlockReason(other, { type: 'addCarriage', carriage: 'dining' }), /not a kind of carriage/);
 });
 
-suite.check('R5.6: the multiplier counts your other workers on the spaces, the centre and neighbouring centres', () => {
+crCheck('R5.6: the multiplier counts your other workers on the spaces, the centre and neighbouring centres', () => {
   const state = start(2);
   // D1 (Gather Gunpowder): spaces W1, W3; neighbours D2 and D4.
   assert.equal(adjacentWorkers(state, 0, 'D1', null), 0);
@@ -558,7 +583,7 @@ suite.check('R5.6: the multiplier counts your other workers on the spaces, the c
   assert.deepEqual([gathered(events).item, gathered(events).multiplier], ['gunpowder', 1], 'a removed worker is already off the grid');
 });
 
-suite.check('R5.3, R5.4: place and remove give the choice of the two bordering districts', () => {
+crCheck('R5.3, R5.4: place and remove give the choice of the two bordering districts', () => {
   // W11 lies between Gather Wood (D7) and Tunnel Tracks (D8). Both can always be
   // chosen, so the choice is a real decision.
   const state = start(3);
@@ -597,7 +622,7 @@ suite.check('R5.3, R5.4: place and remove give the choice of the two bordering d
   assert.equal(none.players[0].resources.iron, 1 + 2 * 1, 'removed from W2: Gather Iron at production 2, M = 1');
 });
 
-suite.check('E9 (R22), R5.5: displacement returns the workers and pays hats, or a resource at the limit, in turn order', () => {
+crCheck('E9 (R22), R5.5: displacement returns the workers and pays hats, or a resource at the limit, in turn order', () => {
   const state = start(4);
   const [anna, ben, cara, dev] = state.players;
   // Gather Gunpowder (D1) is blocked by Dev (W1) and Ben (W3). Both hold 2 hats.
@@ -636,7 +661,7 @@ suite.check('E9 (R22), R5.5: displacement returns the workers and pays hats, or 
   assert.equal(cara.hats, 0, 'a player with no worker there gets nothing');
 });
 
-suite.check('E9 (R22): one owner of two returned workers with 1 hat gains a hat, then takes a resource; with no hat gains two', () => {
+crCheck('E9 (R22): one owner of two returned workers with 1 hat gains a hat, then takes a resource; with no hat gains two', () => {
   const state = start(3);
   const [, ben] = state.players;
   put(state, 1, 'W1');
@@ -657,7 +682,7 @@ suite.check('E9 (R22): one owner of two returned workers with 1 hat gains a hat,
   assert.equal(fresh.players[0].coins, RULES.SETUP.startingCoins + 1, 'and the active player gathered Coins');
 });
 
-suite.check('R5.5.1: the four conditions of a displacement, each with its own reason', () => {
+crCheck('R5.5.1: the four conditions of a displacement, each with its own reason', () => {
   const state = start(4);
   assert.match(getBlockReason(state, { type: 'displaceWorker', district: 'D1' }), /Gather Gunpowder is not blocked: 2 of its 2 worker spaces are empty \(W1, W3\)/);
   put(state, 1, 'W1');
@@ -679,7 +704,7 @@ suite.check('R5.5.1: the four conditions of a displacement, each with its own re
   assert.match(getBlockReason(state, { type: 'displaceWorker', district: 'D5' }), /not blocked/);
 });
 
-suite.check('R5.4.1, R5.4.3, R5.6.2: a worker on a centre multiplies its neighbours and must be removed first', () => {
+crCheck('R5.4.1, R5.4.3, R5.6.2: a worker on a centre multiplies its neighbours and must be removed first', () => {
   const state = start(3);
   put(state, 0, 'D1'); // centre of Gather Gunpowder; D1 neighbours D2 and D4
   put(state, 0, 'W8'); // between Ground Tracks (D4) and Gather Wood (D7)
@@ -698,7 +723,7 @@ suite.check('R5.4.1, R5.4.3, R5.6.2: a worker on a centre multiplies its neighbo
   assert.equal(state.grid.centres.D1, null);
 });
 
-suite.check('R5.4.4: a worker forced off the centre of a district whose action cannot be taken gives no action', () => {
+crCheck('R5.4.4: a worker forced off the centre of a district whose action cannot be taken gives no action', () => {
   const state = start(4);
   const anna = state.players[0];
   // Anna's worker stands on the centre of Lay Tracks / Move Train, whose action she cannot take.
@@ -721,7 +746,7 @@ suite.check('R5.4.4: a worker forced off the centre of a district whose action c
   assert.equal(state.turn.player, 1);
 });
 
-suite.check('R14.2: only a hat held when the turn began can be spent; a spent hat adds 1 to M', () => {
+crCheck('R14.2: only a hat held when the turn began can be spent; a spent hat adds 1 to M', () => {
   const state = start(2);
   const anna = state.players[0];
   // A hat gained during this turn (the turn began with none).
@@ -765,7 +790,7 @@ suite.check('R14.2: only a hat held when the turn began can be spent; a spent ha
   assert.equal(anna.hats, 0);
 });
 
-suite.check('R8.5.4: storage overflow is discarded at once, by choice, before the bonus action', () => {
+crCheck('R8.5.4: storage overflow is discarded at once, by choice, before the bonus action', () => {
   const state = start(2, { production: 'wood' });
   const anna = state.players[0];
   anna.resources = { iron: 4, wood: 2, gunpowder: 2 }; // 8 of 9
@@ -784,7 +809,7 @@ suite.check('R8.5.4: storage overflow is discarded at once, by choice, before th
   assert.match(getBlockReason(state, { type: 'discard', item: 'iron' }), /You may discard only when your storage is over capacity, and you hold 9 of 9/);
 });
 
-suite.check('R8.5.4: an overflow on somebody else\'s turn is that player\'s own decision', () => {
+crCheck('R8.5.4: an overflow on somebody else\'s turn is that player\'s own decision', () => {
   const state = start(3);
   const ben = state.players[1];
   put(state, 1, 'W1');
@@ -808,7 +833,7 @@ suite.check('R8.5.4: an overflow on somebody else\'s turn is that player\'s own 
   assert.equal(gathered(last).player, 0, 'and play returns to the active player, who takes the district action');
 });
 
-suite.check('R7.4, R8.6: hiring fills slots in order, respects the supply, and follows hireCostModel', () => {
+crCheck('R7.4, R8.6: hiring fills slots in order, respects the supply, and follows hireCostModel', () => {
   const K = RULES;
   const expected = {
     'fee-plus-table': { coins: 1 + 1, wood: 1 },
@@ -856,7 +881,7 @@ suite.check('R7.4, R8.6: hiring fills slots in order, respects the supply, and f
   assert.deepEqual(hireCost(priced, 0, 'crew', 'table').cost, K.TRAIN.hireCosts.crew[1]);
 });
 
-suite.check('R7.1, R7.2: a bonus action only at its own district, once-per-game marks it used', () => {
+crCheck('R7.1, R7.2: a bonus action only at its own district, once-per-game marks it used', () => {
   const state = start(2);
   assert.match(getBlockReason(state, { type: 'buyHat' }), /Buy Hat can be taken only as the last part of a Gather action at the district that prints it/);
   placeAndChoose(state, 'W12', 'D9'); // Gather Coins -> Add Carriage
@@ -884,7 +909,7 @@ suite.check('R7.1, R7.2: a bonus action only at its own district, once-per-game 
   assert.equal(topFrame(withUpgrades).bonus, 'upgrade');
 });
 
-suite.check('R19.3, R19.5: claimed routes trigger the end, and the round is played out', () => {
+crCheck('R19.3, R19.5: claimed routes trigger the end, and the round is played out', () => {
   const claim = (state, count) => {
     MAP.routeIds.slice(0, count).forEach((id) => {
       state.map.routeOwner[id] = 0;
@@ -928,7 +953,7 @@ suite.check('R19.3, R19.5: claimed routes trigger the end, and the round is play
   assert.equal(d.gameEnd, null);
 });
 
-suite.check('R20: VP by source, final scoring from the building table, and the tie-breaks in order', () => {
+crCheck('R20: VP by source, final scoring from the building table, and the tie-breaks in order', () => {
   const state = start(4, { variants: { maxTurnsPerPlayer: 1 } });
   const inland = MAP.inlandCities;
   // Ben has 3 buildings, Cara 1; nobody else has any.
@@ -970,7 +995,7 @@ suite.check('R20: VP by source, final scoring from the building table, and the t
   assert.equal(buildingTableVp(curve, 99), RULES.SCORING.buildingTable['2018'][18], 'never past the end of the table');
 });
 
-suite.check('R20.5: the later tie-break steps - owned slots, then cargo, then turn order', () => {
+crCheck('R20.5: the later tie-break steps - owned slots, then cargo, then turn order', () => {
   const tied = () => start(3, { variants: { maxTurnsPerPlayer: 1 } });
   const finish = (state) => {
     drive(state, () => true);
@@ -1000,7 +1025,7 @@ suite.check('R20.5: the later tie-break steps - owned slots, then cargo, then tu
   assert.deepEqual(sc.players.map((p) => p.tieBreak.turnOrder), [0, 1, 2]);
 });
 
-suite.check('getStructuralBlockReason answers "could I, if it were my move?" and leaves timing aside', () => {
+crCheck('getStructuralBlockReason answers "could I, if it were my move?" and leaves timing aside', () => {
   const state = start(3, { variants: { hireCostModel: 'fee-plus-table' } }); // a hire that costs more than she holds
   // It is Anna's worker step. Hiring belongs to a later moment of a Gather Iron action.
   const crew = { type: 'hireSpecialist', specialist: 'crew' };
@@ -1018,7 +1043,7 @@ suite.check('getStructuralBlockReason answers "could I, if it were my move?" and
   assert.match(getBlockReason(state, crew), /can be taken only as the last part/);
 });
 
-suite.check('R8.5.4 with R14.1: a gain of resources and a hat settles the overflow before the hat\'s choice', () => {
+crCheck('R8.5.4 with R14.1: a gain of resources and a hat settles the overflow before the hat\'s choice', () => {
   const state = start(3);
   const ben = state.players[1];
   ben.hats = RULES.HATS.hatLimit;
@@ -1036,7 +1061,7 @@ suite.check('R8.5.4 with R14.1: a gain of resources and a hat settles the overfl
   assert.equal(state.toAct, 0, 'and the decision returns to the active player');
 });
 
-suite.check('constants reach the rules: a higher hat limit, a bigger storage carriage', () => {
+crCheck('constants reach the rules: a higher hat limit, a bigger storage carriage', () => {
   const state = start(2, { constants: { HATS: { hatLimit: 4 }, TRAIN: { storagePerCarriage: 12 } } });
   assert.equal(getConstants(state).HATS.hatLimit, 4);
   assert.equal(storageCapacity(state, 0), 12);

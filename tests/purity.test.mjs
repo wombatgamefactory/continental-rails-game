@@ -36,11 +36,17 @@ const {
   makeRng,
   rngNext,
   SILENT,
+  FRAMES,
 } = ENGINE;
 import { playGame, assertPlainJson, makeSuite, HARNESS } from './helpers/play.mjs';
 import { makeBuilder } from './helpers/builder.mjs';
 
 const suite = makeSuite(`purity${RULES_TAG}`);
+// The checks that drive Continental Rails' own decisions, variants and modules run only for that ruleset
+// (`crCheck`); another ruleset gets the same check over its own decisions and variants (`otherCheck`).
+const IS_CR = RULES_ID === 'continental';
+const crCheck = IS_CR ? (label, fn) => suite.check(label, fn) : () => {};
+const otherCheck = IS_CR ? () => {} : (label, fn) => suite.check(label, fn);
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // --- 1. serialisable state --------------------------------------------------
@@ -81,7 +87,7 @@ for (const players of [2, 3, 4]) {
 // building placement, Lay Tracks totals) and the variants that change their
 // shape are all plain JSON too. The builder reaches the deep states random play
 // rarely does: claims, buildings, Congress benefits.
-suite.check('core-rule states are plain JSON at every decision, under the variants that change their shape', () => {
+crCheck('core-rule states are plain JSON at every decision, under the variants that change their shape', () => {
   const sets = [
     { turnStructure: 'rounds' },
     { claimFrom: 'network', layTrackClaims: 'per-railhead' },
@@ -113,10 +119,36 @@ suite.check('core-rule states are plain JSON at every decision, under the varian
   }
 });
 
+// The same for a ruleset other than Continental Rails: its own decisions under its own variants, played by
+// its Medium bot (which takes actions rather than stopping, so it reaches the deep decisions).
+otherCheck('core-rule states are plain JSON at every decision, under the variants that change their shape', () => {
+  const sets = [{}, { layShape: 'one-new-route', arrivalBuilding: 'optional' }, { layShape: 'adjacent-only', newConnectionRule: 'must-join-unjoined' }, { tycoonMode: true }];
+  const seen = new Set();
+  for (const [i, variants] of sets.entries()) {
+    for (const players of [2, 4]) {
+      playGame(
+        { playerCount: players, seed: `pure-own-${i}-${players}`, variants: { ...variants, maxTurnsPerPlayer: 40 } },
+        {
+          level: 'medium',
+          onDecision(state) {
+            assertPlainJson(state);
+            const text = JSON.stringify(state);
+            assert.deepEqual(JSON.parse(text), state);
+            assert.equal(JSON.stringify(cloneState(state)), text, 'cloneState keeps every field and its order');
+            assert.equal(hashState(deserialiseState(text)), hashState(state));
+            seen.add(state.stack[state.stack.length - 1].kind);
+          },
+        },
+      );
+    }
+  }
+  for (const kind of Object.keys(FRAMES)) assert.ok(seen.has(kind), `the decision "${kind}" was never reached`);
+});
+
 // The module decisions (free actions, hires, exchanges, free Congress entries, the Foreman's type, option
 // choices, upgrade bonus actions) and every field of state.modules are plain JSON too. Tokens are handed out by
 // hand so that the Pony Express decisions are reached; the builder plays the rest.
-suite.check('module states are plain JSON at every decision, with every module on, and clone, hash and round trip agree', () => {
+crCheck('module states are plain JSON at every decision, with every module on, and clone, hash and round trip agree', () => {
   const seen = new Set();
   const variants = { endGameScoring: 'both', goalsInPlay: 12, milestonesInPlay: 10 };
   for (const [i, mode] of ['line', 'sprawl', 'line', 'sprawl'].entries()) {
@@ -147,7 +179,7 @@ suite.check('module states are plain JSON at every decision, with every module o
   assert.ok(['hireSpecialist', 'chooseForemanType', 'exchange', 'freeCongress', 'chooseExtraActivation', 'chooseSpecialistType'].some((k) => seen.has(k)), 'no card decision was reached');
 });
 
-suite.check('every decision the modules add is plain JSON and survives a round trip: built by hand, one by one', () => {
+crCheck('every decision the modules add is plain JSON and survives a round trip: built by hand, one by one', () => {
   const frames = [
     { kind: 'freeActions', player: 0, which: 'before' },
     { kind: 'hireSpecialist', player: 0, cause: 'pony:PX27', remaining: 2, free: true, mayStop: true },

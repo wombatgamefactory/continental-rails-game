@@ -386,7 +386,8 @@ export function computeSections(recs, ctx) {
       perPlayer: Object.fromEntries(bonusKinds.map((k) => [k, mean(withEconomy.map((i) => i.r.bonus[i.s][k] ?? 0))])),
       rate: Object.fromEntries(bonusKinds.map((k) => [k, mean(withEconomy.map((i) => ((i.r.bonus[i.s][k] ?? 0) > 0 ? 1 : 0)))])),
     };
-    const table = RULES.CONGRESS.tables[ctx.variants?.congressTable ?? 'design-2026-10'] ?? [];
+    // (A ruleset without these tables, such as pr2e in part 1, simply reports none.)
+    const table = RULES.CONGRESS?.tables?.[ctx.variants?.congressTable ?? 'design-2026-10'] ?? [];
     const entryIds = table.map((e) => e.id);
     const taken = Object.fromEntries(entryIds.map((id) => [id, sum(withEconomy.map((i) => i.r.congress[i.s][id] ?? 0))]));
     out.congress = {
@@ -402,7 +403,7 @@ export function computeSections(recs, ctx) {
   out.modules = {};
   const smallNote = `Win rates with / without are per player; ${SMALL_N} or fewer on either side is flagged \`small\`.`;
 
-  const upgradeIds = RULES.UPGRADE_TILES.map((t) => t.id);
+  const upgradeIds = (RULES.UPGRADE_TILES ?? []).map((t) => t.id);
   if (recs.some((r) => r.upgrades)) {
     const have = (i) => new Set((i.r.upgrades?.[i.s] ?? []).map((x) => x[0]));
     const counts = Object.fromEntries(upgradeIds.map((id) => [id, 0]));

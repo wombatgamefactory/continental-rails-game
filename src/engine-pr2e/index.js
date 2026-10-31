@@ -1,13 +1,18 @@
 // index.js - the public face of the "Pacific Rails, second edition" engine
 // (ruleset id `pr2e`).
 //
-// This engine began as a straight copy of src/engine/ (Continental Rails) and
-// behaves identically until its rules are rewritten. It meets the whole engine
-// contract (docs/engine-contract.md) on its own: it never imports anything
-// from src/engine/, and nothing outside it imports its files except through
-// the ruleset registry (src/rulesets/index.js). Its map data is its own copy
-// in ./data/, loaded by relative module import, so it works in Node and in
-// the browser alike.
+// The published 2020 second-edition rules, adapted to the Continental Rails
+// route map. Rule numbers (`P14.6`) refer to the ruleset's rules text, which
+// is not part of this repository. This engine meets the whole engine contract
+// (docs/engine-contract.md) on its own; the action types and decisions that
+// differ from Continental Rails are in docs/engine-contract-pr2e.md. It never
+// imports anything from src/engine/, and nothing outside it imports its files
+// except through the ruleset registry (src/rulesets/index.js). Its map data
+// is its own copy in ./data/, loaded by relative module import.
+//
+// Part 1 of 2: the core game. Marked `PART 2:` in the code and not yet
+// played: the Financier action and Congress (P10), the cowboy hats from
+// Congress column K4 (P11.3), carriage upgrades (P12), the goal tiles (P18).
 //
 // Engine files import each other directly and in one direction:
 //
@@ -15,24 +20,14 @@
 //     -> scoring -> legality -> actions -> game -> index
 
 export { createGame, isGameOver, replayGame } from './game.js';
-export {
-  applyAction,
-  SILENT,
-  MUTATORS,
-  RESUME,
-  DISTRICT_RESOLVERS,
-  ENGINE_LIMITS,
-  EFFECT_HANDLERS,
-  STANDING_EFFECT_TYPES,
-  TRIGGER_SITES,
-  MODIFIER_READERS,
-} from './actions.js';
+export { applyAction, SILENT, MUTATORS, RESUME, DISTRICT_RESOLVERS, ENGINE_LIMITS } from './actions.js';
 export * from './legality.js';
 export * from './queries.js';
 export { scoreGame, addVp, buildingTableVp, finalSourceValues, goalStandings, goalsInPlay, TIE_BREAK_STEPS } from './scoring.js';
 export {
   SCHEMA_VERSION,
   MAP_ID,
+  RULESET_ID,
   UNIMPLEMENTED_VARIANT_VALUES,
   getConstants,
   topFrame,

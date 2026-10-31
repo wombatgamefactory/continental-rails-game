@@ -3,33 +3,34 @@
 //
 // THE STATE IS PLAIN JSON. Every value must survive
 // JSON.parse(JSON.stringify(state)): objects, arrays, strings, finite numbers,
-// booleans and null. Never undefined, never a function, a Date, a Map, a Set
-// or a class instance. Undo, saved games, bug reports, replay and the Web
-// Worker hand-off all depend on it. The full field list is in
-// docs/engine-contract.md, "State shape".
+// booleans and null. The field list of this ruleset is in
+// docs/engine-contract-pr2e.md, "State shape".
 //
 // `createInitialState` only builds the table as it is before anybody has
 // decided anything. The public `createGame` (game.js) then runs the engine
 // forward to the first decision.
 
 import { RULES } from './rules.js';
-import { resolveVariants, activeModules } from './variants.js';
-import { makeRng, cloneRng, forkRng, shuffle, rngPick } from './rng.js';
+import { resolveVariants } from './variants.js';
+import { makeRng, cloneRng, forkRng, shuffle } from './rng.js';
 import { MAP, DISTRICT_IDS, SPACE_IDS } from './board.js';
 
 export const SCHEMA_VERSION = 1;
 
-/** Identifies the map data in play; stored in the state so a save made on another map is refused. */
+/** Identifies the ruleset and the map data in play; stored in the state so a save made elsewhere is refused. */
 export const MAP_ID = 'route-map-v2';
 
+/** The ruleset this engine plays, recorded in every state (`state.rules`). */
+export const RULESET_ID = 'pr2e';
+
 /**
- * Variant values that are legal (spec R21.3) but whose rules are not written
- * yet. createGame refuses them loudly instead of silently playing something
- * else. Empty: every variant value is implemented. It may be used again for a value whose rules are not written yet.
+ * Variant values that are legal (P21.1) but whose rules are not written yet.
+ * createGame refuses them loudly instead of silently playing something else.
+ * PART 2: `upgradePlacement` and `hatOverflow` only matter to the upgrade
+ * tokens and Congress column K4, which are part 2; their values are accepted
+ * because nothing in part 1 reads them.
  */
-export const UNIMPLEMENTED_VARIANT_VALUES = {
-  // (none: turnStructure = rounds is implemented, R4.8)
-};
+export const UNIMPLEMENTED_VARIANT_VALUES = {};
 
 // ---------------------------------------------------------------------------
 // Constants per game
@@ -52,30 +53,30 @@ function kindOf(v) {
  * An override must be of the same kind as the value of rules.js it replaces: a
  * finite number for a number, a string for a string, a boolean for a boolean,
  * and for a table (an array) an array of the same length whose elements are of
- * the same kind as the default's. A game never plays with `'x'` as a number.
+ * the same kind as the default's.
  */
 function checkConstantKind(base, value, where) {
   if (kindOf(base) !== kindOf(value)) {
-    throw new Error(`Constant "${where}" must be ${kindOf(base)} like its default in src/engine/rules.js; ${JSON.stringify(value)} is ${kindOf(value)}.`);
+    throw new Error(`Constant "${where}" must be ${kindOf(base)} like its default in src/engine-pr2e/rules.js; ${JSON.stringify(value)} is ${kindOf(value)}.`);
   }
   if (typeof base === 'number' && !Number.isFinite(value)) {
     throw new Error(`Constant "${where}" must be a finite number; ${String(value)} is not.`);
   }
   if (Array.isArray(base)) {
     if (value.length !== base.length) {
-      throw new Error(`Constant "${where}" must be an array of ${base.length} entries like its default in src/engine/rules.js; ${value.length} were given.`);
+      throw new Error(`Constant "${where}" must be an array of ${base.length} entries like its default in src/engine-pr2e/rules.js; ${value.length} were given.`);
     }
     for (let i = 0; i < base.length; i++) checkConstantKind(base[i], value[i], `${where}[${i}]`);
   }
 }
 
-/** Deep copy of `base` with `patch` laid over it. Arrays are replaced whole. Unknown keys are an error. An override of another kind than its default is an error. */
+/** Deep copy of `base` with `patch` laid over it. Arrays are replaced whole. Unknown keys are an error. */
 function mergeConstants(base, patch, path) {
   const out = Array.isArray(base) ? base.slice() : { ...base };
   for (const key of Object.keys(patch)) {
     const where = path ? `${path}.${key}` : key;
     if (!Object.prototype.hasOwnProperty.call(base, key)) {
-      throw new Error(`Unknown constant "${where}". Check the spelling against src/engine/rules.js.`);
+      throw new Error(`Unknown constant "${where}". Check the spelling against src/engine-pr2e/rules.js.`);
     }
     const b = base[key];
     const p = patch[key];
@@ -96,10 +97,6 @@ function mergeConstants(base, patch, path) {
  * `constantOverrides` laid over it. EVERY logic file reads tuning numbers
  * through this function, so a saved state replays with the numbers it was
  * played with.
- *
- * Note for simulators: patching the exported objects of rules.js directly
- * also works for games without overrides, but is not recorded in the state.
- * Prefer `config.constants`.
  */
 export function getConstants(state) {
   const key = state.constantsKey;
@@ -156,19 +153,20 @@ function jsonClone(v) {
   return JSON.parse(JSON.stringify(v));
 }
 
-/** The VP source ids in play for a set of variants, in the order of R20.1 and R20.2. */
+/** The VP source ids in play (P20.1, P20.2), in report order. Every source is always in play in this ruleset. */
 export function vpSourcesInPlay(constants, variants) {
-  const on = activeModules(variants);
-  return constants.VP_SOURCES.filter((s) => s.module === null || on[s.module]).map((s) => s.id);
+  void variants;
+  return constants.VP_SOURCES.map((s) => s.id);
 }
 
-/** The bonus action ids that exist for a set of variants (R7.3: the upgrade bonus needs its module). */
-export function bonusActionsInPlay(constants, variants) {
-  const on = activeModules(variants);
-  return Object.keys(constants.BONUS_ACTIONS).filter((id) => {
-    const m = constants.BONUS_ACTIONS[id].module;
-    return m === null || on[m];
-  });
+/** Contract compatibility: this ruleset has no bonus actions (P24.4). */
+export function bonusActionsInPlay() {
+  return [];
+}
+
+/** Contract compatibility: no card of this ruleset is removed by a variant. */
+export function cardRemoved() {
+  return false;
 }
 
 function normalisePlayers(config, constants) {
@@ -182,9 +180,7 @@ function normalisePlayers(config, constants) {
   }
   const { minPlayers, maxPlayers } = constants.SETUP;
   if (list.length < minPlayers || list.length > maxPlayers) {
-    throw new Error(
-      `Continental Rails is for ${minPlayers} to ${maxPlayers} players; ${list.length} were given.`,
-    );
+    throw new Error(`Pacific Rails, second edition is for ${minPlayers} to ${maxPlayers} players; ${list.length} were given.`);
   }
   return list.map((p, i) => ({
     configIndex: i,
@@ -193,18 +189,14 @@ function normalisePlayers(config, constants) {
   }));
 }
 
+/** P3.2, P7.1. A player as they sit down: no carriage, storage 6, 1 of each resource. */
 function newPlayer(seatIndex, entry, playerCount, constants, variants) {
   const K = constants;
   const houses = {};
+  // P3.3: every space filled for now; the setupProduction choice takes one house away.
   for (const track of K.PLAYER_BOARD.houseTracks) houses[track] = K.PLAYER_BOARD.houseSlotsPerTrack;
   const vp = {};
   for (const id of vpSourcesInPlay(K, variants)) vp[id] = 0;
-  const bonusActionsUsed = {};
-  for (const id of bonusActionsInPlay(K, variants)) bonusActionsUsed[id] = false;
-  const specialistCarriages = [];
-  for (let i = 0; i < K.SETUP.startingSpecialistCarriages; i++) {
-    specialistCarriages.push({ slots: new Array(K.TRAIN.specialistSlotsPerCarriage).fill(null) });
-  }
   return {
     id: seatIndex,
     configIndex: entry.configIndex,
@@ -217,13 +209,12 @@ function newPlayer(seatIndex, entry, playerCount, constants, variants) {
     houses,
     telegraphsPlaced: 0,
     workersInSupply: K.SETUP.workersByPlayerCount[playerCount],
-    train: {
-      specialistCarriages,
-      storageCarriages: K.SETUP.startingStorageCarriages,
-    },
+    // P7.4: carriages 1, 2, 3 in order; index = number - 1. None at the start (P7.1).
+    train: { specialistCarriages: [] },
     railheads: new Array(K.PLAYER_BOARD.railheads).fill(null),
     startCities: new Array(K.PLAYER_BOARD.railheads).fill(null),
-    bonusActionsUsed,
+    // P16.5: railway stations placed by the Lay Track action (on arrival).
+    layStationsPlaced: 0,
     turnsTaken: 0,
     vp,
   };
@@ -235,92 +226,20 @@ export function newTurn(number, player) {
     number,
     player,
     step: player === null ? null : 'start',
-    hatsAtStart: 0,
     worker: null,
     district: null,
-    hatSpent: false,
+    mode: null,
+    hatsSpent: 0,
     multiplier: null,
     adjacent: null,
   };
 }
 
-/** Whether a card's `removedWhen` (a variant value that takes it out of its deck) applies in this game. */
-export function cardRemoved(card, variants) {
-  if (!card.removedWhen) return false;
-  return Object.entries(card.removedWhen).every(([name, value]) => variants[name] === value);
-}
-
 /**
- * R3.8. Builds `state.modules.<id>` for each module that is on. Hidden orders
- * (the three Pony Express decks) go under `decks` (contract section 7). Cards
- * that are never drawn after setup (unrevealed goals, milestones and
- * Legislative Agenda cards) are not stored at all.
- */
-function setupModules(state, rng, K) {
-  const v = state.variants;
-  const on = activeModules(v);
-  const sortedBy = (table, ids) => {
-    const order = new Map(table.map((entry, i) => [entry.id, i]));
-    return ids.slice().sort((a, b) => order.get(a) - order.get(b));
-  };
-
-  // R3.8.1 - all 16 upgrade tiles face up; nobody has installed one.
-  if (on.upgrades) {
-    state.modules.upgrades = {
-      display: K.UPGRADE_TILES.map((t) => t.id),
-      installed: state.players.map(() => new Array(K.TRAIN.maxSpecialistCarriages).fill(null)),
-    };
-  }
-  // R3.8.2 - milestones: shuffle the tiles, reveal `milestonesInPlay`.
-  if (on.milestones) {
-    const shuffled = shuffle(rng, K.MILESTONE_TILES.map((t) => t.id));
-    const inPlay = sortedBy(K.MILESTONE_TILES, shuffled.slice(0, v.milestonesInPlay));
-    const claimedBy = {};
-    for (const id of inPlay) claimedBy[id] = null;
-    state.modules.milestones = { inPlay, claimedBy };
-  }
-  // R3.8.2 - goals: goal 6 leaves the deck when carriage upgrades are off.
-  if (on.goals) {
-    const eligible = K.GOAL_CARDS.filter((g) => g.requiresModule === null || on[g.requiresModule]).map((g) => g.id);
-    const shuffled = shuffle(rng, eligible);
-    state.modules.goals = { inPlay: sortedBy(K.GOAL_CARDS, shuffled.slice(0, v.goalsInPlay)) };
-  }
-  // R3.8.3 - one Legislative Agenda card, drawn or named by `legislativeAgendaCard`.
-  if (on.legislative) {
-    const card =
-      v.legislativeAgendaCard === 'random'
-        ? rngPick(rng, K.LEGISLATIVE_CARDS)
-        : K.LEGISLATIVE_CARDS.find((c) => c.number === v.legislativeAgendaCard);
-    state.modules.legislative = { card: card.id, used: {} };
-  }
-  // R3.8.4, R18.2 - a token on every inland city, three shuffled decks, two cards of each rank face up.
-  if (on.pony) {
-    const tokens = {};
-    for (const city of MAP.inlandCities) tokens[city] = true;
-    const decks = {};
-    const market = {};
-    for (const rank of K.PONY.ranks) {
-      const ids = K.PONY_CARDS.filter((c) => c.rank === rank && !cardRemoved(c, v)).map((c) => c.id);
-      decks[rank] = shuffle(rng, ids);
-      market[rank] = [];
-      for (let i = 0; i < K.PONY.marketPerRank; i++) market[rank].push(decks[rank].length > 0 ? decks[rank].pop() : null);
-    }
-    state.modules.pony = {
-      decks,
-      market,
-      tokens,
-      players: state.players.map(() => ({ tokensHeld: 0, tokensCollected: 0, ongoing: [], endgame: [] })),
-      turn: { purchases: 0, usedCards: [], doubled: null },
-      roundUsed: [],
-    };
-  }
-}
-
-/**
- * Builds the table before the first decision: seats (R3.2), player boards
- * (R3.3), the scoring card (R3.8.5), the grid (R5.1, R5.8), the map, the
- * Congress strip (R3.1.2). All randomness of setup is drawn here, from the
- * game's own RNG, before anybody chooses anything.
+ * Builds the table before the first decision: seats (P3.4), player boards
+ * (P3.2), the grid with its building sites (P5, P6.6), the map, the supplies
+ * (P3.1.5, P3.1.6), the senators (P3.1.3). All randomness of setup is drawn
+ * here, from the game's own RNG, before anybody chooses anything.
  *
  * Does NOT advance to the first decision: use `createGame` (game.js).
  *
@@ -333,9 +252,7 @@ export function createInitialState(config, options = {}) {
   const variants = resolveVariants(config.variants ?? {});
   for (const name of Object.keys(UNIMPLEMENTED_VARIANT_VALUES)) {
     if (UNIMPLEMENTED_VARIANT_VALUES[name].includes(variants[name])) {
-      throw new Error(
-        `Variant "${name}" = ${JSON.stringify(variants[name])} is not implemented yet (see docs/engine-todo.md).`,
-      );
+      throw new Error(`Variant "${name}" = ${JSON.stringify(variants[name])} is not implemented yet.`);
     }
   }
 
@@ -360,6 +277,7 @@ export function createInitialState(config, options = {}) {
 
   const state = {
     schemaVersion: SCHEMA_VERSION,
+    rules: RULESET_ID,
     config: null,
     variants: deepFreeze(variants),
     constantOverrides,
@@ -377,6 +295,7 @@ export function createInitialState(config, options = {}) {
     map: null,
     supply: null,
     congress: null,
+    goals: [],
     scoringCard: null,
     completion: null,
     gameEnd: null,
@@ -384,14 +303,12 @@ export function createInitialState(config, options = {}) {
   };
   const K = getConstants(state);
 
-  // R3.2 - seats. Player id = seat index; seat 1 (id 0) is the start player.
+  // P3.4 - seats. Player id = seat index; seat 1 (id 0) is the first player.
   const entries = normalisePlayers(config, K);
   const asGiven = entries.map((entry) => ({ name: entry.name, colour: entry.colour }));
   if (config.shuffleSeats !== false) shuffle(rng, entries);
   const n = entries.length;
   state.players = entries.map((entry, i) => newPlayer(i, entry, n, K, variants));
-  // A record of how the game was created, enough to create it again
-  // (getGameConfig). Play never reads it.
   state.config = deepFreeze({
     playerCount: n,
     players: asGiven,
@@ -401,27 +318,19 @@ export function createInitialState(config, options = {}) {
     mapId: MAP_ID,
   });
 
-  // R3.8.5, R11.9 - the scoring card. Drawn before the grid, so that shuffling
-  // the grid (gridLayout) never changes which card a seed draws.
-  if (variants.scoringCard === 'random') state.scoringCard = rngPick(rng, K.TERRAINS);
-  else if (variants.scoringCard !== 'none') state.scoringCard = variants.scoringCard;
-
-  // R5.1, R5.8 - the action grid.
+  // P5.1, P5.2, P6.6 - the action grid: worker spaces, centres and the building sites of the Collect districts.
   const tiles = { ...K.GRID.defaultTiles };
-  if (variants.gridLayout === 'shuffle-resources') {
-    const positions = K.GRID.shufflePositions;
-    const shuffled = shuffle(rng, positions.map((d) => tiles[d]));
-    positions.forEach((d, i) => {
-      tiles[d] = shuffled[i];
-    });
-  }
   const spaces = {};
   for (const w of SPACE_IDS) spaces[w] = null;
   const centres = {};
   for (const d of DISTRICT_IDS) centres[d] = null;
-  state.grid = { tiles, spaces, centres };
+  const sites = {};
+  for (const d of DISTRICT_IDS) {
+    if (K.GRID.districtTiles[tiles[d]].family === 'collect') sites[d] = new Array(K.GRID.buildingSitesPerDistrict).fill(null);
+  }
+  state.grid = { tiles, spaces, centres, sites };
 
-  // R11.1 - the map. Buildings exist only in inland cities (R13.1).
+  // P13 - the map. `routeOwner` records who laid a route (statistics only: a laid route belongs to nobody, P13.4).
   const routeOwner = {};
   for (const id of MAP.routeIds) routeOwner[id] = null;
   const railwayStation = {};
@@ -432,25 +341,21 @@ export function createInitialState(config, options = {}) {
   }
   state.map = { routeOwner, railwayStation, telegraphStation };
 
-  // R2.1 - the limited supply of specialist tiles.
+  // P3.1.5, P3.1.6 - the limited supplies, filtered by player count.
   const specialists = {};
-  for (const type of K.SPECIALIST_TYPES) specialists[type] = K.TRAIN.specialistsPerType;
-  state.supply = { specialists };
+  for (const type of K.SPECIALIST_TYPES) specialists[type] = K.SUPPLY.specialistsPerTypeByPlayerCount[n];
+  const upgrades = K.SUPPLY.upgradeTokens.filter((t) => t.minPlayers <= n).map((t) => t.id);
+  state.supply = { specialists, upgrades };
 
-  // R3.1.2, R10.2 - one senator per entry, all on their cost tiles ("available").
-  const used = {};
-  for (const entry of K.CONGRESS.tables[variants.congressTable]) {
-    if (!entry.reset) used[entry.id] = false;
-  }
-  state.congress = { used };
+  // P3.1.3 - a senator on the top space of every Congress column.
+  const down = {};
+  for (const column of K.CONGRESS.columns) down[column.id] = false;
+  state.congress = { down };
 
-  // R3.8.1 to R3.8.4 - module setup. Drawn from the game RNG AFTER every core
-  // draw above, so a module being on or off never changes seats, grid or
-  // scoring card. A module that is off leaves no key in state.modules.
-  setupModules(state, rng, K);
+  // P3.1.7 - PART 2: the goal tiles are revealed (and scored) in part 2; none is in play yet.
 
-  // R3.5 - the railhead draft comes first: reverse seat order.
-  state.setup = { step: 'railheadFirst', index: n - 1, part: null };
+  // P3.3 then P3.5 - the starting production choice in seat order, then the train draft.
+  state.setup = { step: 'production', index: 0 };
   return state;
 }
 
@@ -472,11 +377,9 @@ function deepClone(v) {
 }
 
 /**
- * A fast, independent copy of a state. Not a JSON round trip.
- *
- * `config`, `variants` and `constantOverrides` never change after createGame
- * (they are frozen), so the copy SHARES them with the original. Everything
- * else is copied all the way down.
+ * A fast, independent copy of a state. Not a JSON round trip. `config`,
+ * `variants` and `constantOverrides` never change after createGame (they are
+ * frozen), so the copy SHARES them with the original.
  */
 export function cloneState(state) {
   const out = {};
@@ -543,11 +446,9 @@ function addValue(v) {
 
 /**
  * A 16-character hexadecimal fingerprint of the WHOLE state, including the
- * RNG and the hidden deck orders. Two states with the same hash will play out
- * identically under the same actions. Stable across a JSON round trip and
- * across cloneState.
- *
- * Not included: `config` (names and seed text), which cannot affect play.
+ * RNG. Two states with the same hash play out identically under the same
+ * actions. Stable across a JSON round trip and across cloneState. `config`
+ * (names and seed text) is left out: it cannot affect play.
  */
 export function hashState(state) {
   h1 = 0x811c9dc5 | 0;
@@ -565,9 +466,7 @@ export function hashState(state) {
 /**
  * The config that recreates this game from scratch: with the list of actions
  * the players took, `replayGame(getGameConfig(state), actions)` rebuilds the
- * state. Works at any point of the game and after a save. The RNG the game
- * started from is carried as `rngStart`, so it works however the game was
- * seeded.
+ * state.
  */
 export function getGameConfig(state) {
   const c = state.config;
@@ -587,11 +486,11 @@ export function serialiseState(state) {
   return JSON.stringify(state);
 }
 
-/** A state from JSON text made by serialiseState. Refuses another schema or another map. */
+/** A state from JSON text made by serialiseState. Refuses another schema, another ruleset or another map. */
 export function deserialiseState(text) {
   const state = JSON.parse(text);
-  if (state === null || typeof state !== 'object' || state.schemaVersion !== SCHEMA_VERSION) {
-    throw new Error(`This save is not a Continental Rails state of schema version ${SCHEMA_VERSION}.`);
+  if (state === null || typeof state !== 'object' || state.schemaVersion !== SCHEMA_VERSION || state.rules !== RULESET_ID) {
+    throw new Error(`This save is not a Pacific Rails, second edition state of schema version ${SCHEMA_VERSION}.`);
   }
   if (state.config.mapId !== MAP_ID) {
     throw new Error(`This save was made on map "${state.config.mapId}"; this build plays "${MAP_ID}".`);
@@ -600,16 +499,13 @@ export function deserialiseState(text) {
 }
 
 // ---------------------------------------------------------------------------
-// Hidden information (R2.4)
+// Hidden information (P2.5)
 // ---------------------------------------------------------------------------
 //
-// Everything is open except the ORDER of undrawn cards. The convention that
-// makes this checkable: a module keeps its undrawn cards in
-// `state.modules.<id>.decks`, an object of arrays, `{ deckName: [cardId, ...] }`.
-// The next card to draw is the LAST element (`deck.pop()`). Nothing else in
-// the state is hidden, and no hidden order may be stored anywhere else.
-// Cards left over after setup that can never be drawn (unused goals,
-// milestones, Legislative Agenda cards) are not stored at all.
+// Everything is open. The goal tiles left in the box are never stored. The
+// contract's convention stays: a hidden order would live in
+// `state.modules.<id>.decks`; this ruleset has none, so `hiddenDecks` returns
+// an empty list unless a test plants one.
 
 /** Every hidden-order array in the state, for determinise and for tests. */
 export function hiddenDecks(state) {
@@ -624,10 +520,6 @@ export function hiddenDecks(state) {
 /**
  * A copy of `state` in which everything a player cannot know is re-drawn at
  * random: every hidden deck is reshuffled and the game RNG is replaced.
- * What is open stays exactly as it is.
- *
- * A bot that looks ahead MUST search on determinised copies and never on the
- * real state, or it will read the true deck order.
  *
  * @param {object} state
  * @param {{ s: number }} rng the caller's own RNG (a bot's); it is advanced

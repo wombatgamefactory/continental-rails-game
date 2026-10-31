@@ -23,6 +23,10 @@ const {
 import { playGame, makeSuite } from './helpers/play.mjs';
 
 const suite = makeSuite(`determinism${RULES_TAG}`);
+// The checks of Continental Rails' add-on modules (Pony Express decks, module fields) run only for that
+// ruleset; the second edition has no modules and no hidden order. Variants named below are each ruleset's own.
+const IS_CR = RULES_ID === 'continental';
+const crCheck = IS_CR ? (label, fn) => suite.check(label, fn) : () => {};
 
 for (const players of [2, 3, 4]) {
   suite.check(`${players}p: the same seed gives the same game, hash for hash`, () => {
@@ -58,7 +62,7 @@ for (const players of [2, 3, 4]) {
   });
 
   suite.check(`${players}p: bot randomness never changes the game's own shuffles`, () => {
-    const config = { playerCount: players, seed: `streams-${players}`, variants: { gridLayout: 'shuffle-resources' } };
+    const config = { playerCount: players, seed: `streams-${players}`, variants: IS_CR ? { gridLayout: 'shuffle-resources' } : {} };
     const a = playGame(config, { botSeed: 'one', stopAfter: 60 });
     const b = playGame(config, { botSeed: 'two', stopAfter: 60 });
     // Different bots, so different play ...
@@ -71,11 +75,17 @@ for (const players of [2, 3, 4]) {
 }
 
 suite.check('replay and determinism hold under the variants that change how a game is played', () => {
-  const sets = [
-    { turnStructure: 'rounds', maxTurnsPerPlayer: 30 },
-    { claimFrom: 'network', layTrackClaims: 'per-railhead', maxTurnsPerPlayer: 30 },
-    { congressTable: 'jan-2026', scoringCard: 'random', maxTurnsPerPlayer: 30 },
-  ];
+  const sets = IS_CR
+    ? [
+        { turnStructure: 'rounds', maxTurnsPerPlayer: 30 },
+        { claimFrom: 'network', layTrackClaims: 'per-railhead', maxTurnsPerPlayer: 30 },
+        { congressTable: 'jan-2026', scoringCard: 'random', maxTurnsPerPlayer: 30 },
+      ]
+    : [
+        { layShape: 'one-new-route', arrivalBuilding: 'optional', maxTurnsPerPlayer: 30 },
+        { layShape: 'adjacent-only', newConnectionRule: 'must-join-unjoined', maxTurnsPerPlayer: 30 },
+        { tycoonMode: true, maxTurnsPerPlayer: 30 },
+      ];
   for (const [i, variants] of sets.entries()) {
     const config = { playerCount: 3, seed: `t8-det-${i}`, variants };
     const a = playGame(config, { botSeed: 'x' });
@@ -101,7 +111,10 @@ suite.check('createGame does not advance or keep the RNG it is given', () => {
 
 suite.check('getGameConfig recreates a game from its own state, however it was seeded', () => {
   const players = [{ name: 'Anna', colour: '#a00' }, { name: 'Ben' }, { name: 'Cara' }];
-  const settings = { variants: { maxTurnsPerPlayer: 20, gridLayout: 'shuffle-resources' }, constants: { HATS: { hatLimit: 3 } } };
+  const settings = {
+    variants: IS_CR ? { maxTurnsPerPlayer: 20, gridLayout: 'shuffle-resources' } : { maxTurnsPerPlayer: 20, layShape: 'one-new-route' },
+    constants: { HATS: { hatLimit: 3 } },
+  };
   for (const make of [
     () => createGame({ players, seed: 'recreate', ...settings }),
     () => createGame({ players, ...settings }, { rng: makeRng('given-rng') }),
@@ -147,7 +160,7 @@ suite.check('hashState is stable under cloneState and a JSON round trip, and mov
   assert.notEqual(hashState(next), h);
 });
 
-suite.check('determinise reshuffles only what is hidden (the three Pony Express decks) and leaves the original alone', () => {
+crCheck('determinise reshuffles only what is hidden (the three Pony Express decks) and leaves the original alone', () => {
   const { state } = playGame({ playerCount: 3, seed: 'hidden', variants: { endGameScoring: 'both' } }, { stopAfter: 80 });
   const before = JSON.stringify(state);
   const copy = determinise(state, makeRng('bot'));
@@ -171,7 +184,7 @@ suite.check('determinise reshuffles only what is hidden (the three Pony Express 
 });
 
 suite.check('the contract convention holds for any module: every array under a `decks` key is reshuffled, nothing else', () => {
-  const state = createGame({ playerCount: 2, seed: 'convention', variants: { modulePonyExpress: false } });
+  const state = createGame({ playerCount: 2, seed: 'convention', variants: IS_CR ? { modulePonyExpress: false } : {} });
   state.modules.testModule = { decks: { A: Array.from({ length: 30 }, (_, i) => `card-${i}`) }, open: [1, 2, 3] };
   const copy = determinise(state, makeRng('bot'));
   assert.equal(hiddenDecks(copy).length, 1);
@@ -179,7 +192,7 @@ suite.check('the contract convention holds for any module: every array under a `
   assert.deepEqual(copy.modules.testModule.open, [1, 2, 3]);
 });
 
-suite.check('the modules are part of the hash: a change to ANY module field changes hashState', () => {
+crCheck('the modules are part of the hash: a change to ANY module field changes hashState', () => {
   const { state } = playGame(
     { playerCount: 3, seed: 'hash-modules', variants: { endGameScoring: 'both', legislativeAgendaCard: 10 } },
     { stopAfter: 150 },
@@ -218,7 +231,7 @@ suite.check('the modules are part of the hash: a change to ANY module field chan
 });
 
 for (const players of [2, 3, 4]) {
-  suite.check(`${players}p, all modules on: the same seed, the same game; the action list replays; bot randomness never changes the module setup`, () => {
+  crCheck(`${players}p, all modules on: the same seed, the same game; the action list replays; bot randomness never changes the module setup`, () => {
     const variants = { endGameScoring: 'both', goalsInPlay: 5, milestonesInPlay: 7 };
     const config = { playerCount: players, seed: `det-modules-${players}`, variants };
     const a = playGame(config, { botSeed: 'A' });

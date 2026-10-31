@@ -90,6 +90,15 @@ const SCALE = (() => {
   return x;
 })();
 const scaled = (n) => Math.max(1, Math.round(n * SCALE));
+
+// Rulesets: everything below this point checks Continental Rails (its variants, its modules, its scripted
+// builder and its usage counters). Any other ruleset runs its own smoke suite instead, which makes the same
+// contract-level checks over its own rules and variants (tests/<id>/smoke-<id>.mjs), and exits.
+if (RULES_ID !== 'continental') {
+  const { runSmoke } = await import(`./${RULES_ID}/smoke-${RULES_ID}.mjs`);
+  runSmoke(SCALE);
+}
+
 const suite = makeSuite(`smoke${RULES_TAG}`);
 
 const usage = {}; // action type -> times applied (the player's and the engine's), over the whole run

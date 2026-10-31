@@ -18,10 +18,12 @@
 //     the random games (TEST_SMOKE_SCALE=0.25). npm test runs them for the
 //     default ruleset on their own.
 //
-// When the second edition's rules are rewritten, the Continental Rails rule
-// checks inside those suites (Part B of contract, the smoke suite's module
-// counters) must be guarded by the ruleset id or split; the contract part stays
-// binding on every engine.
+// The Continental Rails rule checks inside those suites (Part B of contract,
+// the module checks of determinism and purity, the smoke suite's variants,
+// builder and counters) are guarded by the ruleset id and run only for
+// `continental`; another ruleset gets the contract part plus its own checks
+// (smoke runs tests/<id>/smoke-<id>.mjs; the second edition's rule suites are
+// in tests/pr2e/).
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -205,10 +207,11 @@ suite.check('set-up page: an unknown ?rules= is refused with a message and the d
 
 suite.check('set-up page: switching rules keeps the variant overrides the new rules also have', () => {
   click('rules:continental');
-  setup.applyQuery('?variants=conversionRate=1:1');
-  assert.deepEqual(setup.getForm().variants, { conversionRate: '1:1' });
+  setup.applyQuery('?variants=conversionRate=1:1,maxTurnsPerPlayer=30');
+  assert.deepEqual(setup.getForm().variants, { conversionRate: '1:1', maxTurnsPerPlayer: 30 });
   click('rules:pr2e');
-  assert.deepEqual(setup.getForm().variants, { conversionRate: '1:1' }, 'the copy engine has the same variant');
+  // The second edition has its own variants: the turn limit is shared, the conversion rate is not (P21.1).
+  assert.deepEqual(setup.getForm().variants, { maxTurnsPerPlayer: 30 }, 'only the override both rulesets have is kept');
   click('rules:continental');
   setup.getForm().variants = {};
 });

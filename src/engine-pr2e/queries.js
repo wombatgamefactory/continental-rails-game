@@ -2,23 +2,13 @@
 //
 // A function belongs here if it takes the state (and ids) and returns data,
 // changes nothing, and answers a question about the POSITION: counts, sums,
-// who is next to what. Questions about what a player MAY DO belong in
-// legality.js. Nothing like either may live in src/ui.
+// who is next to what, what a path costs and scores. Questions about what a
+// player MAY DO belong in legality.js. Nothing like either may live in src/ui.
 //
 // No function here copies the state.
 
 import { getConstants } from './state.js';
-import { TERRAINS } from './rules.js';
-import {
-  MAP,
-  SPACE_IDS,
-  DISTRICT_IDS,
-  SPACE_DISTRICTS,
-  DISTRICT_SPACES,
-  DISTRICT_NEIGHBOURS,
-  otherEnd,
-  cityRegion,
-} from './board.js';
+import { MAP, SPACE_IDS, DISTRICT_IDS, SPACE_DISTRICTS, DISTRICT_SPACES, otherEnd, isStartCity } from './board.js';
 
 // ---------------------------------------------------------------------------
 // Players and turn order
@@ -32,17 +22,17 @@ export function playerName(state, playerId) {
   return state.players[playerId].name;
 }
 
-/** The player whose turn it is (R4.2), or null during setup and after the game. */
+/** The player whose turn it is (P4.2), or null during setup and after the game. */
 export function activePlayerId(state) {
   return state.turn.player;
 }
 
-/** The next player clockwise (R3.2). */
+/** The next player clockwise (P3.4). */
 export function nextPlayerId(state, playerId) {
   return (playerId + 1) % state.players.length;
 }
 
-/** The other players in turn order, starting from the left of `playerId` (R5.5.3). */
+/** The other players in turn order, starting from the left of `playerId` (P5.5.3). */
 export function playersAfter(state, playerId) {
   const n = state.players.length;
   const out = [];
@@ -50,28 +40,21 @@ export function playersAfter(state, playerId) {
   return out;
 }
 
-/** The seat that plays last in a round (R19.5): the one before the start player. */
+/** The seat that plays last (P19.3): the one before the first player. */
 export function lastSeatId(state) {
   const n = state.players.length;
   return (state.startPlayer + n - 1) % n;
 }
 
 // ---------------------------------------------------------------------------
-// The player board: houses and production (R6.2)
+// The player board: houses and production (P6.2)
 // ---------------------------------------------------------------------------
 
-/**
- * R6.2. Production P of one house track: 1 + the number of empty house slots
- * on it. Pony Express card 36 (`productionBonus`) makes P higher by its amount
- * on all four tracks, so the bonus is multiplied by M (R6.4.2, R18.7 card 36).
- */
+/** P6.2. Production of one house track: 1 + the houses removed from it (1 to 4). */
 export function production(state, playerId, track) {
   const K = getConstants(state);
   const player = state.players[playerId];
-  let p = K.PLAYER_BOARD.baseProduction + (K.PLAYER_BOARD.houseSlotsPerTrack - player.houses[track]);
-  const bonus = ponyModifier(state, playerId, 'productionBonus');
-  if (bonus !== null) p += bonus.amount;
-  return p;
+  return K.PLAYER_BOARD.productionBase + (K.PLAYER_BOARD.houseSlotsPerTrack - player.houses[track]);
 }
 
 /** Houses still on the player board, all four tracks together. */
@@ -81,34 +64,55 @@ export function housesOnBoard(player) {
   return n;
 }
 
+/** The house tracks that still hold a house (P16.2.3, P6.6.2). */
+export function tracksWithHouses(state, playerId) {
+  const K = getConstants(state);
+  const player = state.players[playerId];
+  return K.PLAYER_BOARD.houseTracks.filter((t) => player.houses[t] > 0);
+}
+
+/** Telegraph stations still on the telegraph row (P16.3). */
+export function telegraphsLeft(state, playerId) {
+  return getConstants(state).PLAYER_BOARD.telegraphRowVp.length - state.players[playerId].telegraphsPlaced;
+}
+
+/** P16.3.3. VP of the next telegraph station from the row, or null when the row is empty. */
+export function nextTelegraphVp(state, playerId) {
+  const row = getConstants(state).PLAYER_BOARD.telegraphRowVp;
+  const n = state.players[playerId].telegraphsPlaced;
+  return n < row.length ? row[n] : null;
+}
+
 // ---------------------------------------------------------------------------
-// Storage (R8.5)
+// Storage (P7)
 // ---------------------------------------------------------------------------
 
-/** R8.5.2. Units of storage in use: each resource and each BUILT tile takes 1. */
+/** P7.3. Units of storage in use: each resource, each Coin and each built tile takes 1. */
 export function storageUsed(player) {
   const r = player.resources;
   const t = player.builtTiles;
-  return r.iron + r.wood + r.gunpowder + t.ground + t.tunnel + t.bridge;
+  return r.iron + r.wood + r.gunpowder + player.coins + t.ground + t.tunnel + t.bridge;
 }
 
-/** R8.5.1. Capacity: 9 per storage carriage. */
+/** P7.2. Capacity: 6 on the player board plus 3 per carriage. */
 export function storageCapacity(state, playerId) {
-  return getConstants(state).TRAIN.storagePerCarriage * state.players[playerId].train.storageCarriages;
+  const K = getConstants(state);
+  return K.PLAYER_BOARD.boardStorage + K.PLAYER_BOARD.storagePerCarriage * state.players[playerId].train.specialistCarriages.length;
 }
 
-/** How far over capacity a player is (0 when within it). R8.5.4. */
+/** How far over capacity a player is (0 when within it). P7.6. */
 export function storageOverflow(state, playerId) {
   const over = storageUsed(state.players[playerId]) - storageCapacity(state, playerId);
   return over > 0 ? over : 0;
 }
 
-/** How many of one storage item (a resource or a built tile type) a player holds. */
+/** How many of one storage item (a resource, `coins` or a built tile type) a player holds. */
 export function storedCount(player, item) {
+  if (item === 'coins') return player.coins;
   return item in player.resources ? player.resources[item] : player.builtTiles[item];
 }
 
-/** R16.5 goal 10, R20.5.3. Iron + Wood + Gunpowder + built tiles. Same number as storageUsed. */
+/** Everything in storage (P7.3). Same number as storageUsed. */
 export function cargo(player) {
   return storageUsed(player);
 }
@@ -123,7 +127,7 @@ function held(player, key) {
   return key === 'coins' ? player.coins : player.resources[key];
 }
 
-/** Whether a player holds everything a cost asks for. */
+/** Whether a player holds everything a cost asks for (P7.7). */
 export function canPay(player, cost) {
   for (const key in cost) {
     if (held(player, key) < cost[key]) return false;
@@ -131,7 +135,7 @@ export function canPay(player, cost) {
   return true;
 }
 
-/** The first part of a cost the player cannot cover, as `{ key, need, have }`, or null. */
+/** The first item of a cost the player is short of: `{ key, need, have }`, or null. */
 export function firstShortfall(player, cost) {
   for (const key in cost) {
     const have = held(player, key);
@@ -157,44 +161,39 @@ export function formatCost(state, cost) {
   return parts.length === 0 ? 'nothing' : parts.join(' + ');
 }
 
-/** "1 Coin", "2 Coins", "3 Iron", "1 cowboy hat". */
+/** "1 Coin", "2 Coins", "3 Iron", "1 cowboy hat", "2 Ground tiles". */
 export function formatAmount(K, key, n) {
   if (key === 'coins') return `${n} ${n === 1 ? 'Coin' : 'Coins'}`;
   if (key === 'hats') return `${n} ${n === 1 ? 'cowboy hat' : 'cowboy hats'}`;
+  if (K.TERRAINS.includes(key)) return `${n} ${K.NAMES[key]} ${n === 1 ? 'tile' : 'tiles'}`;
   return `${n} ${K.NAMES[key]}`;
 }
 
 // ---------------------------------------------------------------------------
-// The train (R8)
+// Carriages and specialists (P7.4, P8)
 // ---------------------------------------------------------------------------
 
-/** Number of specialist carriages; also the level of the newest one (R8.2.1). */
-export function specialistCarriageCount(player) {
+/** Carriages the player has (0 to 3). */
+export function carriageCount(player) {
   return player.train.specialistCarriages.length;
 }
 
-/** R16.5 goal 5. Carriages of both kinds. */
-export function carriageCount(player) {
-  return player.train.specialistCarriages.length + player.train.storageCarriages;
+/** Contract name: the same as carriageCount (every carriage of this ruleset has specialist spaces). */
+export function specialistCarriageCount(player) {
+  return carriageCount(player);
 }
 
-/**
- * R8.6.1. Where the next hired specialist must go: the lowest-level carriage
- * with an empty slot, slot 1 before slot 2. Returns `{ level, slot }` (both
- * counted from 1) or null when every slot is full.
- */
+/** P8.3. The leftmost empty specialist space: `{ carriage, slot }` (carriage = its number), or null. */
 export function nextSpecialistSlot(player) {
   const carriages = player.train.specialistCarriages;
-  for (let c = 0; c < carriages.length; c++) {
-    const slots = carriages[c].slots;
-    for (let s = 0; s < slots.length; s++) {
-      if (slots[s] === null) return { level: c + 1, slot: s + 1 };
-    }
+  for (let i = 0; i < carriages.length; i++) {
+    const slots = carriages[i].slots;
+    for (let s = 0; s < slots.length; s++) if (slots[s] === null) return { carriage: carriages[i].number, slot: s, level: carriages[i].number };
   }
   return null;
 }
 
-/** Specialists in the train by type, `{ crew, miner, engineer, financier }`. The Foreman is not counted. */
+/** Specialists of each type in the player's carriages. */
 export function specialistCounts(state, playerId) {
   const out = {};
   for (const type of getConstants(state).SPECIALIST_TYPES) out[type] = 0;
@@ -204,64 +203,52 @@ export function specialistCounts(state, playerId) {
   return out;
 }
 
-/** Total slots and filled slots across a player's specialist carriages. */
+/** `{ used, total }` specialist spaces. */
 export function specialistSlotUse(player) {
+  let used = 0;
   let total = 0;
-  let filled = 0;
   for (const carriage of player.train.specialistCarriages) {
     for (const s of carriage.slots) {
       total += 1;
-      if (s !== null) filled += 1;
+      if (s !== null) used += 1;
     }
   }
-  return { total, filled };
+  return { used, total };
 }
 
 /**
- * R8.6.3 with R7.4. What hiring `specialist` costs this player now.
- *   mode 'bonusAction' - the Hire Specialist bonus action: variant `hireCostModel`
- *                        decides between fee + table, fee only, table only.
- *   mode 'table'       - the hire cost only, no fee (Pony Express cards 9 and 28).
- *   mode 'free'        - nothing (R8.6.4).
- * Under `fee-only` there is no hire cost at all (R8.6.3), so 'table' costs nothing.
- * Returns `{ cost, fee, table, level }`, or null when no slot is empty.
+ * P8.5. What hiring a specialist of `specialist` costs this player now: nothing,
+ * or with `tycoonMode` the cost for the carriage it would go into. `mode` is
+ * accepted for the contract's signature and ignored.
  */
 export function hireCost(state, playerId, specialist, mode) {
-  const K = getConstants(state);
-  const where = nextSpecialistSlot(state.players[playerId]);
-  if (where === null) return null;
-  const model = state.variants.hireCostModel;
-  let fee = {};
-  let table = {};
-  if (mode === 'bonusAction') {
-    if (model !== 'table-only') fee = K.BONUS_ACTIONS.hire.cost;
-    if (model !== 'fee-only') table = K.TRAIN.hireCosts[specialist][where.level - 1];
-  } else if (mode === 'table') {
-    if (model !== 'fee-only') table = K.TRAIN.hireCosts[specialist][where.level - 1];
-  }
-  return { cost: addCosts(fee, table), fee, table, level: where.level };
+  void mode;
+  if (!state.variants.tycoonMode) return {};
+  const spot = nextSpecialistSlot(state.players[playerId]);
+  if (spot === null) return {};
+  return { ...getConstants(state).HIRING.tycoonCosts[specialist][spot.carriage - 1] };
 }
 
 // ---------------------------------------------------------------------------
-// The action grid (R5)
+// The action grid (P5)
 // ---------------------------------------------------------------------------
 
-/** The district tile lying on a grid position, for example 'gather-iron' (R5.1, R5.8). */
+/** The district on a position (P5.1), for example `collect-iron`. */
 export function districtTileId(state, district) {
   return state.grid.tiles[district];
 }
 
-/** The rules data of the district tile on a position: `{ name, family, gathers?, foremanType?, bonusAction? }`. */
+/** The data of the district on a position. */
 export function districtInfo(state, district) {
   return getConstants(state).GRID.districtTiles[state.grid.tiles[district]];
 }
 
-/** The printed name of the district on a position, for example "Gather Iron". */
+/** The printed name of the district on a position, for example "Collect Iron". */
 export function districtName(state, district) {
   return districtInfo(state, district).name;
 }
 
-/** Where a player's workers stand: `{ spaces: ['W4', ...], centres: ['D5', ...] }`. */
+/** Where a player's workers stand: `{ spaces: ['W4'], centres: ['D7'] }`. */
 export function workersOnGrid(state, playerId) {
   const spaces = [];
   const centres = [];
@@ -270,615 +257,379 @@ export function workersOnGrid(state, playerId) {
   return { spaces, centres };
 }
 
-/** Whether a player has at least one worker on a district centre (R5.4.1). */
+/** Whether the player has a worker on a district centre (P5.4.1). */
 export function hasCentreWorker(state, playerId) {
   for (const d of DISTRICT_IDS) if (state.grid.centres[d] === playerId) return true;
   return false;
 }
 
-/**
- * R5.6.2. The grid locations from which a worker is adjacent to `district`:
- * the district's worker spaces, its centre, and the centres of its orthogonal
- * neighbours. Returns ids ('W4', 'D5', ...).
- */
+/** P5.6. The locations adjacent to a district: its worker spaces and its OWN centre (never a neighbour's). */
 export function adjacencyLocations(district) {
-  return [...DISTRICT_SPACES[district], district, ...DISTRICT_NEIGHBOURS[district]];
+  return [...DISTRICT_SPACES[district], district];
 }
 
 /**
- * R5.6.1 to R5.6.3. A: how many of a player's workers are adjacent to
- * `district`, not counting the worker at `excludeAt` (the worker used this
- * turn: a space id, a district id for a centre, or null after a Remove).
+ * P5.6, P5.7.1. The player's workers adjacent to `district`, leaving out the
+ * one at `excludeAt` (the worker used this turn).
  */
 export function adjacentWorkers(state, playerId, district, excludeAt) {
-  const grid = state.grid;
-  let count = 0;
-  for (const w of DISTRICT_SPACES[district]) {
-    if (grid.spaces[w] === playerId && w !== excludeAt) count += 1;
-  }
-  if (grid.centres[district] === playerId && district !== excludeAt) count += 1;
-  for (const d of DISTRICT_NEIGHBOURS[district]) {
-    if (grid.centres[d] === playerId && d !== excludeAt) count += 1;
-  }
-  return count;
-}
-
-/**
- * R5.6.1. M = 1 + A + H for a player choosing `district`.
- * Returns `{ multiplier, adjacent, hat }` so callers can show the arithmetic.
- */
-export function multiplierFor(state, playerId, district, spendHat, excludeAt) {
-  const K = getConstants(state);
-  const adjacent = adjacentWorkers(state, playerId, district, excludeAt);
-  const hat = spendHat ? K.HATS.multiplierPerHat : 0;
-  return { multiplier: K.GRID.baseMultiplier + adjacent + hat, adjacent, hat };
-}
-
-/** The districts the worker used this turn gives access to (R5.3, R5.4.2, R5.4.3, R5.5.4). */
-export function accessDistricts(state) {
-  const worker = state.turn.worker;
-  if (worker === null) return [];
-  if (worker.at in SPACE_DISTRICTS) return SPACE_DISTRICTS[worker.at];
-  return [worker.at];
-}
-
-// ---------------------------------------------------------------------------
-// The map (R1.21, R11, R13, R20.5)
-// ---------------------------------------------------------------------------
-
-/** Number of claimed routes on the map (R19.3). */
-export function claimedRouteCount(state) {
   let n = 0;
-  const owner = state.map.routeOwner;
-  const ids = MAP.routeIds;
-  for (let i = 0; i < ids.length; i++) if (owner[ids[i]] !== null) n += 1;
+  for (const w of DISTRICT_SPACES[district]) {
+    if (w !== excludeAt && state.grid.spaces[w] === playerId) n += 1;
+  }
+  if (district !== excludeAt && state.grid.centres[district] === playerId) n += 1;
   return n;
 }
 
-/** R1.21. A city is connected if a claimed route touches it; start cities always are. */
-export function isCityConnected(state, cityId) {
-  if (MAP.cityById[cityId].kind !== 'inland') return true;
-  for (const routeId of MAP.cityRoutes[cityId]) {
-    if (state.map.routeOwner[routeId] !== null) return true;
-  }
-  return false;
+/** P5.7. `{ multiplier: M, adjacent }` for a district with `hats` cowboy hats spent. */
+export function multiplierFor(state, playerId, district, hats, excludeAt) {
+  const adjacent = adjacentWorkers(state, playerId, district, excludeAt);
+  const spent = typeof hats === 'number' ? hats : hats ? 1 : 0;
+  return { multiplier: getConstants(state).GRID.baseMultiplier + adjacent + spent, adjacent };
 }
 
-/** Ids of the routes a player owns. */
-export function ownedRoutes(state, playerId) {
+/** The worker used this turn, as the location to leave out of the adjacency count (P5.7.1). */
+export function usedWorkerAt(state) {
+  const w = state.turn.worker;
+  if (w === null || w.via === 'remove') return null;
+  return w.at;
+}
+
+/** P5.3 to P5.5. The districts the turn's worker gives access to. */
+export function accessDistricts(state) {
+  const w = state.turn.worker;
+  if (w === null) return [];
+  if (w.via === 'displace') return [w.at];
+  if (SPACE_DISTRICTS[w.at]) return SPACE_DISTRICTS[w.at].slice();
+  return [w.at];
+}
+
+/** P6.6. A player's district houses on one district's building sites. */
+export function districtHousesOn(state, playerId, district) {
+  const sites = state.grid.sites[district];
+  if (!sites) return 0;
+  let n = 0;
+  for (const s of sites) if (s === playerId) n += 1;
+  return n;
+}
+
+/** P6.6.4, P20.4.1. All a player's district houses. */
+export function districtHouseCount(state, playerId) {
+  let n = 0;
+  for (const d in state.grid.sites) n += districtHousesOn(state, playerId, d);
+  return n;
+}
+
+/** P6.6.1. The empty building sites, as `[{ district, index }]`. */
+export function emptySites(state) {
   const out = [];
-  const owner = state.map.routeOwner;
-  for (const id in owner) if (owner[id] === playerId) out.push(id);
+  for (const d in state.grid.sites) {
+    state.grid.sites[d].forEach((s, index) => {
+      if (s === null) out.push({ district: d, index });
+    });
+  }
   return out;
 }
 
-/** R20.5.2. Slots in the routes a player owns. */
+// ---------------------------------------------------------------------------
+// The map (P13 to P17)
+// ---------------------------------------------------------------------------
+
+/** Whether a route is laid (P13.4). */
+export function isLaid(state, routeId) {
+  return state.map.routeOwner[routeId] !== null;
+}
+
+/** Laid routes on the map. */
+export function laidRouteCount(state) {
+  let n = 0;
+  for (const id of MAP.routeIds) if (state.map.routeOwner[id] !== null) n += 1;
+  return n;
+}
+
+/** Contract name for laidRouteCount. */
+export function claimedRouteCount(state) {
+  return laidRouteCount(state);
+}
+
+/** P1.18. A connected city: an inland city holding at least one building. Start cities never are. */
+export function isCityConnected(state, cityId) {
+  if (isStartCity(cityId)) return false;
+  return state.map.railwayStation[cityId] !== null || state.map.telegraphStation[cityId] !== null;
+}
+
+/** Whether an inland city holds no building (P14.3.3 b). False for a start city. */
+export function isEmptyInlandCity(state, cityId) {
+  if (isStartCity(cityId)) return false;
+  return state.map.railwayStation[cityId] === null && state.map.telegraphStation[cityId] === null;
+}
+
+/** P13.5. Whether a laid route ends in a city ("on the network"). */
+export function isOnNetwork(state, cityId) {
+  for (const id of MAP.cityRoutes[cityId]) if (state.map.routeOwner[id] !== null) return true;
+  return false;
+}
+
+/** Routes a player laid (statistics only; nobody owns track, P13.4). */
+export function ownedRoutes(state, playerId) {
+  const out = [];
+  for (const id of MAP.routeIds) if (state.map.routeOwner[id] === playerId) out.push(id);
+  return out;
+}
+
+/** Slots in the routes a player laid (statistics only). */
 export function ownedSlots(state, playerId) {
   let n = 0;
-  const owner = state.map.routeOwner;
-  for (const id in owner) if (owner[id] === playerId) n += MAP.routeById[id].length;
+  for (const r of MAP.routes) if (state.map.routeOwner[r.id] === playerId) n += r.length;
   return n;
 }
 
-/** Number of a player's railway stations on the map. */
 export function railwayStationCount(state, playerId) {
   let n = 0;
-  const at = state.map.railwayStation;
-  for (const city in at) if (at[city] === playerId) n += 1;
+  for (const c of MAP.inlandCities) if (state.map.railwayStation[c] === playerId) n += 1;
   return n;
 }
 
-/** Number of a player's telegraph stations on the map. */
 export function telegraphStationCount(state, playerId) {
   let n = 0;
-  const at = state.map.telegraphStation;
-  for (const city in at) if (at[city] === playerId) n += 1;
+  for (const c of MAP.inlandCities) if (state.map.telegraphStation[c] === playerId) n += 1;
   return n;
 }
 
-/** R20.2.1. A player's buildings on the map: railway stations plus telegraph stations. */
+/** P20.2.1. Railway plus telegraph stations on the map (district houses do not count). */
 export function buildingCount(state, playerId) {
   return railwayStationCount(state, playerId) + telegraphStationCount(state, playerId);
 }
 
-/** Who has a railhead on a city: a list of player ids (a player appears twice if both are there). */
+/** The trains on a city: `[{ player, railhead }]`. */
 export function railheadsAt(state, cityId) {
   const out = [];
   for (const p of state.players) {
-    for (const at of p.railheads) if (at === cityId) out.push(p.id);
+    p.railheads.forEach((c, i) => {
+      if (c === cityId) out.push({ player: p.id, railhead: i });
+    });
   }
   return out;
 }
 
-/** R11.4.3. The route's cost in built tiles by terrain, for example `{ ground: 1, tunnel: 2, bridge: 0 }`. */
+/** P14.3.2. Built tiles one route needs, by terrain. */
 export function routeCost(routeId) {
   return MAP.routeById[routeId].cost;
 }
 
-/**
- * R11.4.3. The first terrain of a route for which the player holds too few
- * BUILT tiles, as `{ terrain, need, have }`, or null when the route can be paid.
- */
+/** P14.3.2. What a player lacks to lay one route: `{ ground, tunnel, bridge }` (all 0 = affordable). */
 export function routeShortfall(player, route) {
-  for (const terrain of TERRAINS) {
-    const need = route.cost[terrain];
-    if (need > 0 && player.builtTiles[terrain] < need) return { terrain, need, have: player.builtTiles[terrain] };
+  const out = { ground: 0, tunnel: 0, bridge: 0 };
+  for (const t in route.cost) {
+    const lack = route.cost[t] - player.builtTiles[t];
+    if (lack > 0) out[t] = lack;
   }
-  return null;
+  return out;
 }
 
-/** R11.4.3. Whether the player's built tiles pay for every slot of the route. */
+/** Whether a player holds the built tiles for one route on its own. */
 export function canAffordRoute(player, route) {
-  return routeShortfall(player, route) === null;
+  for (const t in route.cost) if (player.builtTiles[t] < route.cost[t]) return false;
+  return true;
 }
 
-/** "Seattle - Spokane": a route by the names of its two end cities. */
+/** "Seattle - Spokane". */
 export function routeName(route) {
   return `${MAP.cityById[route.a].name} - ${MAP.cityById[route.b].name}`;
 }
 
-/** "2 Bridge" or "1 Ground + 2 Tunnel": what a route asks for, in built tiles. */
+/** "2 Ground + 1 Tunnel" for a route's tiles. */
 export function formatRouteCost(state, route) {
   const K = getConstants(state);
   const parts = [];
-  for (const terrain of TERRAINS) {
-    if (route.cost[terrain] > 0) parts.push(`${route.cost[terrain]} ${K.NAMES[terrain]}`);
-  }
+  for (const t of K.TERRAINS) if (route.cost[t] > 0) parts.push(`${route.cost[t]} ${K.NAMES[t]}`);
   return parts.join(' + ');
 }
 
-/**
- * R11.11.2. The player's network in `claimFrom = network`: the two cities
- * where their railheads started plus every city that is an end of a route
- * they own. City ids, each once.
- */
-export function networkCities(state, playerId) {
-  const out = [];
-  const add = (c) => {
-    if (c !== null && !out.includes(c)) out.push(c);
-  };
-  for (const c of state.players[playerId].startCities) add(c);
-  const owner = state.map.routeOwner;
-  for (const id in owner) {
-    if (owner[id] === playerId) {
-      add(MAP.routeById[id].a);
-      add(MAP.routeById[id].b);
-    }
+/** P14.3.2. The built tiles every unlaid route of a list of routes needs. */
+export function tilesForRoutes(state, routeIds) {
+  const out = { ground: 0, tunnel: 0, bridge: 0 };
+  for (const id of routeIds) {
+    if (state.map.routeOwner[id] !== null) continue;
+    const cost = MAP.routeById[id].cost;
+    out.ground += cost.ground;
+    out.tunnel += cost.tunnel;
+    out.bridge += cost.bridge;
   }
   return out;
 }
 
-/** R13.9. Whether the city holds a railway station owned by a player other than `playerId` (entering it pays a toll). */
-export function hasOpponentRailwayStation(state, cityId, playerId) {
-  const owner = state.map.railwayStation[cityId];
-  return owner !== undefined && owner !== null && owner !== playerId;
+/** Whether a player holds `tiles` (`{ ground, tunnel, bridge }`) all at once. */
+export function holdsTiles(player, tiles) {
+  return player.builtTiles.ground >= tiles.ground && player.builtTiles.tunnel >= tiles.tunnel && player.builtTiles.bridge >= tiles.bridge;
 }
 
-/**
- * R12.2. The cities joined to `from` by a chain of claimed routes (of any
- * owners), `from` itself left out. City ids in map order.
- */
-export function reachableCities(state, from) {
-  const seen = new Set([from]);
-  const queue = [from];
-  const owner = state.map.routeOwner;
-  while (queue.length > 0) {
-    const city = queue.pop();
-    for (const routeId of MAP.cityRoutes[city]) {
-      if (owner[routeId] === null) continue;
-      const next = otherEnd(MAP.routeById[routeId], city);
-      if (!seen.has(next)) {
-        seen.add(next);
-        queue.push(next);
-      }
-    }
-  }
-  seen.delete(from);
-  return MAP.cityIds.filter((c) => seen.has(c));
-}
-
-/** Whether any claimed route touches the city (R12.6: otherwise a railhead there cannot move). */
-export function touchesClaimedRoute(state, cityId) {
-  for (const routeId of MAP.cityRoutes[cityId]) if (state.map.routeOwner[routeId] !== null) return true;
-  return false;
-}
-
-/**
- * R12.3. The path Move Train takes from `from` to `to`, worked out for the
- * player: among all chains of claimed routes, the one that enters the fewest
- * cities holding a railway station owned by ANOTHER player (every city after
- * `from`, `to` included); ties go to the fewest routes, then to the path whose
- * list of city ids, in order, comes first alphabetically.
- *
- * Returns `{ cities, routes, tollCities }` (`cities` starts with `from` and
- * ends with `to`; `tollCities` are the cities entered that hold another
- * player's railway station, each once), or null when `to` cannot be reached.
- */
-export function moveTrainPath(state, playerId, from, to) {
-  if (from === to) return null;
-  const owner = state.map.routeOwner;
-  // Cost of entering a city, as [tolls, routes].
-  const enterTolls = (city) => (hasOpponentRailwayStation(state, city, playerId) ? 1 : 0);
-  const INF = [Infinity, Infinity];
-  const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
-  // toTarget[v] = cheapest [tolls, routes] from v to `to`, counting the cities
-  // entered after v. A small graph (25 cities): relax until nothing changes.
-  const toTarget = {};
-  for (const c of MAP.cityIds) toTarget[c] = INF;
-  toTarget[to] = [0, 0];
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const routeId of MAP.routeIds) {
-      if (owner[routeId] === null) continue;
-      const r = MAP.routeById[routeId];
-      for (const [v, w] of [[r.a, r.b], [r.b, r.a]]) {
-        const via = toTarget[w];
-        if (via[0] === Infinity) continue;
-        const cand = [via[0] + enterTolls(w), via[1] + 1];
-        if (better(cand, toTarget[v])) {
-          toTarget[v] = cand;
-          changed = true;
-        }
-      }
-    }
-  }
-  if (toTarget[from][0] === Infinity) return null;
-  // Walk from `from`, always to the alphabetically first neighbour that keeps the optimum.
-  const cities = [from];
-  const routes = [];
-  const tollCities = [];
-  let here = from;
-  while (here !== to) {
-    let pick = null;
-    let pickRoute = null;
-    for (const routeId of MAP.cityRoutes[here]) {
-      if (owner[routeId] === null) continue;
-      const w = otherEnd(MAP.routeById[routeId], here);
-      const via = toTarget[w];
-      if (via[0] === Infinity) continue;
-      if (via[0] + enterTolls(w) !== toTarget[here][0] || via[1] + 1 !== toTarget[here][1]) continue;
-      if (pick === null || w < pick) {
-        pick = w;
-        pickRoute = routeId;
-      }
-    }
-    cities.push(pick);
-    routes.push(pickRoute);
-    if (enterTolls(pick) === 1) tollCities.push(pick);
-    here = pick;
-  }
-  return { cities, routes, tollCities };
-}
-
-/**
- * R19.1, R19.7. Whether a transcontinental line exists for this player on the
- * current map: with `gameEndTrigger = own-crossing`, a chain of routes ALL
- * owned by the player joining any west start city to any east start city;
- * with `any-crossing`, a chain of claimed routes of any owners (the player is
- * then ignored).
- */
-export function hasTranscontinentalLine(state, playerId) {
-  const own = state.variants.gameEndTrigger === 'own-crossing';
-  const owner = state.map.routeOwner;
-  const seen = new Set(MAP.westStartCities);
-  const queue = MAP.westStartCities.slice();
-  while (queue.length > 0) {
-    const city = queue.pop();
-    for (const routeId of MAP.cityRoutes[city]) {
-      const o = owner[routeId];
-      if (o === null || (own && o !== playerId)) continue;
-      const next = otherEnd(MAP.routeById[routeId], city);
-      if (seen.has(next)) continue;
-      if (MAP.cityById[next].kind === 'east') return true;
-      seen.add(next);
-      queue.push(next);
-    }
-  }
-  return false;
-}
-
-/** R13.1, R13.2.1, R13.3.1. Which buildings can still go into an inland city: `{ railwayStation, telegraphStation }`. */
-export function buildingRoom(state, cityId) {
-  const at = state.map.railwayStation;
-  if (!(cityId in at)) return { railwayStation: false, telegraphStation: false };
-  return { railwayStation: at[cityId] === null, telegraphStation: state.map.telegraphStation[cityId] === null };
-}
-
-/** R13.3.3. The VP the player's next telegraph station would score, or null when the row is empty (R13.10). */
-export function nextTelegraphVp(state, playerId) {
-  const row = getConstants(state).PLAYER_BOARD.telegraphRowVp;
-  const placed = state.players[playerId].telegraphsPlaced;
-  return placed < row.length ? row[placed] : null;
-}
-
-// ---------------------------------------------------------------------------
-// Scores
-// ---------------------------------------------------------------------------
-
-/** A player's VP so far: the sum of `player.vp` over every source in play. */
-export function totalVp(player) {
-  let n = 0;
-  for (const source in player.vp) n += player.vp[source];
-  return n;
-}
-
-// ---------------------------------------------------------------------------
-// Module reads. Every one is false, null, 0 or empty when its module is
-// off: a module that is off has no key in `state.modules` (contract section 11).
-// ---------------------------------------------------------------------------
-
-const cardIndexes = new WeakMap();
-
-/** A Map from id to entry for one of the data tables of rules.js (cached per table object). */
-export function cardIndex(table) {
-  let index = cardIndexes.get(table);
-  if (index === undefined) {
-    index = new Map();
-    for (const entry of table) index.set(entry.id, entry);
-    cardIndexes.set(table, index);
-  }
-  return index;
-}
-
-/** The upgrade tile record for an id, or undefined. */
-export function upgradeTileData(state, tileId) {
-  return cardIndex(getConstants(state).UPGRADE_TILES).get(tileId);
-}
-
-/** The Pony Express card record for an id, or undefined. */
-export function ponyCardData(state, cardId) {
-  return cardIndex(getConstants(state).PONY_CARDS).get(cardId);
-}
-
-/** R15.4. The tile ids installed in a player's train (empty without the module). */
-export function installedUpgrades(state, playerId) {
-  const m = state.modules.upgrades;
-  if (m === undefined) return [];
-  return m.installed[playerId].filter((t) => t !== null);
-}
-
-/** R15.2, R15.5.1. The tile installed in the player's specialist carriage of `level`, or null. */
-export function upgradeTileAt(state, playerId, level) {
-  const m = state.modules.upgrades;
-  if (m === undefined) return null;
-  return m.installed[playerId][level - 1] ?? null;
-}
-
-/**
- * R15.5.1, R15.6. The tile whose STEP belongs in the step list of an
- * activation for this carriage: the installed tile, except a `vpTile` when
- * `upgradeVpTiming = on-install` (those score once, at installation, and do
- * nothing afterwards). Returns the tile record or null.
- */
-export function activationTile(state, playerId, level) {
-  const id = upgradeTileAt(state, playerId, level);
-  if (id === null) return null;
-  const tile = upgradeTileData(state, id);
-  if (tile.vpTile && state.variants.upgradeVpTiming === 'on-install') return null;
-  return tile;
-}
-
-/** R17.1. The Legislative Agenda card in force, or null. */
-export function legislativeCardData(state) {
-  const m = state.modules.legislative;
-  if (m === undefined) return null;
-  return cardIndex(getConstants(state).LEGISLATIVE_CARDS).get(m.card);
-}
-
-/** The ids of the ongoing Pony Express cards a player holds. */
-export function ponyOngoing(state, playerId) {
-  const m = state.modules.pony;
-  return m === undefined ? [] : m.players[playerId].ongoing;
-}
-
-/**
- * R17, R18. The standing effects that apply to `playerId`'s events: those of
- * the Legislative Agenda card (it applies to everyone, R17.1) and of the
- * ongoing Pony Express cards the player owns (R18.9: to their owner only).
- * Each entry is `{ source: 'legislative' | 'pony', card, effect }`.
- */
-export function standingEffects(state, playerId) {
-  const out = [];
-  const leg = legislativeCardData(state);
-  if (leg !== null) for (const effect of leg.effects) out.push({ source: 'legislative', card: leg, effect });
-  const owned = ponyOngoing(state, playerId);
-  if (owned.length > 0) {
-    const index = cardIndex(getConstants(state).PONY_CARDS);
-    for (const id of owned) {
-      const card = index.get(id);
-      for (const effect of card.effects) out.push({ source: 'pony', card, effect });
-    }
-  }
-  return out;
-}
-
-/** R18.7. The `modifier` effect of kind `what` on an ongoing card the player owns, or null. */
-export function ponyModifier(state, playerId, what) {
-  const owned = ponyOngoing(state, playerId);
-  if (owned.length === 0) return null;
-  const index = cardIndex(getConstants(state).PONY_CARDS);
-  for (const id of owned) {
-    for (const effect of index.get(id).effects) {
-      if (effect.type === 'modifier' && effect.what === what) return effect;
-    }
+/** The route joining two cities, or null (no two cities share more than one route, P13.1). */
+export function routeBetween(a, b) {
+  for (const id of MAP.cityRoutes[a]) {
+    const r = MAP.routeById[id];
+    if (otherEnd(r, a) === b) return r;
   }
   return null;
 }
 
-/** R18.8. The once-per-turn abilities of the ongoing cards a player owns: `[{ card, effect }]`. */
-export function ponyAbilities(state, playerId) {
-  const owned = ponyOngoing(state, playerId);
-  const out = [];
-  if (owned.length === 0) return out;
-  const index = cardIndex(getConstants(state).PONY_CARDS);
-  for (const id of owned) {
-    for (const effect of index.get(id).effects) if (effect.type === 'oncePerTurn') out.push({ card: index.get(id), effect });
+/**
+ * The laid components: `{ cityId: componentNumber }` over the laid routes as
+ * they stand. For P14.3.5 (`must-join-unjoined`) and P19.1.
+ */
+export function laidComponents(state) {
+  const comp = {};
+  let next = 0;
+  for (const start of MAP.cityIds) {
+    if (comp[start] !== undefined) continue;
+    comp[start] = next;
+    const stack = [start];
+    while (stack.length > 0) {
+      const c = stack.pop();
+      for (const id of MAP.cityRoutes[c]) {
+        if (state.map.routeOwner[id] === null) continue;
+        const o = otherEnd(MAP.routeById[id], c);
+        if (comp[o] === undefined) {
+          comp[o] = next;
+          stack.push(o);
+        }
+      }
+    }
+    next += 1;
   }
+  return comp;
+}
+
+/** P19.1. Whether a chain of laid routes joins any west start city to any east start city. */
+export function hasTranscontinentalLine(state) {
+  const comp = laidComponents(state);
+  const west = new Set(MAP.westStartCities.map((c) => comp[c]));
+  return MAP.eastStartCities.some((c) => west.has(comp[c]));
+}
+
+/**
+ * P14.7. The scoring city of the i-th route of a path (cities c0..ck, the
+ * route from c(i-1) to c(i)): the first city from c(i) on that is a start
+ * city or a connected city, else the destination ck. Buildings as they stand.
+ */
+export function scoringCityIndex(state, cities, i) {
+  for (let j = i; j < cities.length; j++) {
+    const c = cities[j];
+    if (isStartCity(c) || isCityConnected(state, c)) return j;
+  }
+  return cities.length - 1;
+}
+
+/**
+ * P14.7, P19.2, P17. What resolving a lay along `cities` / `routes` would do
+ * now, without doing it: the tiles it pays, each unlaid route's VP per slot,
+ * the track VP, whether it completes the first transcontinental line (and the
+ * VP that pays instead), and the tolls `[{ owner, city, kind }]`.
+ */
+export function evaluateLay(state, playerId, cities, routes) {
+  const K = getConstants(state);
+  const tiles = tilesForRoutes(state, routes);
+  const segments = [];
+  let slots = 0;
+  let trackVp = 0;
+  for (let i = 0; i < routes.length; i++) {
+    const route = MAP.routeById[routes[i]];
+    if (state.map.routeOwner[route.id] !== null) continue;
+    const j = scoringCityIndex(state, cities, i + 1);
+    const scoring = cities[j];
+    const perSlot = isEmptyInlandCity(state, scoring) ? K.MAP_RULES.vpPerSlotUnconnected : K.MAP_RULES.vpPerSlotConnected;
+    segments.push({ route: route.id, scoringCity: scoring, perSlot, slots: route.length });
+    slots += route.length;
+    trackVp += perSlot * route.length;
+  }
+  let completes = false;
+  if (state.completion === null && slots > 0 && !hasTranscontinentalLine(state)) {
+    // Would the line exist with these routes laid too?
+    const comp = laidComponents(state);
+    const parent = {};
+    const find = (x) => {
+      while (parent[x] !== undefined && parent[x] !== x) x = parent[x];
+      return x;
+    };
+    for (const id of routes) {
+      if (state.map.routeOwner[id] !== null) continue;
+      const r = MAP.routeById[id];
+      const a = find(comp[r.a]);
+      const b = find(comp[r.b]);
+      if (a !== b) parent[a] = b;
+    }
+    const west = new Set(MAP.westStartCities.map((c) => find(comp[c])));
+    completes = MAP.eastStartCities.some((c) => west.has(find(comp[c])));
+  }
+  const completionVp = completes ? K.MAP_RULES.completionVpPerSlot * slots : 0;
+  const tolls = [];
+  for (let i = 1; i < cities.length; i++) {
+    const c = cities[i];
+    if (isStartCity(c)) continue;
+    const rs = state.map.railwayStation[c];
+    const ts = state.map.telegraphStation[c];
+    if (rs !== null && rs !== playerId) tolls.push({ owner: rs, city: c, kind: 'railwayStation' });
+    if (ts !== null && ts !== playerId) tolls.push({ owner: ts, city: c, kind: 'telegraphStation' });
+  }
+  return { tiles, segments, slots, trackVp: completes ? 0 : trackVp, completes, completionVp, tolls, tollVp: tolls.length * K.MAP_RULES.tollVp };
+}
+
+// ---------------------------------------------------------------------------
+// Score
+// ---------------------------------------------------------------------------
+
+/** A player's VP so far, all sources. */
+export function totalVp(player) {
+  let n = 0;
+  for (const k in player.vp) n += player.vp[k];
+  return n;
+}
+
+// ---------------------------------------------------------------------------
+// Reads the shared page asks of every engine. This ruleset has no cards, no
+// Move Train and (until part 2) no Congress table or upgrade tokens in use,
+// so each answers "nothing".
+// ---------------------------------------------------------------------------
+
+/** No card tables in this ruleset. */
+export function cardIndex(table) {
+  const out = {};
+  if (Array.isArray(table)) for (const entry of table) out[entry.id] = entry;
   return out;
 }
 
-/** R18.3. Tokens a player holds and has collected in the whole game (0 without the module). */
-export function ponyTokens(state, playerId) {
-  const m = state.modules.pony;
-  if (m === undefined) return { held: 0, collected: 0 };
-  return { held: m.players[playerId].tokensHeld, collected: m.players[playerId].tokensCollected };
+/** PART 2: upgrade tokens are installed in part 2. The data of a token id, or null. */
+export function upgradeTileData(state, tileId) {
+  return getConstants(state).SUPPLY.upgradeTokens.find((t) => t.id === tileId) ?? null;
 }
 
-/** R16.5 goal 7, R16.8 MS8. The smallest of the player's counts of the four specialist types. */
-export function completeSpecialistSets(state, playerId) {
-  let crew = 0;
-  let miner = 0;
-  let engineer = 0;
-  let financier = 0;
-  for (const carriage of state.players[playerId].train.specialistCarriages) {
-    for (const s of carriage.slots) {
-      if (s === 'crew') crew += 1;
-      else if (s === 'miner') miner += 1;
-      else if (s === 'engineer') engineer += 1;
-      else if (s === 'financier') financier += 1;
-    }
-  }
-  return Math.min(crew, miner, engineer, financier);
+/** PART 2: the upgrade tokens installed in a player's carriages (none can be installed yet). */
+export function installedUpgrades(state, playerId) {
+  return state.players[playerId].train.specialistCarriages.map((c) => c.upgrade).filter((u) => u !== null);
 }
 
-/** R16.5 goal 4. The largest number of specialists of one type in the train. */
-export function maxSpecialistsOneType(state, playerId) {
-  return Math.max(...Object.values(specialistCounts(state, playerId)));
+/** PART 2: the token in the player's carriage `level`, or null. */
+export function upgradeTileAt(state, playerId, level) {
+  const c = state.players[playerId].train.specialistCarriages[level - 1];
+  return c && c.upgrade !== null ? upgradeTileData(state, c.upgrade) : null;
 }
 
-/** R16.5 goal 8. Specialists in the train; the Foreman is not counted. */
-export function specialistTotal(state, playerId) {
-  let n = 0;
-  for (const carriage of state.players[playerId].train.specialistCarriages) {
-    for (const s of carriage.slots) if (s !== null) n += 1;
-  }
-  return n;
+/** No Pony Express in this ruleset. */
+export function ponyCardData() {
+  return null;
 }
 
-/** R16.8 MS2 to MS4. Slots of one terrain (or of all terrains, with no terrain given) in the routes a player owns. */
-export function ownedSlotsOf(state, playerId, terrain) {
-  let n = 0;
-  const owner = state.map.routeOwner;
-  const routes = MAP.routes;
-  const all = terrain === undefined || terrain === null;
-  for (let i = 0; i < routes.length; i++) {
-    const route = routes[i];
-    if (owner[route.id] === playerId) n += all ? route.length : route.cost[terrain];
-  }
-  return n;
+/** No Pony Express in this ruleset. */
+export function ponyOngoing() {
+  return [];
 }
 
-/** R16.8 MS6. How many routes a player owns. */
-export function ownedRouteCount(state, playerId) {
-  let n = 0;
-  const owner = state.map.routeOwner;
-  const ids = MAP.routeIds;
-  for (let i = 0; i < ids.length; i++) if (owner[ids[i]] === playerId) n += 1;
-  return n;
+/** No Legislative Agenda in this ruleset. */
+export function legislativeCardData() {
+  return null;
 }
 
-/** R16.8 MS5. The length in slots of the longest route a player owns (0 for none). */
-export function longestOwnRoute(state, playerId) {
-  let best = 0;
-  const owner = state.map.routeOwner;
-  const routes = MAP.routes;
-  for (let i = 0; i < routes.length; i++) {
-    if (owner[routes[i].id] === playerId && routes[i].length > best) best = routes[i].length;
-  }
-  return best;
-}
-
-/** R16.8 MS7. Whether the two cities where the player's railheads started are joined by a chain of claimed routes of any owners. */
-export function startCitiesJoined(state, playerId) {
-  const [a, b] = state.players[playerId].startCities;
-  if (a === null || b === null || a === undefined || b === undefined) return false;
-  return reachableCities(state, a).includes(b);
-}
-
-/** R18.7 card 12. Inland cities that are an end of at least one route the player owns. */
-export function inlandCitiesOnOwnRoutes(state, playerId) {
-  const seen = new Set();
-  const owner = state.map.routeOwner;
-  for (const id in owner) {
-    if (owner[id] !== playerId) continue;
-    const route = MAP.routeById[id];
-    for (const city of [route.a, route.b]) if (MAP.cityById[city].kind === 'inland') seen.add(city);
-  }
-  return seen.size;
-}
-
-/** R18.7 card 31. Inland cities in which the player owns both the railway station and the telegraph station. */
-export function citiesWithBothOwnBuildings(state, playerId) {
-  let n = 0;
-  for (const city in state.map.railwayStation) {
-    if (state.map.railwayStation[city] === playerId && state.map.telegraphStation[city] === playerId) n += 1;
-  }
-  return n;
-}
-
-/** R16.5 goal 12. Inland cities holding at least one of the player's buildings. */
-export function citiesWithOwnBuilding(state, playerId) {
-  let n = 0;
-  for (const city in state.map.railwayStation) {
-    if (state.map.railwayStation[city] === playerId || state.map.telegraphStation[city] === playerId) n += 1;
-  }
-  return n;
-}
-
-/** R16.5 goal 9. The player's telegraph stations in cities whose railway station belongs to another player. */
-export function telegraphsWithOpponentRailway(state, playerId) {
-  let n = 0;
-  for (const city in state.map.telegraphStation) {
-    const rail = state.map.railwayStation[city];
-    if (state.map.telegraphStation[city] === playerId && rail !== null && rail !== playerId) n += 1;
-  }
-  return n;
-}
-
-/** R17.3 card 7. Whether a city holds a building that belongs to a player other than `playerId`. */
-export function cityHasOpponentBuilding(state, cityId, playerId) {
-  const rail = state.map.railwayStation[cityId];
-  const tele = state.map.telegraphStation[cityId];
-  return (rail !== undefined && rail !== null && rail !== playerId) || (tele !== undefined && tele !== null && tele !== playerId);
-}
-
-const junctionCache = new Map();
-
-/** R16.6.1. Whether a city is a junction city under the map rules in force. */
-export function isJunctionCity(state, cityId) {
-  const min = getConstants(state).MAP_RULES.junctionMinRoutes;
-  let set = junctionCache.get(min);
-  if (set === undefined) {
-    set = new Set(MAP.inlandCities.filter((id) => MAP.cityRoutes[id].length >= min));
-    junctionCache.set(min, set);
-  }
-  return set.has(cityId);
-}
-
-/** R16.5 goal 2. The smaller of the player's buildings in North region cities and in South region cities (R16.6.2). */
-export function minNorthSouthBuildings(state, playerId) {
-  const rules = getConstants(state).MAP_RULES;
-  let north = 0;
-  let south = 0;
-  for (const city in state.map.railwayStation) {
-    const region = cityRegion(city, rules);
-    if (region !== 'north' && region !== 'south') continue;
-    let n = 0;
-    if (state.map.railwayStation[city] === playerId) n += 1;
-    if (state.map.telegraphStation[city] === playerId) n += 1;
-    if (region === 'north') north += n;
-    else south += n;
-  }
-  return Math.min(north, south);
-}
-
-/** R16.5 goal 3. The player's buildings in junction cities. */
-export function buildingsInJunctionCities(state, playerId) {
-  let n = 0;
-  for (const city in state.map.railwayStation) {
-    if (!isJunctionCity(state, city)) continue;
-    if (state.map.railwayStation[city] === playerId) n += 1;
-    if (state.map.telegraphStation[city] === playerId) n += 1;
-  }
-  return n;
+/** No Move Train in this ruleset (P15.2): trains move only in a lay. */
+export function moveTrainPath() {
+  return null;
 }

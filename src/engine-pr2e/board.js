@@ -12,7 +12,7 @@ import { GRID, TERRAIN_BY_LETTER, TERRAINS } from './rules.js';
 import { ROUTE_MAP } from './data/route-map.js';
 
 // ---------------------------------------------------------------------------
-// The action grid (R5.1, R5.2)
+// The action grid (P5.1, P5.2)
 // ---------------------------------------------------------------------------
 
 /** The nine district POSITION ids, D1 to D9, row by row. */
@@ -21,16 +21,16 @@ export const DISTRICT_IDS = GRID.positions.map((p) => p.id);
 /** The twelve worker space ids, W1 to W12. */
 export const SPACE_IDS = GRID.workerSpaces.map((w) => w.id);
 
-/** R5.2. `SPACE_DISTRICTS.W4` is `['D2', 'D5']`: the two districts a worker space borders. */
+/** P5.2. `SPACE_DISTRICTS.W4` is `['D2', 'D5']`: the two districts a worker space borders. */
 export const SPACE_DISTRICTS = {};
 for (const w of GRID.workerSpaces) SPACE_DISTRICTS[w.id] = [w.between[0], w.between[1]];
 
-/** R5.2. `DISTRICT_SPACES.D5` is `['W4', 'W6', 'W7', 'W9']`: the worker spaces of a district. */
+/** P5.2. `DISTRICT_SPACES.D5` is `['W4', 'W6', 'W7', 'W9']`: the worker spaces of a district. */
 export const DISTRICT_SPACES = {};
 for (const d of DISTRICT_IDS) DISTRICT_SPACES[d] = [];
 for (const w of GRID.workerSpaces) for (const d of w.between) DISTRICT_SPACES[d].push(w.id);
 
-/** R5.2. `DISTRICT_NEIGHBOURS.D1` is `['D2', 'D4']`: the orthogonal neighbour districts. */
+/** P5.2. `DISTRICT_NEIGHBOURS.D1` is `['D2', 'D4']`: the orthogonal neighbour districts. */
 export const DISTRICT_NEIGHBOURS = {};
 for (const a of GRID.positions) {
   DISTRICT_NEIGHBOURS[a.id] = GRID.positions
@@ -49,7 +49,7 @@ export function isSpaceId(id) {
 }
 
 // ---------------------------------------------------------------------------
-// The route map (R11.1, Appendix A)
+// The route map (P13.1)
 // ---------------------------------------------------------------------------
 
 /**
@@ -61,7 +61,7 @@ export function buildMap(data) {
   const cities = data.cities.map((c) => ({
     id: c.id,
     name: c.name,
-    /** 'west' and 'east' are start cities (R11.2); 'inland' is everything else (R1.18). */
+    /** 'west' and 'east' are start cities (P13.2); 'inland' is everything else (P13.3). */
     kind: c.role === 'w' ? 'west' : c.role === 'e' ? 'east' : 'inland',
     x: c.x,
     y: c.y,
@@ -75,7 +75,7 @@ export function buildMap(data) {
       if (!t) throw new Error(`Route ${r.a}-${r.b}: unknown terrain letter "${letter}"`);
       return t;
     });
-    /** R11.4.3. Built tiles needed to claim the route, by terrain. */
+    /** P14.3.2. Built tiles needed to lay the route, by terrain. */
     const cost = { ground: 0, tunnel: 0, bridge: 0 };
     for (const t of terrains) cost[t] += 1;
     return {
@@ -133,7 +133,7 @@ export function otherEnd(route, cityId) {
   return route.a === cityId ? route.b : route.a;
 }
 
-/** Whether a city is a start city (R1.18). */
+/** Whether a city is a start city (P13.2). */
 export function isStartCity(cityId) {
   return MAP.cityById[cityId].kind !== 'inland';
 }
@@ -142,27 +142,6 @@ export function isStartCity(cityId) {
 export function startSide(cityId) {
   const kind = MAP.cityById[cityId].kind;
   return kind === 'inland' ? null : kind;
-}
-
-/**
- * R16.6.1. The junction cities: inland cities with at least
- * `mapRules.junctionMinRoutes` printed routes.
- */
-export function junctionCities(mapRules) {
-  return MAP.inlandCities.filter((id) => MAP.cityRoutes[id].length >= mapRules.junctionMinRoutes);
-}
-
-/**
- * R16.6.2. 'north', 'south' or 'middle' for an inland city; null for a start
- * city. North is map y below `northRegionMaxY`, south is y above
- * `southRegionMinY`.
- */
-export function cityRegion(cityId, mapRules) {
-  const c = MAP.cityById[cityId];
-  if (c.kind !== 'inland') return null;
-  if (c.y < mapRules.northRegionMaxY) return 'north';
-  if (c.y > mapRules.southRegionMinY) return 'south';
-  return 'middle';
 }
 
 /** Slot counts of the whole map by terrain. For tests and reports. */
