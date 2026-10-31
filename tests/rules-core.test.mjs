@@ -63,6 +63,23 @@ import {
 const suite = makeSuite('rules-core');
 const K = RULES;
 
+// Transcontinental lines on route map v3 (a line is a chain of routes of one player from a west start city to an east start city).
+// LINE: 14 slots, Portland to Omaha; the player owns all but the last route, GRI-OMA (3 slots), claimed from Grand Island.
+// SOUTH: 15 slots, Sacramento to Fort Worth, sharing no route with LINE; the last route is WIC-FTW (3 slots).
+const LINE = {
+  owned: ['TDL-POR', 'TDL-BOI', 'HEL-BOI', 'GFA-HEL', 'GFA-BIL', 'BIL-NPL', 'NPL-GRI'],
+  last: 'GRI-OMA',
+  head: 'GRI',
+  tiles: { bridge: 2, ground: 1 },
+};
+const SOUTH = {
+  owned: ['SAC-FRE', 'FRE-LVG', 'LVG-PHX', 'SFE-PHX', 'SFE-ELP', 'ELP-AMA', 'AMA-WIC'],
+  last: 'WIC-FTW',
+  head: 'WIC',
+  tiles: { ground: 1, tunnel: 1, bridge: 1 },
+};
+const COMPLETION = 25 + 3 * 3; // 25 plus 3 per slot of the 3-slot route that completes a line
+
 /** Anna takes a district through a worker space (the engine chooses the district if only one can be). */
 function turnAt(state, space, district, hat = false) {
   return placeAndChoose(state, space, district, hat);
@@ -113,24 +130,25 @@ suite.check('R4.6.3: Lay Tracks / Move Train can be chosen only with a legal cla
   setHeads(state, 0, 'SEA', 'MIN');
   give(state, 0, { tiles: {} });
   const reason = getDistrictActionBlockReason(state, 0, 'D5');
+  // Seattle - Yakima (1 slot, Tunnel) and Fargo - Minneapolis (1 slot, Ground) are the shortest routes there; the first is named.
   assert.match(
     reason,
-    /Lay Tracks \/ Move Train needs a legal claim or move, and you have neither: your railheads stand on Seattle or Minneapolis; the shortest unclaimed route there is Seattle - Spokane, which needs 2 Ground in built tiles, and you hold 0 of the 2 built Ground you need; and no claimed route touches your railheads/,
+    /Lay Tracks \/ Move Train needs a legal claim or move, and you have neither: your railheads stand on Seattle or Minneapolis; the shortest unclaimed route there is Seattle - Yakima, which needs 1 Tunnel in built tiles, and you hold 0 of the 1 built Tunnel you need; and no claimed route touches your railheads/,
   );
   // W6 lies between Ground Tracks and Lay Tracks: the engine takes the only district that can be chosen.
   const events = act(state, { type: 'placeWorker', space: 'W6' });
   assert.equal(eventOf(events, 'districtChosen').district, 'D4');
-  // With the tiles for Seattle - Spokane (two Ground) Lay Tracks can be chosen.
+  // With the tile for Seattle - Yakima (one Tunnel) Lay Tracks can be chosen.
   const ready = start(3);
   setHeads(ready, 0, 'SEA', 'MIN');
-  give(ready, 0, { tiles: { ground: 2 } });
+  give(ready, 0, { tiles: { tunnel: 1 } });
   assert.equal(getDistrictActionBlockReason(ready, 0, 'D5'), null);
   act(ready, { type: 'placeWorker', space: 'W6' });
   assert.deepEqual(getValidActions(ready).map((a) => `${a.district}:${a.hat}`), ['D4:false', 'D5:false']);
   // A route that is claimed by anybody makes a move possible, even with no tiles.
   const mover = start(3);
   setHeads(mover, 0, 'SEA', 'MIN');
-  claim(mover, 1, 'SEA-SPO');
+  claim(mover, 1, 'SEA-YAK');
   assert.equal(getDistrictActionBlockReason(mover, 0, 'D5'), null, 'R12.2: a chain of claimed routes of any owner');
 });
 
@@ -477,7 +495,7 @@ suite.check('R10.1 C5 and C6, R10.7: the tier 3 entries - 3 built tiles of choic
 
   // C6: six resources of choice, mixed, one per action; Coins are refused.
   const c6 = cloneState(state);
-  claim(c6, 1, 'POR-SPO'); // a connected inland city: C6 still places no building
+  claim(c6, 1, 'TDL-POR'); // a connected inland city: C6 still places no building
   const events = take(c6, 'takeCongressEntry', { entry: 'C6' });
   assert.equal(topFrame(c6).kind, 'chooseResource');
   assert.equal(topFrame(c6).remaining, 6);
@@ -490,8 +508,8 @@ suite.check('R10.1 C5 and C6, R10.7: the tier 3 entries - 3 built tiles of choic
   assert.equal(c6.players[0].coins, 6 - 3, 'the Coin cost only; no Coin gained');
   assert.equal(c6.players[0].vp.congress, 0, 'C6 has no VP option');
   assert.equal(eventsOf(events, 'buildingPlaced').length, 0, 'R13.6 is retired: no building');
-  assert.equal(c6.map.railwayStation.SPO, null);
-  assert.equal(c6.map.telegraphStation.SPO, null);
+  assert.equal(c6.map.railwayStation.TDL, null);
+  assert.equal(c6.map.telegraphStation.TDL, null);
   assert.ok(!c6.stack.some((f) => f.kind === 'placeBuildings' || f.kind === 'chooseOption'));
 
   // C6 into nearly full storage: the usual overflow (R8.5.4) once storage is over capacity.
@@ -632,47 +650,47 @@ suite.check('E7 (R22): a claim resolves in order - tiles, track VP, advance, fir
   const frame = topFrame(state);
   assert.equal(frame.kind, 'layTracks');
   assert.equal(frame.steps, 1, 'M = 1: one claim or one move, never both (R11.3)');
-  // From Portland: Portland - Spokane (B, B) or Portland - Reno (T, T); he has the tiles for either.
+  // From Portland: The Dalles - Portland (B) or Portland - Reno (B, T, G); he has the tiles for either.
   const claims = getValidActions(state).filter((a) => a.type === 'claimRoute' && a.from === 'POR').map((a) => a.route).sort();
-  assert.deepEqual(claims, ['POR-REN', 'POR-SPO']);
+  assert.deepEqual(claims, ['POR-REN', 'TDL-POR']);
   assert.ok(!getValidActions(state).some((a) => a.type === 'stopLaying'), 'at least one step must be taken (R11.3)');
   const alt = cloneState(state);
 
-  const events = take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  assert.equal(state.map.routeOwner['POR-SPO'], 0, 'R11.5.1: the route is his');
-  assert.deepEqual(gus.builtTiles, { ground: 1, tunnel: 2, bridge: 0 }, 'R11.5.1: two Bridge tiles went onto the slots');
-  assert.equal(gus.railheads[0], 'SPO', 'R11.5.3: the railhead advanced');
-  assert.deepEqual(vpBySource(events, 0), { track: 2, firstConnection: K.SCORING.firstConnectionVp }, 'R11.5.2, R11.5.4');
-  assert.equal(topFrame(state).kind, 'placeBuildings', 'R11.5.7: a free building in Spokane');
+  const events = take(state, 'claimRoute', { route: 'POR-REN', from: 'POR' });
+  assert.equal(state.map.routeOwner['POR-REN'], 0, 'R11.5.1: the route is his');
+  assert.deepEqual(gus.builtTiles, { ground: 0, tunnel: 1, bridge: 1 }, 'R11.5.1: a Bridge, a Tunnel and a Ground tile went onto the slots');
+  assert.equal(gus.railheads[0], 'REN', 'R11.5.3: the railhead advanced');
+  assert.deepEqual(vpBySource(events, 0), { track: 3, firstConnection: K.SCORING.firstConnectionVp }, 'R11.5.2, R11.5.4');
+  assert.equal(topFrame(state).kind, 'placeBuildings', 'R11.5.7: a free building in Reno');
   assert.deepEqual(
     getValidActions(state).filter((a) => a.type === 'placeRailwayStation').map((a) => a.houseTrack).sort(),
     ['coins', 'gunpowder', 'iron', 'wood'],
   );
-  const placed = take(state, 'placeTelegraphStation', { city: 'SPO' });
+  const placed = take(state, 'placeTelegraphStation', { city: 'REN' });
   assert.equal(vpBySource(placed, 0).telegraph, K.PLAYER_BOARD.telegraphRowVp[0], 'the leftmost telegraph station scores its printed VP');
-  assert.equal(gus.vp.track + gus.vp.firstConnection + gus.vp.telegraph, 2 + 5 + 1, 'E7: 8 VP for the turn');
-  assert.deepEqual(gus.builtTiles, { ground: 1, tunnel: 2, bridge: 0 }, 'storage: 2 Tunnel, 1 Ground');
+  assert.equal(gus.vp.track + gus.vp.firstConnection + gus.vp.telegraph, 3 + 5 + 1, 'E7: 9 VP for the turn');
+  assert.deepEqual(gus.builtTiles, { ground: 0, tunnel: 1, bridge: 1 }, 'storage: 1 Tunnel, 1 Bridge');
   assert.equal(state.turn.player, 1, 'the action ended with its one step');
 
-  // The railway station instead: 7 VP, and the leftmost house of the chosen track leaves the board.
+  // The railway station instead: 8 VP, and the leftmost house of the chosen track leaves the board.
   const ironBefore = production(alt, 0, 'iron');
-  take(alt, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  take(alt, 'placeRailwayStation', { city: 'SPO', houseTrack: 'iron' });
-  assert.equal(alt.players[0].vp.track + alt.players[0].vp.firstConnection + alt.players[0].vp.telegraph, 7);
+  take(alt, 'claimRoute', { route: 'POR-REN', from: 'POR' });
+  take(alt, 'placeRailwayStation', { city: 'REN', houseTrack: 'iron' });
+  assert.equal(alt.players[0].vp.track + alt.players[0].vp.firstConnection + alt.players[0].vp.telegraph, 8);
   assert.equal(production(alt, 0, 'iron'), ironBefore + 1, 'R13.2.4: Iron production rose by 1 at once');
-  assert.equal(alt.map.railwayStation.SPO, 0);
+  assert.equal(alt.map.railwayStation.REN, 0);
 
-  // Later Hal, whose railhead is on Seattle, claims Seattle - Spokane (G, G).
+  // Later Hal, whose railhead is on Sacramento, claims Sacramento - Reno (T, T, G).
   const hal = start(3);
-  setHeads(hal, 1, 'SEA', 'KCY');
-  claim(hal, 0, 'POR-SPO');
-  hal.map.telegraphStation.SPO = 0;
+  setHeads(hal, 1, 'SAC', 'KCY');
+  claim(hal, 0, 'POR-REN');
+  hal.map.telegraphStation.REN = 0;
   give(hal, 0, { tiles: {} });
-  give(hal, 1, { tiles: { ground: 2 } });
+  give(hal, 1, { tiles: { tunnel: 2, ground: 1 } });
   drive(hal, (s) => s.turn.player === 0); // Anna's turn passes
   placeAndChoose(hal, 'W6', 'D5');
-  const halEvents = take(hal, 'claimRoute', { route: 'SEA-SPO', from: 'SEA' });
-  assert.deepEqual(vpBySource(halEvents, 1), { track: 2 }, 'no first connection (Spokane is connected), no toll (no railway station)');
+  const halEvents = take(hal, 'claimRoute', { route: 'REN-SAC', from: 'SAC' });
+  assert.deepEqual(vpBySource(halEvents, 1), { track: 3 }, 'no first connection (Reno is connected), no toll (no railway station)');
   assert.equal(topFrame(hal).kind, 'placeBuildings', 'and a railway station may be placed for free');
 });
 
@@ -680,14 +698,14 @@ suite.check('R11.4, R11.6: a claim needs an unclaimed route, a railhead at an en
   const state = layTurn({ claimed: [[1, 'POR-REN']], tiles: { bridge: 1, tunnel: 2, ground: 0 } });
   const block = (route, from) => getBlockReason(state, { type: 'claimRoute', route, from });
   assert.match(block('POR-REN', 'POR'), /Portland - Reno is already claimed by Ben, and routes are exclusive/);
-  assert.match(block('SEA-SPO', 'SEA'), /None of your railheads stands on Seattle: yours stand on Portland or Omaha/);
-  assert.match(block('POR-SPO', 'POR'), /Portland - Spokane needs 2 Bridge in built tiles, and you hold 1 of the 2 built Bridge you need/);
-  assert.match(block('POR-SPO', 'SPO'), /None of your railheads stands on Spokane/);
-  assert.match(block('POR-SPO', 'SEA'), /Portland - Spokane does not touch Seattle/);
+  assert.match(block('SEA-TDL', 'SEA'), /None of your railheads stands on Seattle: yours stand on Portland or Omaha/);
+  assert.match(block('GRI-OMA', 'OMA'), /Grand Island - Omaha needs 1 Ground \+ 2 Bridge in built tiles, and you hold 0 of the 1 built Ground you need/);
+  assert.match(block('TDL-POR', 'TDL'), /None of your railheads stands on The Dalles/);
+  assert.match(block('TDL-POR', 'SEA'), /The Dalles - Portland does not touch Seattle/);
   assert.match(block('NOPE', 'POR'), /not a route of the map/);
-  assert.equal(block('OMA-SXF', 'OMA'), null);
+  assert.equal(block('SXC-OMA', 'OMA'), null);
   // The routes of a railhead whose neighbours are all claimed cannot be claimed (R11.8); the railhead must move first.
-  assert.equal(getStructuralBlockReason(state, { type: 'claimRoute', route: 'OMA-SXF', from: 'OMA' }), null);
+  assert.equal(getStructuralBlockReason(state, { type: 'claimRoute', route: 'SXC-OMA', from: 'OMA' }), null);
 });
 
 suite.check('R11.3: M steps, each a claim or a move; the result of one step is in force for the next; stop after any step', () => {
@@ -695,13 +713,13 @@ suite.check('R11.3: M steps, each a claim or a move; the result of one step is i
   const state = layTurn({ adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2, ground: 1 } });
   const frame = topFrame(state);
   assert.equal(frame.steps, 2);
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   take(state, 'skipBuilding');
   assert.equal(topFrame(state).kind, 'layTracks');
   assert.equal(topFrame(state).steps, 1);
   assert.equal(topFrame(state).taken, 1);
-  // Now at Spokane (the railhead moved): a move back along Portland - Spokane, or a claim from Spokane (no tiles for Bridge now).
-  assert.ok(getValidActions(state).some((a) => a.type === 'moveTrain' && a.from === 'SPO' && a.to === 'POR'));
+  // Now at The Dalles (the railhead moved): a move back along The Dalles - Portland, or a claim from the other railhead, on Omaha.
+  assert.ok(getValidActions(state).some((a) => a.type === 'moveTrain' && a.from === 'TDL' && a.to === 'POR'));
   assert.ok(getValidActions(state).some((a) => a.type === 'stopLaying'));
   assert.ok(getValidActions(state).some((a) => a.type === 'claimRoute' && a.from === 'OMA'));
   take(state, 'stopLaying');
@@ -712,60 +730,61 @@ suite.check('R11.3: M steps, each a claim or a move; the result of one step is i
 suite.check('R11.3: the action ends by itself when its last step is taken', () => {
   const state = layTurn({ adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2 } });
   assert.equal(topFrame(state).steps, 2);
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   take(state, 'skipBuilding');
-  take(state, 'claimRoute', { route: 'OMA-SXF', from: 'OMA' });
+  take(state, 'claimRoute', { route: 'SXC-OMA', from: 'OMA' });
   take(state, 'skipBuilding');
   assert.equal(state.turn.player, 1, 'two steps for M = 2: nothing left to ask');
-  assert.equal(state.players[0].railheads[0], 'SPO');
-  assert.equal(state.players[0].railheads[1], 'SXF');
+  assert.equal(state.players[0].railheads[0], 'TDL');
+  assert.equal(state.players[0].railheads[1], 'SXC');
 });
 
 suite.check('R11.5.5, R13.9: entering a city with another player\'s railway station pays its owner the toll', () => {
   const state = layTurn();
-  state.map.railwayStation.SPO = 1;
-  const events = take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  state.map.railwayStation.TDL = 1;
+  const events = take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.deepEqual(vpBySource(events, 1), { toll: K.SCORING.tollVp });
   assert.equal(state.players[1].vp.toll, K.SCORING.tollVp);
-  assert.equal(eventOf(events, 'toll').city, 'SPO');
+  assert.equal(eventOf(events, 'toll').city, 'TDL');
   // The owner entering their own station pays nothing.
   const own = layTurn();
-  own.map.railwayStation.SPO = 0;
-  const ownEvents = take(own, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  own.map.railwayStation.TDL = 0;
+  const ownEvents = take(own, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.equal(vpBySource(ownEvents, 0).toll, undefined);
 });
 
 suite.check('R11.9: the scoring card adds 2 VP to every slot of its terrain (3 in all), booked to track', () => {
   const state = layTurn({ variants: { scoringCard: 'bridge' } });
   assert.equal(state.scoringCard, 'bridge');
-  const events = take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  assert.equal(vpBySource(events, 0).track, 2 * (K.SCORING.vpPerSlot + K.SCORING.scoringCardVpPerSlot));
+  // Grand Island - Omaha is Bridge, Ground, Bridge: two Bridge slots at 3 VP and one Ground slot at 1.
+  const events = take(state, 'claimRoute', { route: 'GRI-OMA', from: 'OMA' });
+  assert.equal(vpBySource(events, 0).track, 3 * K.SCORING.vpPerSlot + 2 * K.SCORING.scoringCardVpPerSlot);
   const plain = layTurn();
-  assert.equal(vpBySource(take(plain, 'claimRoute', { route: 'POR-SPO', from: 'POR' }), 0).track, 2 * K.SCORING.vpPerSlot);
+  assert.equal(vpBySource(take(plain, 'claimRoute', { route: 'GRI-OMA', from: 'OMA' }), 0).track, 3 * K.SCORING.vpPerSlot);
   // Ground slots stay at 1 VP under the Bridge card.
   const g = layTurn({ tiles: { ground: 2, bridge: 2 }, heads: ['SEA', 'MIN'], variants: { scoringCard: 'bridge' } });
-  assert.equal(vpBySource(take(g, 'claimRoute', { route: 'SEA-SPO', from: 'SEA' }), 0).track, 2);
+  assert.equal(vpBySource(take(g, 'claimRoute', { route: 'FAR-MIN', from: 'MIN' }), 0).track, 1 * K.SCORING.vpPerSlot);
 });
 
 suite.check('R11.10: the running totals of the action are kept in the frame (for the Pony Express cards)', () => {
-  const state = layTurn({ adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2 }, heads: ['POR', 'OMA'] });
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  const state = layTurn({ adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2, ground: 1 }, heads: ['POR', 'OMA'] });
+  take(state, 'claimRoute', { route: 'POR-REN', from: 'POR' });
   take(state, 'skipBuilding');
-  take(state, 'claimRoute', { route: 'OMA-SXF', from: 'OMA' });
-  assert.equal(topFrame(state).kind, 'placeBuildings', 'a building is offered in Sioux Falls');
+  take(state, 'claimRoute', { route: 'SXC-OMA', from: 'OMA' });
+  assert.equal(topFrame(state).kind, 'placeBuildings', 'a building is offered in Sioux City');
   const totals = topFrame(state) && state.stack[state.stack.length - 2].totals;
-  assert.deepEqual(totals, { routes: 2, slots: { ground: 0, tunnel: 2, bridge: 2 } });
+  assert.deepEqual(totals, { routes: 2, noTerrain: 0, slots: { ground: 1, tunnel: 1, bridge: 2 } }); // noTerrain counts wild slots filled by no-terrain tiles
 });
 
 suite.check('layTrackClaims = per-railhead: each railhead gets M claims, and M moves in all', () => {
   const state = layTurn({ variants: { layTrackClaims: 'per-railhead' }, tiles: { bridge: 2, tunnel: 2, ground: 0 } });
   const frame = topFrame(state);
   assert.deepEqual([frame.claimsLeft, frame.movesLeft], [[1, 1], 1]);
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   take(state, 'skipBuilding');
   assert.deepEqual(topFrame(state).claimsLeft, [0, 1], 'the western railhead has used its claim');
-  assert.match(getBlockReason(state, { type: 'claimRoute', route: 'SPO-REN', from: 'SPO' }), /needs 3 Bridge|you hold/);
-  take(state, 'claimRoute', { route: 'OMA-SXF', from: 'OMA' });
+  assert.match(getBlockReason(state, { type: 'claimRoute', route: 'SPO-TDL', from: 'TDL' }), /needs 2 Ground|you hold/);
+  take(state, 'claimRoute', { route: 'SXC-OMA', from: 'OMA' });
   take(state, 'skipBuilding');
   // Both railheads have claimed; one move is left.
   assert.deepEqual(topFrame(state).claimsLeft, [0, 0]);
@@ -784,19 +803,19 @@ suite.check('R11.11: in network mode a claim needs only an end in the network; t
   const frame = topFrame(state);
   assert.equal(frame.steps, 2);
   assert.ok(!getValidActions(state).some((a) => a.type === 'moveTrain'));
-  assert.match(getBlockReason(state, { type: 'moveTrain', from: 'POR', to: 'SPO' }), /There is no Move Train in network mode/);
+  assert.match(getBlockReason(state, { type: 'moveTrain', from: 'POR', to: 'TDL' }), /There is no Move Train in network mode/);
   // Station steps are on offer only in cities of the network (the two start cities hold no buildings).
   assert.ok(!getValidActions(state).some((a) => a.type === 'placeTelegraphStation'));
-  const events = take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  const events = take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.deepEqual(state.players[0].railheads, ['POR', 'OMA'], 'R11.11.1: railheads never move');
   assert.equal(vpBySource(events, 0).firstConnection, K.SCORING.firstConnectionVp);
   take(state, 'skipBuilding');
-  // Spokane is now in the network: a station step is possible there, and only there.
+  // The Dalles is now in the network: a station step is possible there, and only there.
   const second = getValidActions(state);
-  assert.ok(second.some((a) => a.type === 'placeTelegraphStation' && a.city === 'SPO'));
-  assert.ok(!second.some((a) => a.type === 'placeTelegraphStation' && a.city === 'SXF'), 'not in the network');
+  assert.ok(second.some((a) => a.type === 'placeTelegraphStation' && a.city === 'TDL'));
+  assert.ok(!second.some((a) => a.type === 'placeTelegraphStation' && a.city === 'SXC'), 'not in the network');
   const coins = state.players[0].coins;
-  take(state, 'placeTelegraphStation', { city: 'SPO' });
+  take(state, 'placeTelegraphStation', { city: 'TDL' });
   assert.equal(state.players[0].coins, coins - K.MAP_RULES.stationStepCost.coins, 'R11.11.5: 2 Coins');
   assert.equal(state.turn.player, 1, 'the station step was the second step');
 });
@@ -804,22 +823,22 @@ suite.check('R11.11: in network mode a claim needs only an end in the network; t
 suite.check('R11.11.3, R11.11.4: a claim between two cities already in the network has no arrival city', () => {
   const state = start(3, { variants: { claimFrom: 'network' } });
   setHeads(state, 0, 'POR', 'OMA');
-  claim(state, 0, 'POR-REN', 'POR-SPO'); // Reno and Spokane are in the network
-  give(state, 0, { tiles: { bridge: 3, tunnel: 2 } });
+  claim(state, 0, 'POR-REN', 'TDL-POR', 'TDL-BOI'); // Reno, The Dalles and Boise are in the network
+  give(state, 0, { tiles: { bridge: 3, ground: 1, tunnel: 2 } });
   placeAndChoose(state, 'W6', 'D5');
   assert.match(
-    getBlockReason(state, { type: 'claimRoute', route: 'SPO-REN', from: 'REN' }),
-    /Both ends of Spokane - Reno are already in your network, so name the claim from Spokane/,
+    getBlockReason(state, { type: 'claimRoute', route: 'BOI-REN', from: 'REN' }),
+    /Both ends of Boise - Reno are already in your network, so name the claim from Boise/,
   );
-  const ev = take(state, 'claimRoute', { route: 'SPO-REN', from: 'SPO' });
+  const ev = take(state, 'claimRoute', { route: 'BOI-REN', from: 'BOI' });
   assert.equal(eventOf(ev, 'routeClaimed').to, null);
-  assert.deepEqual(vpBySource(ev, 0), { track: 3 }, 'no first connection, no toll');
+  assert.deepEqual(vpBySource(ev, 0), { track: 2 }, 'no first connection, no toll');
   assert.equal(state.turn.player, 1, 'and no building was offered');
 });
 
 suite.check('R11.11.1, R11.3: in network mode the action ends by itself when no claim or station step is left', () => {
-  const state = layTurn({ variants: { claimFrom: 'network' }, adjacent: ['W9'], tiles: { bridge: 2, tunnel: 0, ground: 1 }, coins: 1 });
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  const state = layTurn({ variants: { claimFrom: 'network' }, adjacent: ['W9'], tiles: { bridge: 1, tunnel: 0, ground: 0 }, coins: 1 });
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   const events = take(state, 'skipBuilding');
   // One step is left, but with 1 Coin no station step can be paid and no tiles remain: only "stop" is legal.
   assert.ok(events.some((e) => e.type === 'action' && e.auto && e.action.type === 'stopLaying'));
@@ -833,21 +852,21 @@ suite.check('R11.11.1, R11.3: in network mode the action ends by itself when no 
 suite.check('E8 (R22): Move Train takes the least-toll path, pays Hal the toll, and 2 Coins buy a railway station on arrival', () => {
   const state = start(3);
   setHeads(state, 0, 'POR', 'OMA');
-  state.players[0].railheads[0] = 'SPO'; // Gus's railhead is on Spokane
-  claim(state, 0, 'POR-SPO');
-  claim(state, 1, 'BOI-SPO', 'BOI-SLC');
+  state.players[0].railheads[0] = 'TDL'; // Gus's railhead is on The Dalles
+  claim(state, 0, 'TDL-POR');
+  claim(state, 1, 'TDL-BOI', 'BOI-SLC');
   state.map.railwayStation.BOI = 1;
   state.map.telegraphStation.SLC = 1;
   give(state, 0, { coins: 3, tiles: {} });
-  const path = moveTrainPath(state, 0, 'SPO', 'SLC');
-  assert.deepEqual(path.cities, ['SPO', 'BOI', 'SLC']);
+  const path = moveTrainPath(state, 0, 'TDL', 'SLC');
+  assert.deepEqual(path.cities, ['TDL', 'BOI', 'SLC']);
   assert.deepEqual(path.tollCities, ['BOI']);
   placeAndChoose(state, 'W6', 'D5');
   assert.equal(topFrame(state).steps, 1);
-  const moves = getValidActions(state).filter((a) => a.type === 'moveTrain' && a.from === 'SPO').map((a) => a.to).sort();
+  const moves = getValidActions(state).filter((a) => a.type === 'moveTrain' && a.from === 'TDL').map((a) => a.to).sort();
   assert.deepEqual(moves, ['BOI', 'POR', 'SLC']);
   const hal = state.players[1].vp.toll;
-  const events = take(state, 'moveTrain', { from: 'SPO', to: 'SLC' });
+  const events = take(state, 'moveTrain', { from: 'TDL', to: 'SLC' });
   assert.equal(state.players[1].vp.toll, hal + K.SCORING.tollVp, 'Boise is entered: Hal gains 3 VP');
   assert.equal(vpBySource(events, 0).toll, undefined, 'the mover loses nothing and gains nothing (R12.3.3)');
   assert.equal(state.players[0].railheads[0], 'SLC');
@@ -863,47 +882,47 @@ suite.check('E8 (R22): Move Train takes the least-toll path, pays Hal the toll, 
 
 suite.check('R12.3: fewest tolls first, then fewest routes, then the alphabetically first list of city ids', () => {
   const state = start(3);
-  // A diamond Spokane - (Boise | Reno) - Salt Lake City: two chains of 2 routes.
-  claim(state, 1, 'BOI-SPO', 'REN-SLC', 'BOI-SLC', 'SPO-REN');
-  assert.deepEqual(moveTrainPath(state, 0, 'SPO', 'SLC').cities, ['SPO', 'BOI', 'SLC'], 'tie: B comes before R');
-  // A toll on Boise makes the Reno chain better.
-  state.map.railwayStation.BOI = 1;
-  assert.deepEqual(moveTrainPath(state, 0, 'SPO', 'SLC').cities, ['SPO', 'REN', 'SLC']);
-  assert.deepEqual(moveTrainPath(state, 1, 'SPO', 'SLC').cities, ['SPO', 'BOI', 'SLC'], 'the owner pays no toll to herself');
-  // Fewer tolls beat fewer routes: Helena -> Cheyenne direct via Billings has a toll, the long way round has none.
+  // A diamond Boise - (Reno | Salt Lake City) - Tonopah: two chains of 2 routes.
+  claim(state, 1, 'BOI-REN', 'REN-TON', 'BOI-SLC', 'SLC-TON');
+  assert.deepEqual(moveTrainPath(state, 0, 'BOI', 'TON').cities, ['BOI', 'REN', 'TON'], 'tie: R comes before S');
+  // A toll on Reno makes the Salt Lake City chain better.
+  state.map.railwayStation.REN = 1;
+  assert.deepEqual(moveTrainPath(state, 0, 'BOI', 'TON').cities, ['BOI', 'SLC', 'TON']);
+  assert.deepEqual(moveTrainPath(state, 1, 'BOI', 'TON').cities, ['BOI', 'REN', 'TON'], 'the owner pays no toll to herself');
+  // Fewer tolls beat fewer routes: Spokane -> Reno direct via Boise has a toll, the long way round via The Dalles and Portland has none.
   const s2 = start(3);
-  claim(s2, 1, 'HEL-BIL', 'CHE-BIL', 'HEL-BOI', 'BOI-SLC', 'CHE-SLC');
-  assert.deepEqual(moveTrainPath(s2, 0, 'HEL', 'CHE').cities, ['HEL', 'BIL', 'CHE']);
-  s2.map.railwayStation.BIL = 1;
-  assert.deepEqual(moveTrainPath(s2, 0, 'HEL', 'CHE').cities, ['HEL', 'BOI', 'SLC', 'CHE']);
+  claim(s2, 1, 'SPO-BOI', 'BOI-REN', 'SPO-TDL', 'TDL-POR', 'POR-REN');
+  assert.deepEqual(moveTrainPath(s2, 0, 'SPO', 'REN').cities, ['SPO', 'BOI', 'REN']);
+  s2.map.railwayStation.BOI = 1;
+  assert.deepEqual(moveTrainPath(s2, 0, 'SPO', 'REN').cities, ['SPO', 'TDL', 'POR', 'REN']);
   // A city is counted once per move, and the destination counts.
-  s2.map.railwayStation.CHE = 1;
-  assert.deepEqual(moveTrainPath(s2, 0, 'HEL', 'CHE').tollCities, ['CHE']);
-  assert.equal(moveTrainPath(s2, 0, 'HEL', 'MIN'), null, 'not joined by claimed routes');
-  assert.equal(moveTrainPath(s2, 0, 'HEL', 'HEL'), null);
+  s2.map.railwayStation.REN = 1;
+  assert.deepEqual(moveTrainPath(s2, 0, 'SPO', 'REN').tollCities, ['REN']);
+  assert.equal(moveTrainPath(s2, 0, 'SPO', 'MIN'), null, 'not joined by claimed routes');
+  assert.equal(moveTrainPath(s2, 0, 'SPO', 'SPO'), null);
 });
 
 suite.check('R12.2, R12.5, R12.6: a legal move needs a chain of claimed routes; railheads may share a city', () => {
-  const state = layTurn({ tiles: { bridge: 1, ground: 1 }, claimed: [[1, 'POR-SPO']], heads: ['POR', 'OMA'] });
-  assert.match(getBlockReason(state, { type: 'moveTrain', from: 'OMA', to: 'SXF' }), /No claimed route touches Omaha, so a railhead there cannot move/);
+  const state = layTurn({ tiles: { bridge: 1, ground: 1 }, claimed: [[1, 'TDL-POR']], heads: ['POR', 'OMA'] });
+  assert.match(getBlockReason(state, { type: 'moveTrain', from: 'OMA', to: 'SXC' }), /No claimed route touches Omaha, so a railhead there cannot move/);
   assert.match(getBlockReason(state, { type: 'moveTrain', from: 'POR', to: 'REN' }), /No chain of claimed routes joins Portland to Reno/);
   assert.match(getBlockReason(state, { type: 'moveTrain', from: 'POR', to: 'POR' }), /already on Portland/);
-  assert.match(getBlockReason(state, { type: 'moveTrain', from: 'SEA', to: 'SPO' }), /None of your railheads stands on Seattle/);
-  assert.equal(getBlockReason(state, { type: 'moveTrain', from: 'POR', to: 'SPO' }), null);
-  const events = take(state, 'moveTrain', { from: 'POR', to: 'SPO' });
-  assert.equal(eventOf(events, 'railheadMoved').to, 'SPO');
+  assert.match(getBlockReason(state, { type: 'moveTrain', from: 'SEA', to: 'TDL' }), /None of your railheads stands on Seattle/);
+  assert.equal(getBlockReason(state, { type: 'moveTrain', from: 'POR', to: 'TDL' }), null);
+  const events = take(state, 'moveTrain', { from: 'POR', to: 'TDL' });
+  assert.equal(eventOf(events, 'railheadMoved').to, 'TDL');
   assert.equal(state.turn.player, 1);
 });
 
 suite.check('R12.5: both of a player\'s railheads, and other players\' railheads, may stand on the same city', () => {
-  const state = layTurn({ tiles: { bridge: 3, ground: 1 }, claimed: [[1, 'POR-SPO']] });
+  const state = layTurn({ tiles: { bridge: 3, ground: 1 }, claimed: [[1, 'TDL-POR']] });
   state.players[0].railheads = ['POR', 'POR'];
   state.players[1].railheads = ['POR', 'SEA'];
   const keys = getValidActions(state).map((a) => JSON.stringify(a));
   assert.equal(new Set(keys).size, keys.length, 'one move from Portland, not two');
-  assert.deepEqual(getValidActions(state).filter((a) => a.type === 'moveTrain').map((a) => a.to), ['SPO']);
-  take(state, 'moveTrain', { from: 'POR', to: 'SPO' });
-  assert.deepEqual(state.players[0].railheads, ['SPO', 'POR'], 'one railhead moved, the other stayed');
+  assert.deepEqual(getValidActions(state).filter((a) => a.type === 'moveTrain').map((a) => a.to), ['TDL']);
+  take(state, 'moveTrain', { from: 'POR', to: 'TDL' });
+  assert.deepEqual(state.players[0].railheads, ['TDL', 'POR'], 'one railhead moved, the other stayed');
 });
 
 // =============================================================================
@@ -912,29 +931,29 @@ suite.check('R12.5: both of a player\'s railheads, and other players\' railheads
 
 suite.check('R13.1 to R13.3, R13.10: one railway station and one telegraph station per inland city; start cities hold none', () => {
   const state = layTurn();
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  take(state, 'placeRailwayStation', { city: 'SPO', houseTrack: 'wood' });
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  take(state, 'placeRailwayStation', { city: 'TDL', houseTrack: 'wood' });
   assert.equal(state.players[0].houses.wood, 2);
   assert.equal(production(state, 0, 'wood'), 2);
   const b = (action) => getBlockReason(state, { ...action, player: 0 });
-  assert.match(b({ type: 'placeRailwayStation', city: 'SPO', houseTrack: 'iron' }), /You already have a railway station in Spokane/);
-  assert.match(b({ type: 'placeRailwayStation', city: 'SEA', houseTrack: 'iron' }), /Seattle is a start city: buildings go only in the 17 inland cities/);
+  assert.match(b({ type: 'placeRailwayStation', city: 'TDL', houseTrack: 'iron' }), /You already have a railway station in The Dalles/);
+  assert.match(b({ type: 'placeRailwayStation', city: 'SEA', houseTrack: 'iron' }), /Seattle is a start city: buildings go only in the 27 inland cities/);
   assert.match(b({ type: 'placeTelegraphStation', city: 'MIN' }), /Minneapolis is a start city/);
   // The no-house case and the empty track.
   const bare = layTurn();
   bare.players[0].houses = { wood: 0, coins: 0, iron: 0, gunpowder: 0 };
-  take(bare, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  assert.match(getBlockReason(bare, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'iron' }), /You have no house left on your player board to place as a railway station/);
+  take(bare, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  assert.match(getBlockReason(bare, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'iron' }), /You have no house left on your player board to place as a railway station/);
   const track = layTurn();
   track.players[0].houses.iron = 0;
-  take(track, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  assert.match(getBlockReason(track, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'iron' }), /Your Iron track has no house left to take: choose a track that still has one/);
-  assert.equal(getBlockReason(track, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }), null);
+  take(track, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  assert.match(getBlockReason(track, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'iron' }), /Your Iron track has no house left to take: choose a track that still has one/);
+  assert.equal(getBlockReason(track, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }), null);
   // Skipping is always possible, and only one building comes with a claim (R13.4).
   const one = layTurn();
-  take(one, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  take(one, 'placeTelegraphStation', { city: 'SPO' });
-  assert.equal(one.map.railwayStation.SPO, null);
+  take(one, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  take(one, 'placeTelegraphStation', { city: 'TDL' });
+  assert.equal(one.map.railwayStation.TDL, null);
   assert.equal(one.turn.player, 1);
 });
 
@@ -944,65 +963,65 @@ suite.check('R13.3: the telegraph row scores 1, 2, 3, 4, 5, 6, 9 from the left; 
     const state = layTurn();
     state.players[0].telegraphsPlaced = placed;
     assert.equal(nextTelegraphVp(state, 0), row[placed]);
-    take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-    const events = take(state, 'placeTelegraphStation', { city: 'SPO' });
+    take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+    const events = take(state, 'placeTelegraphStation', { city: 'TDL' });
     assert.equal(vpBySource(events, 0).telegraph, row[placed], `telegraph station number ${placed + 1}`);
     assert.equal(state.players[0].telegraphsPlaced, placed + 1);
   }
   const empty = layTurn();
   empty.players[0].telegraphsPlaced = row.length;
-  take(empty, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  assert.match(getBlockReason(empty, { type: 'placeTelegraphStation', city: 'SPO' }), /You have placed all 7 of your telegraph stations/);
+  take(empty, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  assert.match(getBlockReason(empty, { type: 'placeTelegraphStation', city: 'TDL' }), /You have placed all 7 of your telegraph stations/);
 });
 
 suite.check('R13.7: with bothBuildingsSameOwner = false the two buildings of a city belong to different players', () => {
   const reason = (state, action) => getBlockReason(state, { ...action, player: 0 });
-  // Anna owns the telegraph station in Spokane and arrives there: no railway station may follow, so nothing is offered.
+  // Anna owns the telegraph station in The Dalles and arrives there: no railway station may follow, so nothing is offered.
   const state = layTurn({ variants: { bothBuildingsSameOwner: false } });
-  state.map.telegraphStation.SPO = 0;
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  state.map.telegraphStation.TDL = 0;
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.equal(state.turn.player, 1, 'no building could be placed, so none was offered');
   assert.match(
-    reason(state, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }),
-    /In this game the railway station and the telegraph station of a city must belong to different players, and the telegraph station in Spokane is yours/,
+    reason(state, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }),
+    /In this game the railway station and the telegraph station of a city must belong to different players, and the telegraph station in The Dalles is yours/,
   );
   // By default one player may own both.
   const open = layTurn();
-  open.map.telegraphStation.SPO = 0;
-  take(open, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  open.map.telegraphStation.TDL = 0;
+  take(open, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.equal(topFrame(open).kind, 'placeBuildings');
-  assert.equal(getBlockReason(open, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }), null);
+  assert.equal(getBlockReason(open, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }), null);
   // Another player's telegraph station does not stop the railway station in either mode.
   const other = layTurn({ variants: { bothBuildingsSameOwner: false } });
-  other.map.telegraphStation.SPO = 1;
-  take(other, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  assert.equal(getBlockReason(other, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }), null);
-  assert.match(getBlockReason(other, { type: 'placeTelegraphStation', city: 'SPO' }), /Spokane already has Ben's telegraph station/);
+  other.map.telegraphStation.TDL = 1;
+  take(other, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  assert.equal(getBlockReason(other, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }), null);
+  assert.match(getBlockReason(other, { type: 'placeTelegraphStation', city: 'TDL' }), /The Dalles already has Ben's telegraph station/);
   // And the mirror: a railway station of one's own blocks the telegraph station.
   const mirror = layTurn({ variants: { bothBuildingsSameOwner: false } });
-  mirror.map.railwayStation.SPO = 0;
-  take(mirror, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  mirror.map.railwayStation.TDL = 0;
+  take(mirror, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.equal(mirror.turn.player, 1);
-  assert.match(reason(mirror, { type: 'placeTelegraphStation', city: 'SPO' }), /must belong to different players, and the railway station in Spokane is yours/);
+  assert.match(reason(mirror, { type: 'placeTelegraphStation', city: 'TDL' }), /must belong to different players, and the railway station in The Dalles is yours/);
 });
 
 suite.check('R13.4: a building comes free on every arrival in an inland city with room, not only a first connection', () => {
   const state = layTurn();
-  claim(state, 1, 'SEA-SPO'); // Spokane is already connected
-  const events = take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  claim(state, 1, 'SPO-TDL'); // The Dalles is already connected
+  const events = take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.equal(vpBySource(events, 0).firstConnection, undefined);
   assert.equal(topFrame(state).kind, 'placeBuildings');
   // A start city never offers one (R11.2.2), and scores no first connection (R11.2.4).
-  const edge = layTurn({ tiles: { bridge: 2, ground: 1 }, heads: ['SXF', 'OMA'] });
-  const arrived = take(edge, 'claimRoute', { route: 'MIN-SXF', from: 'SXF' });
+  const edge = layTurn({ tiles: { bridge: 1, ground: 2 }, heads: ['SXC', 'OMA'] });
+  const arrived = take(edge, 'claimRoute', { route: 'MIN-SXC', from: 'SXC' });
   assert.equal(eventOf(arrived, 'routeClaimed').to, 'MIN');
-  assert.deepEqual(vpBySource(arrived, 0), { track: 2 });
+  assert.deepEqual(vpBySource(arrived, 0), { track: 3 });
   assert.equal(edge.turn.player, 1, 'Minneapolis is a start city: no building is offered');
   // Nor when the player cannot place one: the offer is skipped, not asked.
   const bare = layTurn();
   bare.players[0].telegraphsPlaced = K.PLAYER_BOARD.telegraphRowVp.length;
   bare.players[0].houses = { wood: 0, coins: 0, iron: 0, gunpowder: 0 };
-  take(bare, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(bare, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   assert.equal(bare.turn.player, 1);
 });
 
@@ -1013,25 +1032,26 @@ suite.check('R13.4: a building comes free on every arrival in an inland city wit
 suite.check('E10 (R22): the first transcontinental line pays 25 + 3 per slot and triggers the end; the last seat plays on', () => {
   const state = start(4);
   const mia = state.players[0];
-  // Seat 3 is Mia in the spec; any seat will do. Mia owns Seattle - Helena and Helena - Bismarck, and is at Bismarck.
-  claim(state, 0, 'SEA-HEL', 'HEL-BIS');
-  // 16 more routes are claimed by others, so 19 are claimed in all; none joins the coasts.
-  const others = MAP.routes.map((r) => r.id).filter((id) => state.map.routeOwner[id] === null && id !== 'BIS-MIN' && !id.startsWith('LAX') && !id.startsWith('ELP-FTW'));
+  // Seat 3 is Mia in the spec; any seat will do. Mia owns seven routes of the line Portland - The Dalles - Boise - Helena - Great Falls -
+  // Billings - North Platte - Grand Island, and is at Grand Island; Grand Island - Omaha (3 slots) completes it.
+  claim(state, 0, ...LINE.owned);
+  // 17 more routes are claimed by others, so 24 are claimed in all; none of them completes a line.
+  const others = MAP.routes.map((r) => r.id).filter((id) => state.map.routeOwner[id] === null && id !== LINE.last);
   claim(state, 1, ...others.slice(0, 16));
-  assert.equal(Object.values(state.map.routeOwner).filter((o) => o !== null).length, 18);
+  assert.equal(Object.values(state.map.routeOwner).filter((o) => o !== null).length, 23);
   claim(state, 1, others[16]);
-  setHeads(state, 0, 'SEA', 'MIN');
-  mia.railheads = ['SEA', 'BIS'];
-  give(state, 0, { tiles: { ground: 5 } });
+  setHeads(state, 0, 'POR', 'OMA');
+  mia.railheads = [LINE.head, 'OMA'];
+  give(state, 0, { tiles: LINE.tiles });
   assert.ok(!hasTranscontinentalLine(state, 0));
   placeAndChoose(state, 'W6', 'D5');
-  const events = take(state, 'claimRoute', { route: 'BIS-MIN', from: 'BIS' });
+  const events = take(state, 'claimRoute', { route: LINE.last, from: LINE.head });
   const vp = vpBySource(events, 0);
-  assert.equal(vp.track, 5, 'five slots');
-  assert.equal(vp.completion, K.SCORING.completionVp + K.SCORING.completionVpPerSlot * 5, 'E10: 25 + 3 x 5 = 40 VP');
-  assert.equal(vp.firstConnection, undefined, 'Minneapolis is a start city');
-  assert.equal(vp.track + vp.completion, 45, 'E10: the turn scores 45 VP');
-  assert.deepEqual(state.completion, { player: 0, turn: 1, route: 'BIS-MIN' });
+  assert.equal(vp.track, 3, 'three slots');
+  assert.equal(vp.completion, K.SCORING.completionVp + K.SCORING.completionVpPerSlot * 3, 'E10: 25 + 3 x 3 = 34 VP');
+  assert.equal(vp.firstConnection, undefined, 'Omaha is a start city');
+  assert.equal(vp.track + vp.completion, 37, 'E10: the turn scores 37 VP');
+  assert.deepEqual(state.completion, { player: 0, turn: 1, route: LINE.last });
   assert.deepEqual(state.gameEnd, { reason: 'transcontinental', triggeredBy: 0, triggeredOnTurn: 1 });
   assert.ok(eventOf(events, 'gameEndTriggered'));
   assert.equal(isGameOver(state), false);
@@ -1046,23 +1066,23 @@ suite.check('E10 (R22): the first transcontinental line pays 25 + 3 per slot and
 
 suite.check('R19.2: the bonus is paid once per game; a second line later scores nothing extra', () => {
   const state = start(4);
-  claim(state, 0, 'SEA-HEL', 'HEL-BIS');
-  claim(state, 3, 'LAX-PHX', 'PHX-ELP');
-  setHeads(state, 0, 'SEA', 'MIN');
-  state.players[0].railheads = ['SEA', 'BIS'];
-  setHeads(state, 3, 'LAX', 'FTW');
-  state.players[3].railheads = ['LAX', 'ELP'];
-  give(state, 0, { tiles: { ground: 5 } });
-  give(state, 3, { tiles: { ground: 5 } });
+  claim(state, 0, ...LINE.owned);
+  claim(state, 3, ...SOUTH.owned);
+  setHeads(state, 0, 'POR', 'OMA');
+  state.players[0].railheads = [LINE.head, 'OMA'];
+  setHeads(state, 3, 'SAC', 'FTW');
+  state.players[3].railheads = [SOUTH.head, 'FTW'];
+  give(state, 0, { tiles: LINE.tiles });
+  give(state, 3, { tiles: SOUTH.tiles });
   placeAndChoose(state, 'W6', 'D5');
-  take(state, 'claimRoute', { route: 'BIS-MIN', from: 'BIS' });
-  assert.equal(state.players[0].vp.completion, 40);
-  // Dev completes Los Angeles - Fort Worth on the last turn of the round.
+  take(state, 'claimRoute', { route: LINE.last, from: LINE.head });
+  assert.equal(state.players[0].vp.completion, COMPLETION);
+  // Dev completes Sacramento - Fort Worth on the last turn of the round.
   drive(state, (s) => s.turn.player !== 3, (actions) => actions.find((a) => a.type === 'placeWorker') ?? actions[0]);
   assert.equal(state.turn.player, 3);
   placeAndChoose(state, 'W7', 'D5');
   assert.ok(hasTranscontinentalLine(state, 3) === false);
-  const events = take(state, 'claimRoute', { route: 'ELP-FTW', from: 'ELP' });
+  const events = take(state, 'claimRoute', { route: SOUTH.last, from: SOUTH.head });
   assert.ok(hasTranscontinentalLine(state, 3), 'Dev\'s routes do join the coasts now');
   assert.equal(vpBySource(events, 3).completion, undefined, 'but the bonus is paid once per game');
   assert.equal(state.players[3].vp.completion, 0);
@@ -1073,22 +1093,22 @@ suite.check('R19.2: the bonus is paid once per game; a second line later scores 
 suite.check('R19.1 against R19.7: own-crossing needs one player\'s own routes; any-crossing counts every claimed route', () => {
   for (const [mode, expected] of [['own-crossing', false], ['any-crossing', true]]) {
     const state = start(3, { variants: { gameEndTrigger: mode } });
-    claim(state, 1, 'SEA-HEL');
-    claim(state, 2, 'HEL-BIS');
-    setHeads(state, 0, 'SEA', 'MIN');
-    state.players[0].railheads = ['SEA', 'BIS'];
-    give(state, 0, { tiles: { ground: 5 } });
+    claim(state, 1, ...LINE.owned.slice(0, 4));
+    claim(state, 2, ...LINE.owned.slice(4));
+    setHeads(state, 0, 'POR', 'OMA');
+    state.players[0].railheads = [LINE.head, 'OMA'];
+    give(state, 0, { tiles: LINE.tiles });
     placeAndChoose(state, 'W6', 'D5');
-    const events = take(state, 'claimRoute', { route: 'BIS-MIN', from: 'BIS' });
+    const events = take(state, 'claimRoute', { route: LINE.last, from: LINE.head });
     assert.equal(vpBySource(events, 0).completion !== undefined, expected, mode);
     assert.equal(state.gameEnd !== null, expected, mode);
     if (expected) assert.equal(state.gameEnd.reason, 'transcontinental');
   }
   // The west-to-east chain may use any start cities: Los Angeles to Kansas City.
   const free = start(3);
-  claim(free, 0, 'LAX-PHX', 'PHX-ELP', 'ELP-DOD');
+  claim(free, 0, 'LAX-SBD', 'SBD-LVG', 'LVG-PHX', 'SFE-PHX', 'SFE-ELP', 'ELP-AMA', 'AMA-WIC');
   assert.equal(hasTranscontinentalLine(free, 0), false);
-  claim(free, 0, 'KCY-DOD');
+  claim(free, 0, 'WIC-KCY');
   assert.equal(hasTranscontinentalLine(free, 0), true);
   assert.equal(hasTranscontinentalLine(free, 1), false);
 });
@@ -1096,14 +1116,13 @@ suite.check('R19.1 against R19.7: own-crossing needs one player\'s own routes; a
 suite.check('R19.2 with R19.6: a line completed after the end was triggered still scores; the end is not triggered twice', () => {
   const state = start(3);
   state.gameEnd = { reason: 'routes-claimed', triggeredBy: 2, triggeredOnTurn: 0 };
-  claim(state, 0, 'SEA-HEL', 'HEL-BIS');
-  state.players[0].railheads = ['SEA', 'BIS'];
-  setHeads(state, 0, 'SEA', 'MIN');
-  state.players[0].railheads = ['SEA', 'BIS'];
-  give(state, 0, { tiles: { ground: 5 } });
+  claim(state, 0, ...LINE.owned);
+  setHeads(state, 0, 'POR', 'OMA');
+  state.players[0].railheads = [LINE.head, 'OMA'];
+  give(state, 0, { tiles: LINE.tiles });
   placeAndChoose(state, 'W6', 'D5');
-  const events = take(state, 'claimRoute', { route: 'BIS-MIN', from: 'BIS' });
-  assert.equal(vpBySource(events, 0).completion, 40);
+  const events = take(state, 'claimRoute', { route: LINE.last, from: LINE.head });
+  assert.equal(vpBySource(events, 0).completion, COMPLETION);
   assert.equal(state.gameEnd.reason, 'routes-claimed', 'the earlier trigger stands');
   assert.equal(eventsOf(events, 'gameEndTriggered').length, 0);
 });
@@ -1177,7 +1196,7 @@ suite.check('R5.4.4: a centre worker of Lay Tracks is forced off with no action 
   // With the tiles for a route, the same removal gives Lay Tracks.
   const live = start(4);
   setHeads(live, 0, 'SEA', 'MIN');
-  give(live, 0, { tiles: { ground: 2, bridge: 2 } });
+  give(live, 0, { tiles: { tunnel: 1, ground: 1 } });
   put(live, 0, 'D5');
   put(live, 0, 'W1');
   put(live, 0, 'W2');
@@ -1188,18 +1207,18 @@ suite.check('R5.4.4: a centre worker of Lay Tracks is forced off with no action 
 
 suite.check('R20.1: every VP source of the core game is booked as it is scored, and the totals add up', () => {
   const state = layTurn();
-  state.map.railwayStation.SPO = 1;
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  take(state, 'placeTelegraphStation', { city: 'SPO' });
+  state.map.railwayStation.TDL = 1;
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  take(state, 'placeTelegraphStation', { city: 'TDL' });
   const [anna, ben] = state.players;
   assert.deepEqual(
     { track: anna.vp.track, first: anna.vp.firstConnection, tele: anna.vp.telegraph, completion: anna.vp.completion, toll: anna.vp.toll, congress: anna.vp.congress },
-    { track: 2, first: 5, tele: 1, completion: 0, toll: 0, congress: 0 },
+    { track: 1, first: 5, tele: 1, completion: 0, toll: 0, congress: 0 },
   );
   assert.equal(ben.vp.toll, K.SCORING.tollVp);
   const score = scoreGame(state);
   // scoreGame projects the buildings table onto the position: one building each (Ben's railway station was put there by hand).
-  assert.equal(score.players[0].total, 8 + K.SCORING.buildingTable.rising[1]);
+  assert.equal(score.players[0].total, 7 + K.SCORING.buildingTable.rising[1]);
   assert.equal(score.players[1].total, K.SCORING.tollVp + K.SCORING.buildingTable.rising[1]);
   assert.deepEqual(Object.keys(score.players[0].bySource).slice(0, 6), ['track', 'firstConnection', 'completion', 'telegraph', 'toll', 'congress']);
 });
@@ -1229,14 +1248,14 @@ suite.check('every legal action of the new decisions is listed, and every listed
   const a = layTurn({ adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2, ground: 1 } });
   states.push(a);
   const b = cloneState(a);
-  take(b, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(b, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   states.push(b); // placeBuildings
   const c = cloneState(b);
   take(c, 'skipBuilding');
   states.push(c); // layTracks after a step
   states.push(congressTurn([['financier', 'financier']], 6));
   const net = layTurn({ variants: { claimFrom: 'network' }, adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2 }, coins: 4 });
-  take(net, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(net, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   take(net, 'skipBuilding');
   states.push(net);
   for (const s of states) {
@@ -1264,24 +1283,24 @@ suite.check('layTrackClaims = per-railhead with claimFrom = network: 2 x M steps
   });
   assert.equal(topFrame(state).steps, 2 * 1, 'R11.3: 2 x M claims');
   assert.equal(topFrame(state).claimsLeft, undefined);
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   take(state, 'skipBuilding');
-  take(state, 'claimRoute', { route: 'OMA-SXF', from: 'OMA' });
+  take(state, 'claimRoute', { route: 'SXC-OMA', from: 'OMA' });
   take(state, 'skipBuilding');
   assert.equal(state.turn.player, 1, 'both claims taken, nothing left');
 });
 
 suite.check('R12.4, R13.5: a building after a move is offered only if the 2 Coins can be paid and there is room', () => {
   const build = (coins) => {
-    const state = layTurn({ tiles: { bridge: 1, ground: 1 }, claimed: [[1, 'POR-SPO']], coins });
-    return take(state, 'moveTrain', { from: 'POR', to: 'SPO' }) && state;
+    const state = layTurn({ tiles: { bridge: 1, ground: 1 }, claimed: [[1, 'TDL-POR']], coins });
+    return take(state, 'moveTrain', { from: 'POR', to: 'TDL' }) && state;
   };
   assert.equal(topFrame(build(K.MAP_RULES.moveBuildCost.coins)).kind, 'placeBuildings');
   assert.equal(build(K.MAP_RULES.moveBuildCost.coins - 1).turn.player, 1, 'with 1 Coin nothing is offered');
   // A move to a start city offers nothing either.
-  const back = layTurn({ tiles: { bridge: 1, ground: 1 }, claimed: [[1, 'POR-SPO']], coins: 5 });
-  back.players[0].railheads[0] = 'SPO';
-  take(back, 'moveTrain', { from: 'SPO', to: 'POR' });
+  const back = layTurn({ tiles: { bridge: 1, ground: 1 }, claimed: [[1, 'TDL-POR']], coins: 5 });
+  back.players[0].railheads[0] = 'TDL';
+  take(back, 'moveTrain', { from: 'TDL', to: 'POR' });
   assert.equal(back.turn.player, 1);
 });
 
@@ -1295,7 +1314,7 @@ suite.check('R5.5.4 with R4.6.3: a displacement onto Lay Tracks / Move Train is 
   assert.match(getBlockReason(state, { type: 'displaceWorker', district: 'D5' }), /Lay Tracks \/ Move Train needs a legal claim or move, and you have neither/);
   // With the tiles for a route, the same displacement is legal.
   setHeads(state, 0, 'SEA', 'MIN');
-  give(state, 0, { tiles: { ground: 2 } });
+  give(state, 0, { tiles: { tunnel: 1 } });
   assert.equal(getBlockReason(state, { type: 'displaceWorker', district: 'D5' }), null);
 });
 
@@ -1324,22 +1343,23 @@ suite.check('R11.3: stopping needs at least one step, and the sentence says so',
   assert.match(getBlockReason(state, { type: 'chooseBuiltTile', terrain: 'ground' }), /not owed a built track tile/);
   assert.match(getBlockReason(state, { type: 'chooseBuiltTile', terrain: 'steel' }), /not a kind of track tile/);
   assert.match(getBlockReason(state, { type: 'chooseOption', option: -1 }), /options count from 0/);
-  assert.match(getBlockReason(state, { type: 'placeTelegraphStation', city: 'SPO' }), /You can place a building only when the rules offer one/);
+  assert.match(getBlockReason(state, { type: 'placeTelegraphStation', city: 'TDL' }), /You can place a building only when the rules offer one/);
 });
 
 suite.check('describeAction and describeDecision speak plainly for every new action and decision', () => {
   const state = layTurn({ adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2, ground: 1 } });
   assert.equal(describeDecision(state).prompt, 'Anna: claim a route or move your train (2 steps left)');
-  assert.equal(describeAction(state, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }), 'Claim Portland - Spokane (2 Bridge) from Portland');
-  assert.equal(describeAction(state, { type: 'moveTrain', from: 'POR', to: 'SPO' }), 'Move your railhead from Portland to Spokane');
+  assert.equal(describeAction(state, { type: 'claimRoute', route: 'POR-REN', from: 'POR' }), 'Claim Portland - Reno (1 Ground + 1 Tunnel + 1 Bridge) from Portland');
+  assert.equal(describeAction(state, { type: 'claimRoute', route: 'GRI-OMA', from: 'OMA' }), 'Claim Grand Island - Omaha (1 Ground + 2 Bridge) from Omaha');
+  assert.equal(describeAction(state, { type: 'moveTrain', from: 'POR', to: 'TDL' }), 'Move your railhead from Portland to The Dalles');
   assert.equal(describeAction(state, { type: 'stopLaying' }), 'Stop: take no more steps');
-  take(state, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
-  assert.equal(describeDecision(state).prompt, 'Anna: place a building in Spokane, for free, or none');
+  take(state, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
+  assert.equal(describeDecision(state).prompt, 'Anna: place a building in The Dalles, for free, or none');
   assert.equal(
-    describeAction(state, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'iron' }),
-    'Place a railway station in Spokane, taking the leftmost house from your Iron track',
+    describeAction(state, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'iron' }),
+    'Place a railway station in The Dalles, taking the leftmost house from your Iron track',
   );
-  assert.equal(describeAction(state, { type: 'placeTelegraphStation', city: 'SPO' }), `Place a telegraph station in Spokane (+${K.PLAYER_BOARD.telegraphRowVp[0]} VP)`);
+  assert.equal(describeAction(state, { type: 'placeTelegraphStation', city: 'TDL' }), `Place a telegraph station in The Dalles (+${K.PLAYER_BOARD.telegraphRowVp[0]} VP)`);
   assert.equal(describeAction(state, { type: 'skipBuilding' }), 'Place no (more) buildings');
   const c = congressTurn([['financier', 'miner']], 4);
   assert.equal(describeAction(c, { type: 'takeCongressEntry', entry: 'C1' }), 'Take Congress entry C1 (1 lobby point + 1 Coin): Gain 3 Wood');
@@ -1365,7 +1385,7 @@ suite.check('terminology: no player-facing sentence of the core rules calls anyt
   };
   const lay = layTurn({ adjacent: ['W9'], tiles: { bridge: 2, tunnel: 2, ground: 1 } });
   grab(lay, [0, 1]);
-  take(lay, 'claimRoute', { route: 'POR-SPO', from: 'POR' });
+  take(lay, 'claimRoute', { route: 'TDL-POR', from: 'POR' });
   grab(lay, [0, 1]);
   const c = congressTurn([['financier', 'financier']], 6);
   grab(c, [0, 1]);

@@ -31,7 +31,14 @@ export const RESOURCES = ['iron', 'wood', 'gunpowder'];
 export const TERRAINS = ['ground', 'tunnel', 'bridge'];
 
 /** Letters used by the map data file (Appendix A). */
-export const TERRAIN_BY_LETTER = { G: 'ground', T: 'tunnel', B: 'bridge' };
+export const TERRAIN_BY_LETTER = { G: 'ground', T: 'tunnel', B: 'bridge', W: 'wild' };
+
+/**
+ * R1.25. The printed kind of a wild slot. It is NOT a terrain, a tile type, a
+ * storage item or a `scoringCard` value: `TERRAINS` never contains it, and the
+ * built tile laid on a wild slot is always one of `TERRAINS`.
+ */
+export const WILD = 'wild';
 
 /** R8.5.2. Everything that takes one unit of storage: resources, then built tiles. */
 export const STORAGE_ITEMS = ['iron', 'wood', 'gunpowder', 'ground', 'tunnel', 'bridge'];
@@ -52,6 +59,7 @@ export const NAMES = {
   ground: 'Ground',
   tunnel: 'Tunnel',
   bridge: 'Bridge',
+  wild: 'any tile',
   crew: 'Crew',
   miner: 'Miner',
   engineer: 'Engineer',
@@ -395,10 +403,16 @@ export const MAP_RULES = {
   buildingsPerInlandCity: { railwayStation: 1, telegraphStation: 1 },
   /** R16.6.1. An inland city with at least this many printed routes is a junction city. */
   junctionMinRoutes: 5,
-  /** R16.6.2. North region: inland cities with map y below this (mm). */
-  northRegionMaxY: 140,
-  /** R16.6.2. South region: inland cities with map y above this (mm). */
-  southRegionMinY: 250,
+  /** R16.6.2. North region: inland cities with map y below this (mm): the top third of the 350 mm board (map v3). */
+  northRegionMaxY: 116.7,
+  /** R16.6.2. South region: inland cities with map y above this (mm): the bottom third of the board (map v3). */
+  southRegionMinY: 233.3,
+  /**
+   * R16.8 MS5 Long Haul: the route length, in slots, that the milestone asks
+   * for. Dean ruled 4 on 31/10/2026 (map v3 has no route of 5; two have 4).
+   * MILESTONE_TILES reads this number, so it is changed in one place.
+   */
+  longHaulMinSlots: 4,
 };
 
 // ---------------------------------------------------------------------------
@@ -696,8 +710,8 @@ export const MILESTONE_TILES = [
     id: 'MS5',
     name: 'Long Haul',
     vp: 5,
-    text: 'Owns a route of 5 or more slots',
-    condition: { metric: 'longestOwnRoute', op: '>=', value: 5 },
+    text: `Owns a route of ${MAP_RULES.longHaulMinSlots} or more slots`,
+    condition: { metric: 'longestOwnRoute', op: '>=', value: MAP_RULES.longHaulMinSlots },
   },
   {
     id: 'MS6',

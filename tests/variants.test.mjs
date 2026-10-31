@@ -34,7 +34,7 @@ import { MODULES_OFF } from './helpers/rig.mjs';
 
 const suite = makeSuite('variants');
 
-// Spec R21.3, rows 1 to 25: name, default.
+// Spec R21.3, rows 1 to 25, then row 26 (wildSlotTerrain, added for the wild slots of route map v3): name, default.
 const SPEC_R21_3 = [
   ['conversionRate', '2:1'],
   ['turnStructure', 'continuous'],
@@ -51,7 +51,7 @@ const SPEC_R21_3 = [
   ['claimFrom', 'railhead'],
   ['layTrackClaims', 'per-step'],
   ['gameEndTrigger', 'own-crossing'],
-  ['endRoutesPerPlayer', 8],
+  ['endRoutesPerPlayer', 10],
   ['maxTurnsPerPlayer', 80],
   ['bonusActionLimit', 'once-per-turn'],
   ['hireCostModel', 'fee-only'],
@@ -61,13 +61,14 @@ const SPEC_R21_3 = [
   ['upgradeVpTiming', 'per-activation'],
   ['specialistActivations', 'once'],
   ['gridLayout', 'fixed'],
+  ['wildSlotTerrain', 'tile-terrain'],
 ];
 
-suite.check('the table holds exactly the 25 variants of spec R21.3, in order, with their defaults', () => {
-  assert.equal(VARIANTS.length, 25);
+suite.check('the table holds exactly the 26 variants of spec R21.3 and the wild-slot row, in order, with their defaults', () => {
+  assert.equal(VARIANTS.length, 26);
   assert.deepEqual(VARIANT_NAMES, SPEC_R21_3.map(([name]) => name));
   assert.deepEqual(defaultVariants(), Object.fromEntries(SPEC_R21_3));
-  assert.equal(new Set(VARIANT_NAMES).size, 25, 'names must be unique');
+  assert.equal(new Set(VARIANT_NAMES).size, 26, 'names must be unique');
 });
 
 suite.check('every variant is complete: type, allowed values, a legal default, a description, a rule', () => {

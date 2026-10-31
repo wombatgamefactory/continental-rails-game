@@ -209,8 +209,11 @@ suite.check('printed values of R21.4 (the one place the spec numbers are repeate
   assert.deepEqual(MAP_RULES.stationStepCost, { coins: 2 });
   assert.deepEqual(MAP_RULES.buildingsPerInlandCity, { railwayStation: 1, telegraphStation: 1 });
   assert.equal(MAP_RULES.junctionMinRoutes, 5);
-  assert.equal(MAP_RULES.northRegionMaxY, 140);
-  assert.equal(MAP_RULES.southRegionMinY, 250);
+  assert.equal(MAP_RULES.northRegionMaxY, 116.7);
+  assert.equal(MAP_RULES.southRegionMinY, 233.3);
+  // Not a spec R21.4 name: the length MS5 Long Haul asks for (4 slots, ruled for map v3), read by the milestone tile.
+  assert.equal(MAP_RULES.longHaulMinSlots, 4);
+  assert.equal(RULES.MILESTONE_TILES.find((t) => t.id === 'MS5').condition.value, MAP_RULES.longHaulMinSlots);
   assert.deepEqual(PONY.costs, { A: 2, B: 3, C: 5 });
   assert.equal(PONY.marketPerRank, 2);
 });
@@ -481,30 +484,47 @@ suite.check('route-map.js and route-map.json hold the same data', () => {
   assert.equal(JSON.stringify(ROUTE_MAP), JSON.stringify(json));
 });
 
-suite.check('the map: 25 cities, 47 routes, 136 slots, and the facts of Appendix A.3', () => {
-  assert.equal(MAP.cities.length, 25);
-  assert.equal(MAP.routes.length, 47);
-  assert.equal(new Set(MAP.cityIds).size, 25);
-  assert.equal(new Set(MAP.routeIds).size, 47);
-  assert.deepEqual(mapSlotTotals(), { ground: 44, tunnel: 46, bridge: 46 });
+suite.check('the map: 35 cities, 65 routes, 134 slots, and the facts of Appendix A.3', () => {
+  assert.equal(MAP.cities.length, 35);
+  assert.equal(MAP.routes.length, 65);
+  assert.equal(new Set(MAP.cityIds).size, 35);
+  assert.equal(new Set(MAP.routeIds).size, 65);
+  assert.deepEqual(mapSlotTotals(), { ground: 46, tunnel: 44, bridge: 41, wild: 3 });
+  assert.deepEqual(MAP.board, { w: 600, h: 350 });
   const byLength = {};
   for (const r of MAP.routes) byLength[r.length] = (byLength[r.length] ?? 0) + 1;
-  assert.deepEqual(byLength, { 2: 20, 3: 19, 4: 2, 5: 5, 6: 1 });
+  assert.deepEqual(byLength, { 1: 16, 2: 31, 3: 16, 4: 2 });
   assert.deepEqual(MAP.westStartCities.map((id) => MAP.cityById[id].name), ['Seattle', 'Portland', 'Sacramento', 'Los Angeles']);
   assert.deepEqual(MAP.eastStartCities.map((id) => MAP.cityById[id].name), ['Minneapolis', 'Omaha', 'Kansas City', 'Fort Worth']);
-  assert.equal(MAP.inlandCities.length, 17);
+  assert.equal(MAP.inlandCities.length, 27);
   assert.equal(MAP.startCities.length, RULES.PLAYER_BOARD.railheads * RULES.SETUP.maxPlayers, 'a start city for every railhead');
+  // The three wild slots, one each on Spokane-Helena, Billings-Denver and Billings-Bismarck (R1.25).
+  assert.deepEqual(MAP.routes.filter((r) => r.wild > 0).map((r) => [r.id, r.terrains.join('-'), r.wild]), [
+    ['SPO-HEL', 'tunnel-bridge-wild', 1],
+    ['BIL-DEN', 'tunnel-wild', 1],
+    ['BIL-BIS', 'wild-bridge-tunnel', 1],
+  ]);
+  // Every start city has one route of 1 slot and one of 3 (R11.1).
+  for (const id of MAP.startCities) assert.deepEqual(MAP.cityRoutes[id].map((rid) => MAP.routeById[rid].length).sort(), [1, 3], id);
+  // The art data the board needs: positions, labels, the board size and the start-city and inland-city circles.
+  assert.equal(MAP.labels.length, 35);
+  assert.ok(MAP.cityStyle.inland.r > 0 && MAP.cityStyle.start.r > 0);
+  assert.ok(MAP.routes.every((r) => typeof r.line === 'boolean'));
 });
 
 suite.check('the map: routes are well formed (R11.1)', () => {
   const pairs = new Set();
   for (const r of MAP.routes) {
     assert.equal(r.id, `${r.a}-${r.b}`);
-    assert.ok(r.length >= 2 && r.length <= 6, `${r.id}: 2 to 6 slots`);
+    assert.ok(r.length >= 1 && r.length <= 4, `${r.id}: 1 to 4 slots`);
     assert.equal(r.terrains.length, r.length);
     assert.equal(r.slots.length, r.length);
-    assert.equal(r.cost.ground + r.cost.tunnel + r.cost.bridge, r.length);
-    for (const t of r.terrains) assert.ok(RULES.TERRAINS.includes(t));
+    // `cost` is the fixed slots; a wild slot is counted apart (R1.25), at most one per route on map v3.
+    assert.equal(r.cost.ground + r.cost.tunnel + r.cost.bridge + r.wild, r.length);
+    assert.equal(r.wildSlots.length, r.wild);
+    assert.ok(r.wild <= 1, `${r.id}: at most one wild slot`);
+    for (const t of r.terrains) assert.ok(RULES.TERRAINS.includes(t) || t === 'wild');
+    r.wildSlots.forEach((i) => assert.equal(r.terrains[i], 'wild'));
     for (const s of r.slots) assert.ok(Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.angle));
     const pair = [r.a, r.b].sort().join('-');
     assert.ok(!pairs.has(pair), `${r.id}: two routes join the same cities`);
@@ -528,16 +548,18 @@ suite.check('the map: junction cities and regions as in R16.6', () => {
   const names = (ids) => ids.map((id) => MAP.cityById[id].name).sort();
   assert.deepEqual(
     names(junctionCities(RULES.MAP_RULES)),
-    ['Boise', 'Cheyenne', 'Denver', 'El Paso', 'Fresno', 'Helena', 'Reno', 'Salt Lake City', 'Sioux Falls', 'Spokane'],
+    ['Bismarck', 'Boise', 'Denver', 'Dodge City', 'Fresno', 'North Platte', 'Santa Fe', 'Sioux City', 'Spokane', 'The Dalles', 'Tonopah', 'Wichita'],
   );
+  // No city has more than 5 routes, so a junction has exactly 5.
+  for (const id of junctionCities(RULES.MAP_RULES)) assert.equal(MAP.cityRoutes[id].length, 5);
   const region = (wanted) => names(MAP.inlandCities.filter((id) => cityRegion(id, RULES.MAP_RULES) === wanted));
-  assert.deepEqual(region('north'), ['Billings', 'Bismarck', 'Boise', 'Cheyenne', 'Helena', 'Sioux Falls', 'Spokane']);
-  assert.deepEqual(region('south'), ['Dodge City', 'El Paso', 'Fresno', 'Las Vegas', 'Phoenix', 'Santa Fe']);
-  assert.deepEqual(region('middle'), ['Denver', 'North Platte', 'Reno', 'Salt Lake City']);
+  assert.deepEqual(region('north'), ['Bismarck', 'Billings', 'Fargo', 'Great Falls', 'Helena', 'Spokane', 'The Dalles', 'Yakima'].sort());
+  assert.deepEqual(region('south'), ['Abilene', 'Amarillo', 'Dodge City', 'El Paso', 'Fresno', 'Las Vegas', 'Phoenix', 'San Bernardino', 'Santa Fe', 'Tonopah', 'Wichita']);
+  assert.deepEqual(region('middle'), ['Boise', 'Denver', 'Grand Island', 'North Platte', 'Pueblo', 'Reno', 'Salt Lake City', 'Sioux City']);
   for (const id of MAP.startCities) assert.equal(cityRegion(id, RULES.MAP_RULES), null);
 });
 
-suite.check('the map: the shortest crossing is 14 slots (Appendix A.3)', () => {
+suite.check('the map: the shortest crossing is 12 slots (Appendix A.3)', () => {
   // Dijkstra over slots, from every west start city to the nearest east start city.
   const best = {};
   for (const west of MAP.westStartCities) {
@@ -556,7 +578,7 @@ suite.check('the map: the shortest crossing is 14 slots (Appendix A.3)', () => {
     }
     best[west] = Math.min(...MAP.eastStartCities.map((id) => dist[id]));
   }
-  assert.equal(Math.min(...Object.values(best)), 14);
+  assert.equal(Math.min(...Object.values(best)), 12);
 });
 
 suite.finish();

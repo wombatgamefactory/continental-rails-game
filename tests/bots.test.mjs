@@ -40,6 +40,7 @@ import { getRuleset } from '../src/rulesets/index.js';
 // The heuristic policies are built per ruleset (src/rulesets/define.js); this suite tests Continental Rails'.
 const { heuristicBot, heuristicPolicy, rolloutPolicy, rolloutBot, repeatGuard, scoreValidActions, describePlan } = getRuleset('continental').policies;
 import { makeSuite } from './helpers/play.mjs';
+import { start, put, give, setHeads } from './helpers/rig.mjs';
 
 const suite = makeSuite('bots');
 const DECISION_CAP = 20000;
@@ -355,6 +356,53 @@ suite.check('Medium tables end by a real trigger: at least 20 of the 24 default 
     summary.push(`${n}p ends ${JSON.stringify(t.reasons)}`);
     assert.ok(real >= 20, `${n} players: only ${real} of ${t.games} games ended by a real trigger: ${JSON.stringify(t.reasons)}`);
   }
+});
+
+// --- the wild slot (spec R11.12) ------------------------------------------------------------
+
+/** Seat 1 about to claim Spokane-Helena with `tiles` in hand: stops at the wild-slot question. Null if the engine fills it itself. */
+function wildSlotState(tiles, variants = {}) {
+  const s = start(2, { variants });
+  setHeads(s, 0, 'SPO', 'MIN');
+  s.players[0].train.storageCarriages = 3;
+  give(s, 0, { resources: {}, tiles });
+  put(s, 0, 'W4');
+  s.grid.spaces.W4 = null; // the worker is placed by the action below
+  s.players[0].workersInSupply += 1;
+  applyAction(s, { type: 'placeWorker', space: 'W4' }, SILENT);
+  if (topFrame(s).kind === 'chooseDistrict') applyAction(s, { type: 'chooseDistrict', district: 'D5', hat: false }, SILENT);
+  applyAction(s, { type: 'claimRoute', route: 'SPO-HEL', from: 'SPO' }, SILENT);
+  return topFrame(s).kind === 'wildSlot' ? s : null;
+}
+
+suite.check('wild slot: Medium and the rollout policy fill it with the scoring card terrain when a spare of it is held, and never refuse', () => {
+  for (const [card, want] of [['tunnel', 'tunnel'], ['ground', 'ground']]) {
+    const s = wildSlotState({ ground: 1, tunnel: 2, bridge: 1 }, { scoringCard: card });
+    assert.ok(s !== null, 'two terrains are spare: the question reaches the player');
+    const rng = makeRng(`wild:${card}`);
+    const medium = heuristicBot.chooseAction(s, { rng: forkRng(rng), jitter: 0 });
+    assert.deepEqual([medium.type, medium.terrain], ['fillWildSlot', want], `Medium, ${card} card`);
+    const lite = rolloutPolicy(s, { rng: forkRng(rng) });
+    assert.deepEqual([lite.type, lite.terrain], ['fillWildSlot', want], `rollout policy, ${card} card`);
+  }
+});
+
+suite.check('wild slot: with no-terrain, or no scoring card, the fill keeps the terrain the bot has most of to spare', () => {
+  // Spare after the printed slots: 3 Ground, 1 Tunnel. Neither terrain is a scoring-card terrain here.
+  const s = wildSlotState({ ground: 3, tunnel: 2, bridge: 1 }, { scoringCard: 'none' });
+  const a = heuristicBot.chooseAction(s, { rng: forkRng(makeRng('wild:none')), jitter: 0 });
+  assert.equal(a.terrain, 'ground');
+  const t = wildSlotState({ ground: 3, tunnel: 2, bridge: 1 }, { scoringCard: 'tunnel', wildSlotTerrain: 'no-terrain' });
+  const b = heuristicBot.chooseAction(t, { rng: forkRng(makeRng('wild:no-terrain')), jitter: 0 });
+  assert.equal(b.terrain, 'ground', 'no-terrain: the scoring card gives the wild slot no extra VP');
+});
+
+suite.check('wild slot: Medium values a route with a wild slot (its cost is the printed slots plus one tile) and scoreValidActions answers the question', () => {
+  const s = wildSlotState({ ground: 1, tunnel: 2, bridge: 1 }, { scoringCard: 'tunnel' });
+  const scored = scoreValidActions(s);
+  assert.deepEqual(scored.map((x) => x.action.terrain).sort(), ['ground', 'tunnel']);
+  assert.ok(scored.every((x) => typeof x.score === 'number'));
+  assert.ok(scored.find((x) => x.action.terrain === 'tunnel').score > scored.find((x) => x.action.terrain === 'ground').score);
 });
 
 // --- every level, through the worker entry, within its budget --------------------------------

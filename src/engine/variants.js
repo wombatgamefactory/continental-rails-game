@@ -1,4 +1,4 @@
-// variants.js - the 25 rule variants of spec R21.3, exactly by name.
+// variants.js - the 26 rule variants of spec R21.3, exactly by name.
 //
 // This table is the ONE list of variants. The setup screen builds its "Rules
 // variants" panel from it and the simulator builds its `--variant.<name>=`
@@ -169,8 +169,8 @@ export const VARIANTS = [
     label: 'Routes that end the game',
     type: 'integer',
     min: 0,
-    max: 23,
-    default: 8,
+    max: 32,
+    default: 10,
     description: 'Game end is triggered when claimed routes reach this number x players (0 = off)',
     rule: 'R19.3',
   },
@@ -256,6 +256,15 @@ export const VARIANTS = [
     description: 'Whether three Gather districts are shuffled at setup',
     rule: 'R5.8',
   },
+  {
+    name: 'wildSlotTerrain',
+    label: 'What a wild slot counts as',
+    type: 'enum',
+    values: ['tile-terrain', 'no-terrain'],
+    default: 'tile-terrain',
+    description: 'What a filled wild slot counts as for rules that read a laid slot terrain: the terrain of the tile on it, or none',
+    rule: 'R11.12.6',
+  },
 ];
 
 const BY_NAME = new Map(VARIANTS.map((v) => [v.name, v]));
@@ -332,7 +341,7 @@ function unknownVariantMessage(name) {
  *     off (R3.8.2 removes goal 6, leaving 11 cards).
  *
  * @param {object} [overrides] `{ variantName: value }`
- * @returns {object} a fresh plain object with all 25 variants
+ * @returns {object} a fresh plain object with all 26 variants
  */
 export function resolveVariants(overrides = {}) {
   if (overrides === null || typeof overrides !== 'object' || Array.isArray(overrides)) {

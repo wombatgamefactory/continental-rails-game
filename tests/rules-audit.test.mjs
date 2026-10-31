@@ -32,6 +32,7 @@ import part3 from './rules-audit/part-3.mjs';
 import part4 from './rules-audit/part-4.mjs';
 import part5 from './rules-audit/part-5.mjs';
 import part6 from './rules-audit/part-6.mjs';
+import part7 from './rules-audit/part-7.mjs';
 
 part1(); // R1 to R5: terms, components, setup, turn structure, the action grid
 part2(); // R6 to R10: gathering, bonus actions, the train, train activation, Lobby Congress
@@ -39,5 +40,6 @@ part3(); // R11 to R14: the map, Lay Tracks, Move Train, buildings, cowboy hats
 part4(); // R15 to R18: carriage upgrades, goals and milestones, Legislative Agenda, Pony Express
 part5(); // R19 to R23: game end, final scoring, variants, worked examples E1 to E10
 part6(); // static audits: terminology, tuning numbers, the data tables of the spec
+part7(); // the wild slot (spec v9): legality, the decision, what it counts as
 
 finish();

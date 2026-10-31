@@ -84,12 +84,22 @@ const BUILD_AT = { ground: ['D4', 'crew', 'iron'], tunnel: ['D8', 'miner', 'gunp
 
 // R16.8, transcribed from the spec: id, VP, a state that just meets the condition, a state one short of it.
 const ROUTE_SETS = {
-  MS2: [['POR-REN', 'SAC-REN', 'SAC-FRE'], ['POR-REN', 'SAC-REN', 'BOI-SLC']], // Tunnel slots 6 / 5
-  MS3: [['POR-SPO', 'SPO-REN', 'OMA-NPL'], ['POR-SPO', 'SPO-REN']], // Bridge slots 6 / 5
-  MS4: [['SEA-SPO', 'HEL-BIL', 'CHE-BIL'], ['SEA-SPO', 'HEL-BIL', 'CHE-SLC']], // Ground slots 6 / 5
-  MS5: [['SEA-HEL'], ['HEL-BIS']], // longest route 5 / 4
-  MS6: [['SEA-SPO', 'POR-SPO', 'POR-REN', 'SAC-REN', 'SAC-FRE', 'LAX-FRE'], ['SEA-SPO', 'POR-SPO', 'POR-REN', 'SAC-REN', 'SAC-FRE']], // 6 / 5 routes
+  MS2: [['SPO-GFA', 'HEL-BOI', 'GFA-HEL'], ['SPO-GFA', 'HEL-BOI', 'SPO-TDL']], // Tunnel slots 3 + 2 + 1 = 6 / 3 + 2 + 0 = 5
+  MS3: [['GFA-BIS', 'FAR-SXC', 'GRI-OMA'], ['GFA-BIS', 'FAR-SXC', 'MIN-SXC']], // Bridge slots 2 + 2 + 2 = 6 / 2 + 2 + 1 = 5
+  MS4: [['SPO-TDL', 'NPL-GRI', 'REN-TON'], ['SPO-TDL', 'NPL-GRI', 'GFA-BIL']], // Ground slots 2 + 2 + 2 = 6 / 2 + 2 + 1 = 5
+  MS5: [['SPO-GFA'], ['SEA-TDL']], // longest route 4 / 3 (the only 4-slot routes are SPO-GFA and GFA-BIS)
+  MS6: [['SEA-YAK', 'SPO-BOI', 'TDL-POR', 'GFA-HEL', 'GFA-BIL', 'FAR-MIN'], ['SEA-YAK', 'SPO-BOI', 'TDL-POR', 'GFA-HEL', 'GFA-BIL']], // 6 / 5 routes
 };
+/** The shortest crossing: Portland to Omaha, 8 routes and 12 slots, no wild slot. */
+const CROSSING = ['TDL-POR', 'TDL-BOI', 'HEL-BOI', 'GFA-HEL', 'GFA-BIL', 'BIL-NPL', 'NPL-SXC', 'SXC-OMA'];
+/** A line from Seattle to Omaha through Spokane, 13 slots, no wild slot; its SPO-GFA is a 4-slot route. */
+const SEATTLE_OMAHA = ['SEA-YAK', 'YAK-SPO', 'SPO-GFA', 'GFA-BIL', 'BIL-NPL', 'NPL-SXC', 'SXC-OMA'];
+/** Seat 1 with trains at Spokane and Omaha and every route of SEATTLE_OMAHA laid but SPO-GFA: claiming SPO-GFA from Spokane completes the line (25 + 3 x 4 VP). */
+function almostLine(variants = {}) {
+  const s = layGame('SPO', 'OMA', variants);
+  claim(s, 0, ...SEATTLE_OMAHA.filter((r) => r !== 'SPO-GFA'));
+  return s;
+}
 const R16_8 = {
   MS1: [6, (s) => { for (const c of ['SPO', 'BOI']) building(s, 0, 'railwayStation', c); for (const c of ['SPO', 'BOI', 'REN']) building(s, 0, 'telegraphStation', c); },
     (s) => { for (const c of ['SPO', 'BOI']) building(s, 0, 'railwayStation', c); for (const c of ['SPO', 'BOI']) building(s, 0, 'telegraphStation', c); }],
@@ -98,8 +108,8 @@ const R16_8 = {
   MS4: [6, (s) => claim(s, 0, ...ROUTE_SETS.MS4[0]), (s) => claim(s, 0, ...ROUTE_SETS.MS4[1])],
   MS5: [5, (s) => claim(s, 0, ...ROUTE_SETS.MS5[0]), (s) => claim(s, 0, ...ROUTE_SETS.MS5[1])],
   MS6: [7, (s) => claim(s, 0, ...ROUTE_SETS.MS6[0]), (s) => claim(s, 0, ...ROUTE_SETS.MS6[1])],
-  MS7: [7, (s) => { setHeads(s, 0, 'POR', 'MIN'); claim(s, 1, 'POR-SPO', 'HEL-SPO', 'HEL-BIS', 'BIS-MIN'); },
-    (s) => { setHeads(s, 0, 'POR', 'MIN'); claim(s, 1, 'POR-SPO', 'HEL-SPO', 'HEL-BIS'); }],
+  MS7: [7, (s) => { setHeads(s, 0, 'POR', 'OMA'); claim(s, 1, ...CROSSING); },
+    (s) => { setHeads(s, 0, 'POR', 'OMA'); claim(s, 1, ...CROSSING.slice(0, -1)); }],
   MS8: [6, (s) => setTrain(s, 0, [['crew', 'miner'], ['engineer', 'financier']]), (s) => setTrain(s, 0, [['crew', 'miner'], ['engineer', 'crew']])],
   MS9: [5, (s) => { setTrain(s, 0, [['crew', null], [null, null]]); s.players[0].train.storageCarriages = 3; },
     (s) => { setTrain(s, 0, [['crew', null], [null, null]]); s.players[0].train.storageCarriages = 2; }],
@@ -318,9 +328,9 @@ export default function part4() {
   check('R16.3', 'first place scores 10 VP, second place 5 VP, third and fourth nothing', () => {
     const s = goalGame([11], 4);
     for (const c of ['SPO', 'BOI', 'REN', 'FRE']) building(s, 2, 'telegraphStation', c);
-    for (const c of ['HEL', 'BIL', 'CHE']) building(s, 0, 'telegraphStation', c);
+    for (const c of ['HEL', 'BIL', 'GFA']) building(s, 0, 'telegraphStation', c);
     for (const c of ['DEN', 'ELP']) building(s, 3, 'telegraphStation', c);
-    building(s, 1, 'telegraphStation', 'SXF');
+    building(s, 1, 'telegraphStation', 'SXC');
     assert.deepEqual(goalVp(s), [5, 0, 10, 0]);
   });
   check('R16.4.1', 'all players tied for a place each score that place\'s full value', () => {
@@ -328,7 +338,7 @@ export default function part4() {
     for (const c of ['SPO', 'BOI', 'REN']) building(s, 0, 'telegraphStation', c);
     for (const c of ['HEL', 'BIL']) building(s, 1, 'telegraphStation', c);
     for (const c of ['DEN', 'ELP']) building(s, 2, 'telegraphStation', c);
-    building(s, 3, 'telegraphStation', 'SXF');
+    building(s, 3, 'telegraphStation', 'SXC');
     assert.deepEqual(goalVp(s), [10, 5, 5, 0]);
   });
   check('R16.4.2', 'two or more tied for first each score 10 VP and second place still goes to the next-best measure', () => {
@@ -361,11 +371,11 @@ export default function part4() {
       building(s, 0, 'railwayStation', 'SPO'); building(s, 0, 'telegraphStation', 'SPO'); building(s, 0, 'railwayStation', 'HEL'); // North 3
       building(s, 0, 'telegraphStation', 'FRE'); building(s, 0, 'railwayStation', 'DOD'); // South 2
       building(s, 0, 'railwayStation', 'REN'); building(s, 0, 'telegraphStation', 'DEN'); // neither region
-      building(s, 1, 'railwayStation', 'BIS'); building(s, 1, 'telegraphStation', 'CHE'); // North only
+      building(s, 1, 'railwayStation', 'BIS'); building(s, 1, 'telegraphStation', 'YAK'); // North only
     }, [2, 0]],
     3: ['buildingsInJunctionCities', 'most', (s) => {
-      building(s, 0, 'railwayStation', 'SPO'); building(s, 0, 'telegraphStation', 'SPO'); building(s, 0, 'railwayStation', 'SXF');
-      building(s, 0, 'railwayStation', 'LVG'); building(s, 0, 'telegraphStation', 'NPL'); // not junction cities
+      building(s, 0, 'railwayStation', 'SPO'); building(s, 0, 'telegraphStation', 'SPO'); building(s, 0, 'railwayStation', 'SXC');
+      building(s, 0, 'railwayStation', 'LVG'); building(s, 0, 'telegraphStation', 'PUE'); // not junction cities
       building(s, 1, 'telegraphStation', 'DEN');
     }, [3, 1]],
     4: ['maxSpecialistsOneType', 'most', (s) => { setTrain(s, 0, [['crew', 'crew'], ['miner', 'crew']]); setTrain(s, 1, [['crew', 'miner'], ['engineer', 'financier']]); }, [3, 1]],
@@ -407,18 +417,19 @@ export default function part4() {
     assert.equal(goalStandings(s, goal(10)).values[0], 0);
     assert.deepEqual(goalVp(s), [10, 0], 'on a "fewest" goal the smallest measure ranks first');
   });
-  check('R16.6.1', 'junction cities: the 10 inland cities with 5 or more printed routes', () => {
-    const want = ['SPO', 'REN', 'FRE', 'HEL', 'BOI', 'SLC', 'CHE', 'DEN', 'ELP', 'SXF'];
+  check('R16.6.1', 'junction cities: the 12 inland cities with 5 or more printed routes', () => {
+    const want = ['TDL', 'SPO', 'BOI', 'FRE', 'TON', 'DEN', 'SFE', 'BIS', 'NPL', 'SXC', 'DOD', 'WIC'];
     const s = game(2);
     assert.deepEqual(sorted(MAP.cityIds.filter((c) => isJunctionCity(s, c))), sorted(want));
     for (const c of want) assert.ok(MAP.cityRoutes[c].length >= 5);
   });
-  check('R16.6.2', 'North region: 7 inland cities; South region: 6; Reno, Salt Lake City, Denver and North Platte in neither', () => {
+  check('R16.6.2', 'North region (y below 116.7): 8 inland cities; South region (y above 233.3): 11; the 8 of the middle band are in neither', () => {
     const region = (r) => sorted(MAP.inlandCities.filter((c) => cityRegion(c, RULES.MAP_RULES) === r));
-    assert.deepEqual(region('north'), sorted(['SPO', 'HEL', 'BOI', 'BIL', 'BIS', 'CHE', 'SXF']));
-    assert.deepEqual(region('south'), sorted(['FRE', 'LVG', 'PHX', 'SFE', 'ELP', 'DOD']));
+    assert.deepEqual(region('north'), sorted(['YAK', 'TDL', 'SPO', 'GFA', 'HEL', 'BIL', 'BIS', 'FAR']));
+    assert.deepEqual(region('south'), sorted(['FRE', 'TON', 'SBD', 'LVG', 'PHX', 'SFE', 'ELP', 'DOD', 'WIC', 'AMA', 'ABI']));
     const rest = MAP.inlandCities.filter((c) => !['north', 'south'].includes(cityRegion(c, RULES.MAP_RULES)));
-    assert.deepEqual(sorted(rest), sorted(['REN', 'SLC', 'DEN', 'NPL']));
+    assert.deepEqual(sorted(rest), sorted(['BOI', 'REN', 'SLC', 'DEN', 'NPL', 'SXC', 'PUE', 'GRI']));
+    assert.deepEqual([RULES.MAP_RULES.northRegionMaxY, RULES.MAP_RULES.southRegionMinY], [116.7, 233.3]);
   });
   check('R16.7', 'a milestone is claimed by one player only, the first to meet its condition, who scores its VP at once and keeps it', () => {
     const s = milestoneGame(['MS9']);
@@ -498,8 +509,8 @@ export default function part4() {
       setHeads(t, pid, 'POR', 'OMA');
       give(t, pid, { tiles: { bridge: 2 } });
       const ev = placeAndChoose(t, 'W4', 'D5');
-      if (offered(t, 'claimRoute', { route: 'POR-SPO' })) ev.push(...act(t, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }));
-      ev.push(...act(t, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }));
+      if (offered(t, 'claimRoute', { route: 'TDL-POR' })) ev.push(...act(t, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' }));
+      ev.push(...act(t, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }));
       assert.equal(vpBySource(ev, pid).legislative, 3);
     }
   });
@@ -508,9 +519,8 @@ export default function part4() {
     for (const n of [1, 2, 3]) assert.throws(() => game(2, legislative(n)), /4 to 20/);
   });
   check('R17.3/4', 'card 4: the completion bonus is 10 VP higher', () => {
-    const s = layGame('HEL', 'OMA', legislative(4));
-    claim(s, 0, 'SEA-HEL', 'BIS-MIN');
-    const ev = claimNow(s, 'HEL-BIS', 'HEL');
+    const s = almostLine(legislative(4));
+    const ev = claimNow(s, 'SPO-GFA', 'SPO');
     const vp = vpBySource(ev, 0);
     assert.deepEqual([vp.completion, vp.legislative], [25 + 3 * 4, 10]);
   });
@@ -521,55 +531,63 @@ export default function part4() {
       ev.push(...finishTurn(s));
       return vpBySource(ev, 0).legislative ?? 0;
     };
-    assert.equal(run('BOI-SPO', 'SPO', 'SPO'), 3);
-    assert.equal(run('POR-SPO', 'POR', 'POR'), 0);
+    assert.equal(run('TDL-BOI', 'TDL', 'TDL'), 3, 'Tunnel and Bridge in one route');
+    assert.equal(run('TDL-POR', 'POR', 'POR'), 0, 'one Bridge slot');
     const s = layGame('POR', 'MIN', legislative(5));
     put(s, 0, 'W6'); // M = 2
     const ev = lay(s);
-    ev.push(...act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }));
+    ev.push(...act(s, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' }));
     ev.push(...act(s, { type: 'skipBuilding' }));
-    ev.push(...act(s, { type: 'claimRoute', route: 'SEA-SPO', from: 'SPO' }));
+    ev.push(...act(s, { type: 'claimRoute', route: 'SPO-TDL', from: 'TDL' }));
     ev.push(...finishTurn(s));
     assert.equal(vpBySource(ev, 0).legislative, 3, 'Bridge and Ground across two routes of one action, scored once');
   });
-  check('R17.3/6', 'card 6: 5 VP when 5 or more slots are laid in one Lay Tracks action; a single 5-slot route qualifies', () => {
-    const run = (route, from, west) => {
-      const s = layGame(west, 'MIN', legislative(6));
+  check('R17.3/6', 'card 6: 5 VP when 5 or more slots are laid in one Lay Tracks action; no single route has 5 slots on this map, so 4 + 1 slots of two routes qualify and one 4-slot route does not', () => {
+    const single = (route, from) => {
+      const s = layGame(from, 'MIN', legislative(6));
       const ev = claimNow(s, route, from);
       ev.push(...finishTurn(s));
       return vpBySource(ev, 0).legislative ?? 0;
     };
-    assert.equal(run('SEA-HEL', 'SEA', 'SEA'), 5);
-    assert.equal(run('HEL-BIS', 'HEL', 'HEL'), 0, '4 slots');
+    assert.equal(single('GFA-BIS', 'GFA'), 0, '4 slots, the longest a route can be');
+    assert.equal(single('SPO-GFA', 'SPO'), 0, '4 slots');
+    const s = layGame('SPO', 'MIN', legislative(6));
+    put(s, 0, 'W6'); // M = 2
+    const ev = lay(s);
+    ev.push(...act(s, { type: 'claimRoute', route: 'SPO-GFA', from: 'SPO' }));
+    ev.push(...act(s, { type: 'skipBuilding' }));
+    ev.push(...act(s, { type: 'claimRoute', route: 'GFA-HEL', from: 'GFA' }));
+    ev.push(...finishTurn(s));
+    assert.equal(vpBySource(ev, 0).legislative, 5, '4 slots and 1 slot of two routes of one action');
   });
   check('R17.3/7', 'card 7: 5 VP for placing a building in a city that already holds another player\'s building', () => {
     const run = (setup) => {
       const s = layGame('POR', 'MIN', legislative(7));
       setup(s);
-      claimNow(s, 'POR-SPO', 'POR');
-      return vpBySource(act(s, { type: 'placeTelegraphStation', city: 'SPO' }), 0).legislative ?? 0;
+      claimNow(s, 'TDL-POR', 'POR');
+      return vpBySource(act(s, { type: 'placeTelegraphStation', city: 'TDL' }), 0).legislative ?? 0;
     };
-    assert.equal(run((s) => building(s, 1, 'railwayStation', 'SPO')), 5);
+    assert.equal(run((s) => building(s, 1, 'railwayStation', 'TDL')), 5);
     assert.equal(run(() => {}), 0);
-    assert.equal(run((s) => building(s, 0, 'railwayStation', 'SPO')), 0, 'your own building does not count');
+    assert.equal(run((s) => building(s, 0, 'railwayStation', 'TDL')), 0, 'your own building does not count');
   });
   check('R17.3/8', 'card 8: 2 VP for placing a building in a junction city, every time', () => {
     const s = layGame('POR', 'MIN', legislative(8));
-    claimNow(s, 'POR-SPO', 'POR');
-    assert.equal(vpBySource(act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }), 0).legislative, 2);
+    claimNow(s, 'TDL-POR', 'POR');
+    assert.equal(vpBySource(act(s, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }), 0).legislative, 2);
     idleTurn(s);
     setHeads(s, 0, 'SEA', 'MIN');
     choose(s, act(s, { type: 'removeWorker', from: 'W4' }), 'D5');
-    if (offered(s, 'claimRoute', { route: 'SEA-SPO' })) act(s, { type: 'claimRoute', route: 'SEA-SPO', from: 'SEA' });
-    assert.equal(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'SPO' }), 0).legislative, 2, 'not a single first-come prize');
+    if (offered(s, 'claimRoute', { route: 'SEA-TDL' })) act(s, { type: 'claimRoute', route: 'SEA-TDL', from: 'SEA' });
+    assert.equal(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'TDL' }), 0).legislative, 2, 'not a single first-come prize');
     const t = layGame('LAX', 'MIN', legislative(8));
     t.players[0].railheads = ['FRE', 'MIN'];
-    claimNow(t, 'LVG-FRE', 'FRE');
+    claimNow(t, 'FRE-LVG', 'FRE');
     assert.equal(vpBySource(act(t, { type: 'placeTelegraphStation', city: 'LVG' }), 0).legislative ?? 0, 0, 'Las Vegas is not a junction city');
   });
   check('R17.3/9', 'card 9: a first connection scores +3 VP (8 instead of 5)', () => {
     const s = layGame('POR', 'MIN', legislative(9));
-    const vp = vpBySource(claimNow(s, 'POR-SPO', 'POR'), 0);
+    const vp = vpBySource(claimNow(s, 'TDL-POR', 'POR'), 0);
     assert.deepEqual([vp.firstConnection, vp.legislative], [5, 3]);
   });
   check('R17.3/10', 'card 10: the first player to have 5 buildings on the map gains 10 VP at once; once per game', () => {
@@ -578,18 +596,18 @@ export default function part4() {
     for (const c of ['BOI', 'REN']) building(s, 0, 'telegraphStation', c);
     for (const c of ['HEL', 'BIL']) building(s, 1, 'railwayStation', c);
     for (const c of ['HEL', 'BIL']) building(s, 1, 'telegraphStation', c);
-    claimNow(s, 'POR-SPO', 'POR');
-    assert.equal(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'SPO' }), 0).legislative, 10);
+    claimNow(s, 'TDL-POR', 'POR');
+    assert.equal(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'TDL' }), 0).legislative, 10);
     setHeads(s, 1, 'SEA', 'OMA');
-    give(s, 1, { tiles: { ground: 2 } });
+    give(s, 1, { tiles: { ground: 1, tunnel: 1, bridge: 1 } });
     const ev = placeAndChoose(s, 'W6', 'D5');
-    if (offered(s, 'claimRoute')) ev.push(...act(s, { type: 'claimRoute', route: 'SEA-SPO', from: 'SEA' }));
-    ev.push(...act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'coins' }));
-    assert.deepEqual(vpBySource(ev, 1), { track: 2 }, 'Ben reaches 5 buildings second and gets nothing');
+    if (offered(s, 'claimRoute')) ev.push(...act(s, { type: 'claimRoute', route: 'SEA-TDL', from: 'SEA' }));
+    ev.push(...act(s, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'coins' }));
+    assert.deepEqual(vpBySource(ev, 1), { track: 3 }, 'Ben reaches 5 buildings second and gets nothing');
     const four = layGame('POR', 'MIN', legislative(10));
     for (const c of ['BOI', 'REN', 'HEL']) building(four, 0, 'telegraphStation', c);
-    claimNow(four, 'POR-SPO', 'POR');
-    assert.equal(vpBySource(act(four, { type: 'placeTelegraphStation', city: 'SPO' }), 0).legislative ?? 0, 0, 'the fourth building is not the fifth');
+    claimNow(four, 'TDL-POR', 'POR');
+    assert.equal(vpBySource(act(four, { type: 'placeTelegraphStation', city: 'TDL' }), 0).legislative ?? 0, 0, 'the fourth building is not the fifth');
   });
   for (const [n, district, item] of [[11, 'D3', 'iron'], [12, 'D7', 'wood'], [13, 'D1', 'gunpowder'], [14, 'D9', 'coins']]) {
     check(`R17.3/${n}`, `card ${n}: each Gather ${item} action gives +1, flat`, () => {
@@ -602,30 +620,30 @@ export default function part4() {
   check('R17.3/15', 'card 15: placing a telegraph station gains 3 VP as well as the telegraph row VP', () => {
     const s = layGame('POR', 'MIN', legislative(15));
     s.players[0].telegraphsPlaced = 3;
-    claimNow(s, 'POR-SPO', 'POR');
-    assert.deepEqual(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'SPO' }), 0), { telegraph: 4, legislative: 3 });
+    claimNow(s, 'TDL-POR', 'POR');
+    assert.deepEqual(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'TDL' }), 0), { telegraph: 4, legislative: 3 });
     const t = layGame('POR', 'MIN', legislative(15));
-    claimNow(t, 'POR-SPO', 'POR');
-    assert.deepEqual(vpBySource(act(t, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }), 0), {});
+    claimNow(t, 'TDL-POR', 'POR');
+    assert.deepEqual(vpBySource(act(t, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }), 0), {});
   });
   check('R17.3/16', 'card 16: placing a railway station gains 3 VP', () => {
     const s = layGame('POR', 'MIN', legislative(16));
-    claimNow(s, 'POR-SPO', 'POR');
-    assert.deepEqual(vpBySource(act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' }), 0), { legislative: 3 });
+    claimNow(s, 'TDL-POR', 'POR');
+    assert.deepEqual(vpBySource(act(s, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' }), 0), { legislative: 3 });
     const t = layGame('POR', 'MIN', legislative(16));
-    claimNow(t, 'POR-SPO', 'POR');
-    assert.deepEqual(vpBySource(act(t, { type: 'placeTelegraphStation', city: 'SPO' }), 0), { telegraph: 1 });
+    claimNow(t, 'TDL-POR', 'POR');
+    assert.deepEqual(vpBySource(act(t, { type: 'placeTelegraphStation', city: 'TDL' }), 0), { telegraph: 1 });
   });
   check('R17.3/17', 'card 17: placing a railway station gains 2 resources of your choice', () => {
     const s = layGame('POR', 'MIN', legislative(17));
-    claimNow(s, 'POR-SPO', 'POR');
-    act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' });
+    claimNow(s, 'TDL-POR', 'POR');
+    act(s, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' });
     assert.equal(kind(s), 'chooseResource');
     assert.equal(takeChoices(s), 2);
     assert.equal(stored(s.players[0]), 2);
     const t = layGame('POR', 'MIN', legislative(17));
-    claimNow(t, 'POR-SPO', 'POR');
-    act(t, { type: 'placeTelegraphStation', city: 'SPO' });
+    claimNow(t, 'TDL-POR', 'POR');
+    act(t, { type: 'placeTelegraphStation', city: 'TDL' });
     assert.notEqual(kind(t), 'chooseResource');
   });
   check('R17.3/18', 'card 18: hiring with the Hire Specialist bonus action gains 1 resource of your choice; not for hires made by cards', () => {
@@ -678,16 +696,17 @@ export default function part4() {
   check('R18.1', 'module off: no tokens, no cards, no market; a first connection still scores its VP', () => {
     const s = layGame();
     assert.equal(s.modules.pony, undefined);
-    assert.deepEqual(vpBySource(claimNow(s, 'POR-SPO', 'POR'), 0), { track: 2, firstConnection: 5 });
+    assert.deepEqual(vpBySource(claimNow(s, 'TDL-POR', 'POR'), 0), { track: 1, firstConnection: 5 });
   });
-  check('R18.2', 'setup: a token on each inland city and 2 cards face up from each of the three decks', () => {
+  check('R18.2', 'setup: a token on each inland city (27) and 2 cards face up from each of the three decks', () => {
     const s = game(2, PONY);
-    assert.equal(Object.keys(s.modules.pony.tokens).length, 17);
+    assert.equal(Object.keys(s.modules.pony.tokens).length, 27);
+    assert.equal(RULES.PONY.tokens ?? 27, 27);
     assert.deepEqual(['A', 'B', 'C'].map((r) => s.modules.pony.market[r].filter(Boolean).length), [2, 2, 2]);
   });
   check('R18.3', 'the player who makes the first connection to an inland city takes its token; held and collected are counted separately', () => {
     const s = layGame('POR', 'MIN', PONY);
-    claimNow(s, 'POR-SPO', 'POR');
+    claimNow(s, 'TDL-POR', 'POR');
     finishTurn(s);
     assert.deepEqual([s.modules.pony.players[0].tokensHeld, s.modules.pony.players[0].tokensCollected], [1, 1]);
     idleTurn(s);
@@ -696,9 +715,9 @@ export default function part4() {
     assert.deepEqual([s.modules.pony.players[0].tokensHeld, s.modules.pony.players[0].tokensCollected], [0, 1]);
     // a later claim into the same city finds no token
     const t = layGame('SEA', 'MIN', PONY);
-    claim(t, 1, 'POR-SPO');
-    t.modules.pony.tokens.SPO = false;
-    claimNow(t, 'SEA-SPO', 'SEA');
+    claim(t, 1, 'TDL-POR');
+    t.modules.pony.tokens.TDL = false;
+    claimNow(t, 'SEA-TDL', 'SEA');
     assert.equal(t.modules.pony.players[0].tokensHeld, 0);
   });
   check('R18.4', 'as a free action the active player returns 1 held token and gains 1 resource of choice into storage', () => {
@@ -802,7 +821,7 @@ export default function part4() {
   check('R18.7/3', 'card 3 Swift Passage: up to 2 Move Train steps now', () => {
     const prep = (s) => {
       setHeads(s, 1, 'POR', 'OMA');
-      claim(s, 0, 'POR-SPO', 'HEL-SPO', 'HEL-BIL');
+      claim(s, 0, 'TDL-POR', 'SPO-TDL', 'SPO-GFA', 'GFA-BIL');
     };
     const { s } = buyer('PX3', prep);
     assert.equal(kind(s), 'layTracks');
@@ -828,11 +847,12 @@ export default function part4() {
       setHeads(s, 1, 'SEA', 'OMA');
       give(s, 1, { tiles: { bridge: 1, tunnel: 4, ground: 2 }, resources: {} });
     };
-    const { s, ev } = buyer('PX5', prep, legislative(6));
+    // Card 5 of the Legislative Agenda stands for a whole-action bonus: no route has 5 slots on this map, but SEA-TDL has three terrains.
+    const { s, ev } = buyer('PX5', prep, legislative(5));
     assert.ok(getValidActions(s).every((a) => a.type === 'claimRoute'), 'a claim, not a move');
-    ev.push(...act(s, { type: 'claimRoute', route: 'SEA-HEL', from: 'SEA' }));
+    ev.push(...act(s, { type: 'claimRoute', route: 'SEA-TDL', from: 'SEA' }));
     ev.push(...act(s, { type: 'skipBuilding' }));
-    assert.deepEqual(vpBySource(ev, 1), { track: 5, firstConnection: 5, legislative: 5 }, 'the 5-slot bonus is scored when the card\'s own action ends');
+    assert.deepEqual(vpBySource(ev, 1), { track: 3, firstConnection: 5, legislative: 3 }, 'the whole-action bonus is scored when the card\'s own action ends');
     assert.equal(s.turn.player, 1);
     if (kind(s) === 'freeActions') act(s, { type: 'endFreeActions' });
     assert.equal(kind(s), 'workerStep', 'the turn\'s own worker step is still to come');
@@ -922,8 +942,8 @@ export default function part4() {
   });
   check('R18.7/12', 'card 12 Frontier Legend: 1 VP for each inland city that is an end of a route you own', () => {
     const { ev } = buyer('PX12', (s) => {
-      claim(s, 1, 'POR-SPO', 'SPO-REN', 'SEA-SPO'); // inland ends: Spokane, Reno
-      claim(s, 0, 'BOI-SPO');
+      claim(s, 1, 'TDL-POR', 'TDL-BOI', 'SEA-TDL'); // inland ends: The Dalles, Boise
+      claim(s, 0, 'SPO-BOI');
     });
     assert.deepEqual(vpBySource(ev, 1), { ponyCards: 2 });
   });
@@ -945,12 +965,12 @@ export default function part4() {
     const s = game(2, PONY);
     ownCard(s, 1, 'PX14');
     setHeads(s, 1, 'POR', 'OMA');
-    claim(s, 0, 'POR-SPO', 'HEL-SPO');
+    claim(s, 0, 'TDL-POR', 'SPO-TDL');
     idleTurn(s);
     assert.equal(kind(s), 'freeActions');
     act(s, { type: 'usePonyCard', card: 'PX14' });
-    act(s, { type: 'moveTrain', from: 'POR', to: 'HEL' });
-    assert.equal(s.players[1].railheads[0], 'HEL');
+    act(s, { type: 'moveTrain', from: 'POR', to: 'SPO' });
+    assert.equal(s.players[1].railheads[0], 'SPO');
     assert.notEqual(kind(s), 'layTracks', 'one step');
     assert.ok(!offered(s, 'usePonyCard', { card: 'PX14' }));
   });
@@ -969,13 +989,13 @@ export default function part4() {
   check('R18.7/16', 'card 16 Express Mail Contract: placing a telegraph station gains 2 resources of your choice', () => {
     const s = layGame('POR', 'MIN', PONY);
     ownCard(s, 0, 'PX16');
-    claimNow(s, 'POR-SPO', 'POR');
-    act(s, { type: 'placeTelegraphStation', city: 'SPO' });
+    claimNow(s, 'TDL-POR', 'POR');
+    act(s, { type: 'placeTelegraphStation', city: 'TDL' });
     assert.equal(takeChoices(s), 2);
     const t = layGame('POR', 'MIN', PONY);
     ownCard(t, 0, 'PX16');
-    claimNow(t, 'POR-SPO', 'POR');
-    act(t, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' });
+    claimNow(t, 'TDL-POR', 'POR');
+    act(t, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' });
     assert.notEqual(kind(t), 'chooseResource');
   });
   check('R18.7/17', 'card 17 Frontier Expansion: add 1 specialist carriage and 1 storage carriage for free, each only if under its limit', () => {
@@ -1029,23 +1049,22 @@ export default function part4() {
     assert.equal(s.players[1].resources.wood, 1, 'the owner only');
   });
   check('R18.7/25', 'card 25 Transcontinental Express: +10 VP if you complete the transcontinental line', () => {
-    const s = layGame('HEL', 'OMA', PONY);
+    const s = almostLine(PONY);
     ownCard(s, 0, 'PX25');
-    claim(s, 0, 'SEA-HEL', 'BIS-MIN');
-    s.modules.pony.tokens.BIS = false;
-    const vp = vpBySource(claimNow(s, 'HEL-BIS', 'HEL'), 0);
+    s.modules.pony.tokens.GFA = false;
+    const vp = vpBySource(claimNow(s, 'SPO-GFA', 'SPO'), 0);
     assert.deepEqual([vp.completion, vp.ponyCards], [37, 10]);
   });
   check('R18.7/26', 'card 26 Master Network: tolls paid to you are 5 VP instead of 3', () => {
     const s = layGame('POR', 'MIN', PONY);
     ownCard(s, 1, 'PX26');
-    building(s, 1, 'railwayStation', 'SPO');
-    const ev = claimNow(s, 'POR-SPO', 'POR');
+    building(s, 1, 'railwayStation', 'TDL');
+    const ev = claimNow(s, 'TDL-POR', 'POR');
     assert.deepEqual(vpBySource(ev, 1), { toll: 3, ponyCards: 2 });
     const mine = layGame('POR', 'MIN', { ...PONY }, 3);
     ownCard(mine, 0, 'PX26'); // the mover owns the card: the station owner still gets 3
-    building(mine, 1, 'railwayStation', 'SPO');
-    assert.deepEqual(vpBySource(claimNow(mine, 'POR-SPO', 'POR'), 1), { toll: 3 });
+    building(mine, 1, 'railwayStation', 'TDL');
+    assert.deepEqual(vpBySource(claimNow(mine, 'TDL-POR', 'POR'), 1), { toll: 3 });
   });
   check('R18.7/27', 'card 27 Experienced Crew: hire up to 2 specialists for free', () => {
     const { s } = buyer('PX27', (x) => setTrain(x, 1, [['crew', null], [null, null]]));
@@ -1085,7 +1104,7 @@ export default function part4() {
   check('R18.7/29', 'card 29 Rails and Riders: your first connections score +3 VP', () => {
     const s = layGame('POR', 'MIN', PONY);
     ownCard(s, 0, 'PX29');
-    const vp = vpBySource(claimNow(s, 'POR-SPO', 'POR'), 0);
+    const vp = vpBySource(claimNow(s, 'TDL-POR', 'POR'), 0);
     assert.deepEqual([vp.firstConnection, vp.ponyCards], [5, 3]);
   });
   check('R18.7/30', 'card 30 Political Influence: Reset gives 2 VP per senator returned instead of 1', () => {
@@ -1149,18 +1168,18 @@ export default function part4() {
     const s = layGame('POR', 'MIN', PONY);
     ownCard(s, 0, 'PX34');
     s.players[0].telegraphsPlaced = 6;
-    claimNow(s, 'POR-SPO', 'POR');
-    assert.deepEqual(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'SPO' }), 0), { telegraph: 9, ponyCards: 9 });
+    claimNow(s, 'TDL-POR', 'POR');
+    assert.deepEqual(vpBySource(act(s, { type: 'placeTelegraphStation', city: 'TDL' }), 0), { telegraph: 9, ponyCards: 9 });
   });
   check('R18.7/35', 'card 35 Track Master: when your claim makes a first connection every slot of that route scores +3 VP', () => {
-    const s = layGame('SPO', 'MIN', PONY);
+    const s = layGame('SEA', 'MIN', PONY);
     ownCard(s, 0, 'PX35');
-    const vp = vpBySource(claimNow(s, 'BOI-SPO', 'SPO'), 0);
+    const vp = vpBySource(claimNow(s, 'SEA-TDL', 'SEA'), 0);
     assert.deepEqual([vp.track, vp.firstConnection, vp.ponyCards], [3, 5, 9]);
-    const t = layGame('SPO', 'MIN', PONY);
+    const t = layGame('SEA', 'MIN', PONY);
     ownCard(t, 0, 'PX35');
-    claim(t, 1, 'HEL-BOI');
-    assert.equal(vpBySource(claimNow(t, 'BOI-SPO', 'SPO'), 0).ponyCards, undefined, 'no first connection, no bonus');
+    claim(t, 1, 'TDL-POR');
+    assert.equal(vpBySource(claimNow(t, 'SEA-TDL', 'SEA'), 0).ponyCards, undefined, 'no first connection, no bonus');
   });
   check('R18.7/36', 'card 36 Production Mastery: production is 1 higher on all four tracks', () => {
     const s = game(2, PONY);
@@ -1240,11 +1259,11 @@ export default function part4() {
   check('R18.9', 'ongoing cards apply to their owner only; two bonuses on the same event add up', () => {
     const s = layGame('POR', 'MIN', { ...PONY, ...legislative(9) });
     ownCard(s, 0, 'PX29');
-    const vp = vpBySource(claimNow(s, 'POR-SPO', 'POR'), 0);
+    const vp = vpBySource(claimNow(s, 'TDL-POR', 'POR'), 0);
     assert.deepEqual([vp.firstConnection, vp.legislative, vp.ponyCards], [5, 3, 3]);
     const t = layGame('POR', 'MIN', PONY);
     ownCard(t, 1, 'PX29');
-    assert.equal(vpBySource(claimNow(t, 'POR-SPO', 'POR'), 0).ponyCards, undefined, 'Ben\'s card does nothing for Anna');
+    assert.equal(vpBySource(claimNow(t, 'TDL-POR', 'POR'), 0).ponyCards, undefined, 'Ben\'s card does nothing for Anna');
   });
   check('R18.10', 'at the end of the game each token still held is worth 1 VP', () => {
     const s = game(2, { ...PONY, maxTurnsPerPlayer: 1 });

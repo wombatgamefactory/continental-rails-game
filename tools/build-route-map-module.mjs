@@ -6,6 +6,7 @@
 // Web Worker. The JSON stays as the readable, swappable source.
 //
 // Usage (from the repo folder):  node tools/build-route-map-module.mjs
+// The current map is route map v3 (35 cities, 65 routes, 134 slots).
 // To swap the map: replace route-map.json, run this script, run `npm test`
 // (tests/rules-data.test.mjs checks that the two files agree).
 
@@ -25,10 +26,13 @@ const header = [
   '// Source: src/engine/data/route-map.json',
   '// Regenerate with: node tools/build-route-map-module.mjs',
   '//',
-  '// Cities: id, name, x, y (mm on the 500 x 400 board), role ("w" = west',
-  '// start city, "e" = east start city, "" = inland city).',
-  '// Routes: a, b (city ids), terrain (one letter per slot from a to b:',
-  '// G = Ground, T = Tunnel, B = Bridge), slots (x, y, angle for the UI).',
+  '// Board: 600 x 350 mm (board.w, board.h). Cities: id, name, x, y (mm on the',
+  '// board), role ("w" = west start city, "e" = east start city, "" = inland',
+  '// city). Routes: a, b (city ids), terrain (one letter per slot from a to b:',
+  '// G = Ground, T = Tunnel, B = Bridge, W = wild slot, any built tile fits),',
+  '// slots (x, y, angle for the UI), line (whether the art draws a black line),',
+  '// bow. Also: slot {l, w, outline}, city_r, city_style, labels (where the art',
+  '// puts each city name).',
   '',
 ].join('\n');
 

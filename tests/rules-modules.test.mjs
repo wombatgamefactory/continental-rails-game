@@ -492,8 +492,8 @@ const MILESTONE_SETUP = {
   MS2: (s) => claim(s, 0, ...routesWith('tunnel', 6)),
   MS3: (s) => claim(s, 0, ...routesWith('bridge', 6)),
   MS4: (s) => claim(s, 0, ...routesWith('ground', 6)),
-  MS5: (s) => claim(s, 0, 'ELP-FTW'),
-  MS6: (s) => claim(s, 0, ...MAP.routeIds.slice(0, 6)),
+  MS5: (s) => claim(s, 0, 'SPO-GFA'), // 4 slots: one of the only two routes of 4 or more (SPO-GFA, GFA-BIS)
+  MS6: (s) => claim(s, 0, ...MAP.routes.filter((r) => !r.wild).slice(0, 6).map((r) => r.id)), // routes with a wild slot stay out of fixtures
   MS7: (s) => {
     setHeads(s, 0, 'SEA', 'MIN');
     claim(s, 1, ...chainBetween('SEA', 'MIN')); // routes of ANY owner join them (R16.8 MS7)
@@ -630,12 +630,12 @@ suite.check('R16.9, R19.6: milestones are claimed in the final round too, before
 suite.check('describeProgress: the text the UI shows, for milestones and goals', () => {
   const state = startWith(2, { ...MILESTONES, milestonesInPlay: 10 });
   const tile = (id) => K.MILESTONE_TILES.find((t) => t.id === id);
-  claim(state, 0, 'POR-REN', 'SAC-REN'); // 2 + 2 tunnel slots
+  claim(state, 0, 'DEN-SLC', 'HEL-BOI'); // 2 + 2 tunnel slots
   assert.deepEqual(describeProgress(state, 0, tile('MS2')), { known: true, value: 4, target: 6, met: false, text: '4 of 6 Tunnel slots' });
   assert.equal(describeProgress(state, 0, tile('MS6')).text, '2 of 6 routes owned');
   assert.equal(describeProgress(state, 0, tile('MS1')).text, '0 of 5 buildings on the map');
   assert.equal(describeProgress(state, 0, tile('MS9')).text, '2 of 5 carriages');
-  assert.equal(describeProgress(state, 0, tile('MS5')).text, '2 of 5 slots in your longest route');
+  assert.equal(describeProgress(state, 0, tile('MS5')).text, '2 of 4 slots in your longest route');
   assert.equal(describeProgress(state, 0, tile('MS3')).text, '0 of 6 Bridge slots');
   assert.equal(describeProgress(state, 1, tile('MS2')).value, 0, 'Ben owns none of them');
   const goal = K.GOAL_CARDS.find((g) => g.id === 'G5');
@@ -682,17 +682,17 @@ suite.check('R16.5 goal 2 and 3: the regions and the junction cities are the one
   const state = startWith(2, { ...GOALS, goalsInPlay: 11 });
   const g2 = K.GOAL_CARDS.find((g) => g.id === 'G2');
   const g3 = K.GOAL_CARDS.find((g) => g.id === 'G3');
-  // Reno, Salt Lake City, Denver and North Platte are in neither region (R16.6.2).
+  // Reno, Salt Lake City, Denver and North Platte are in neither region (R16.6.2: north is y < 116.7, south y > 233.3).
   ['REN', 'SLC', 'DEN', 'NPL'].forEach((c) => rail(state, 0, c));
   assert.equal(goalStandings(state, g2).values[0], 0);
   rail(state, 0, 'SPO'); // north
   assert.equal(goalStandings(state, g2).values[0], 0, 'north alone is not enough');
   rail(state, 0, 'ELP'); // south
   assert.equal(goalStandings(state, g2).values[0], 1);
-  // Junction cities: Reno, Salt Lake City, Denver and Spokane, El Paso count; North Platte does not.
-  assert.equal(goalStandings(state, g3).values[0], 5);
+  // Junction cities (five routes): Denver, North Platte and Spokane count; Reno, Salt Lake City and El Paso do not.
+  assert.equal(goalStandings(state, g3).values[0], 3);
   rail(state, 0, 'BIL');
-  assert.equal(goalStandings(state, g3).values[0], 5, 'Billings is not a junction city');
+  assert.equal(goalStandings(state, g3).values[0], 3, 'Billings is not a junction city');
 });
 
 /** Gives each player a train with this many specialists (G8 measure). */
@@ -906,7 +906,7 @@ suite.check('R17.2: cards 1 to 3 are retired (the scoring card does their job); 
 suite.check('R17.1, R17.2: the card applies to every player equally (here Ben, in seat 2)', () => {
   const state = startWith(2, legislative(9)); // a first connection scores +3 VP
   gatherCoinsTurn(state);
-  const events = claimTurn(state, 'SEA-SPO', 'SEA');
+  const events = claimTurn(state, 'TDL-POR', 'POR');
   assert.equal(vpOf(events, 1).legislative, 3);
   assert.equal(state.players[1].vp.legislative, 3);
   assert.equal(state.players[0].vp.legislative, 0);
@@ -926,27 +926,52 @@ suite.check('R17.3 card 4, R19.2: the completion bonus is 10 VP higher; the 10 a
 suite.check('R17.3 cards 5, 6, R11.10: whole-action bonuses are worked out once, when the Lay Tracks action ends', () => {
   // Card 5: slots of at least 2 different terrains in one action. A single mixed route qualifies; a single-terrain route does not.
   const mixed = startWith(2, legislative(5));
-  assert.equal(vpOf(claimTurn(mixed, 'SEA-HEL', 'SEA'), 0).legislative, 3, 'a Bridge and four Tunnel slots: two terrains');
+  assert.equal(vpOf(claimTurn(mixed, 'SEA-TDL', 'SEA'), 0).legislative, 3, 'a Ground, a Tunnel and a Bridge slot: three terrains');
   const plain = startWith(2, legislative(5));
-  assert.equal(vpOf(claimTurn(plain, 'SEA-SPO', 'SEA'), 0).legislative ?? 0, 0, 'Ground only: nothing');
-  // Two steps, one terrain each: 2 terrains in the whole action.
+  assert.equal(vpOf(claimTurn(plain, 'TDL-POR', 'POR'), 0).legislative ?? 0, 0, 'Bridge only: nothing');
+  // Two steps are possible, but this action stops after one claim: still one terrain.
   const two = startWith(2, legislative(5));
-  const e2 = claimTurn(two, 'SEA-SPO', 'SEA', { m: 2 });
+  const e2 = claimTurn(two, 'TDL-POR', 'POR', { m: 2 });
   assert.equal(vpOf(e2, 0).legislative ?? 0, 0, 'the action stopped after one claim');
+  // Two steps, one terrain each: 2 terrains in the whole action.
   const split = startWith(2, legislative(5));
-  headsAt(split, 0, 'SEA');
-  give(split, 0, { tiles: { ground: 2, bridge: 2 } });
+  headsAt(split, 0, 'POR');
+  give(split, 0, { tiles: { ground: 2, bridge: 1 } });
   put(split, 0, 'W6');
   placeAndChoose(split, 'W7', 'D5');
-  act(split, { type: 'claimRoute', route: 'SEA-SPO', from: 'SEA' });
+  act(split, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' });
   finishBuildings(split);
-  const events = act(split, { type: 'claimRoute', route: 'POR-SPO', from: 'SPO' }).concat(finishLaying(split, 0));
-  assert.equal(vpOf(events, 0).legislative, 3, 'Ground (card route 1) and Bridge (route 2) in one action: 3 VP once');
-  // Card 6: 5 or more slots in one action. A single 5-slot route qualifies.
+  const events = act(split, { type: 'claimRoute', route: 'SPO-TDL', from: 'TDL' }).concat(finishLaying(split, 0));
+  assert.equal(vpOf(events, 0).legislative, 3, 'Bridge (route 1) and Ground (route 2) in one action: 3 VP once');
+  // Card 6: 5 or more slots in one action. No route has 5 slots (the longest have 4), so it takes two steps:
+  // The Dalles to Seattle (3 slots) and The Dalles to Yakima (2 slots) make 5.
   const five = startWith(2, legislative(6));
-  assert.equal(vpOf(claimTurn(five, 'SEA-HEL', 'SEA'), 0).legislative, 5);
+  headsAt(five, 0, 'SEA');
+  give(five, 0, { tiles: { ground: 1, tunnel: 2, bridge: 2 } });
+  put(five, 0, 'W6');
+  placeAndChoose(five, 'W7', 'D5');
+  act(five, { type: 'claimRoute', route: 'SEA-TDL', from: 'SEA' });
+  finishBuildings(five);
+  const fiveEvents = act(five, { type: 'claimRoute', route: 'YAK-TDL', from: 'TDL' }).concat(finishLaying(five, 0));
+  assert.equal(vpOf(fiveEvents, 0).legislative, 5, '3 + 2 = 5 slots in one action');
+  // 4 slots in one action (3 + 1) is not enough.
   const four = startWith(2, legislative(6));
-  assert.equal(vpOf(claimTurn(four, 'SEA-SPO', 'SEA'), 0).legislative ?? 0, 0, '2 slots: nothing');
+  headsAt(four, 0, 'SEA');
+  give(four, 0, { tiles: { ground: 1, tunnel: 1, bridge: 2 } });
+  put(four, 0, 'W6');
+  placeAndChoose(four, 'W7', 'D5');
+  act(four, { type: 'claimRoute', route: 'SEA-TDL', from: 'SEA' });
+  finishBuildings(four);
+  const fourEvents = act(four, { type: 'claimRoute', route: 'TDL-POR', from: 'TDL' }).concat(finishLaying(four, 0));
+  assert.equal(vpOf(fourEvents, 0).legislative ?? 0, 0, '3 + 1 = 4 slots: nothing');
+  // A single route of 4 slots is not enough either.
+  const single = startWith(2, legislative(6));
+  give(single, 0, { tiles: { ground: 0, tunnel: 3, bridge: 1 } });
+  headsAt(single, 0, 'SPO');
+  placeAndChoose(single, 'W7', 'D5');
+  act(single, { type: 'claimRoute', route: 'SPO-GFA', from: 'SPO' });
+  assert.equal(single.map.routeOwner['SPO-GFA'], 0, 'the 4-slot route was claimed');
+  assert.equal(vpOf(finishLaying(single, 0), 0).legislative ?? 0, 0, 'one 4-slot route: nothing');
 });
 
 /** Declines the building offered after a claim, if one is. */
@@ -955,32 +980,32 @@ function finishBuildings(state) {
 }
 
 suite.check('R17.3 cards 7, 8: a building in a city with another player\'s building / in a junction city', () => {
-  // Card 7: Ben already has a telegraph station in Spokane; Anna places a railway station there.
+  // Card 7: Ben already has a telegraph station in The Dalles; Anna places a railway station there.
   const seven = startWith(2, legislative(7));
-  tele(seven, 1, 'SPO');
-  let events = claimTurn(seven, 'SEA-SPO', 'SEA', { building: placeRailway('SPO') });
+  tele(seven, 1, 'TDL');
+  let events = claimTurn(seven, 'TDL-POR', 'POR', { building: placeRailway('TDL') });
   assert.equal(vpOf(events, 0).legislative, 5);
   const alone = startWith(2, legislative(7));
-  events = claimTurn(alone, 'SEA-SPO', 'SEA', { building: placeRailway('SPO') });
+  events = claimTurn(alone, 'TDL-POR', 'POR', { building: placeRailway('TDL') });
   assert.equal(vpOf(events, 0).legislative ?? 0, 0, 'no building of another player there: nothing');
-  // Card 8: Spokane is a junction city; Dodge City is not.
+  // Card 8: The Dalles is a junction city (five routes); Grand Island is not (four).
   const eight = startWith(2, legislative(8));
-  events = claimTurn(eight, 'SEA-SPO', 'SEA', { building: placeTelegraph('SPO') });
+  events = claimTurn(eight, 'TDL-POR', 'POR', { building: placeTelegraph('TDL') });
   assert.equal(vpOf(events, 0).legislative, 2);
   const quiet = startWith(2, legislative(8));
-  events = claimTurn(quiet, 'KCY-DOD', 'KCY', { building: placeTelegraph('DOD') });
-  assert.equal(vpOf(events, 0).legislative ?? 0, 0, 'Dodge City is not a junction city');
+  events = claimTurn(quiet, 'GRI-KCY', 'KCY', { building: placeTelegraph('GRI') });
+  assert.equal(vpOf(events, 0).legislative ?? 0, 0, 'Grand Island is not a junction city');
   // No building placed, no bonus.
   const skip = startWith(2, legislative(8));
-  assert.equal(vpOf(claimTurn(skip, 'SEA-SPO', 'SEA'), 0).legislative ?? 0, 0);
+  assert.equal(vpOf(claimTurn(skip, 'TDL-POR', 'POR'), 0).legislative ?? 0, 0);
 });
 
 suite.check('R17.3 card 9: a first connection scores +3 VP, booked to legislative; a city already connected does not', () => {
   const state = startWith(2, legislative(9));
-  let events = claimTurn(state, 'SEA-SPO', 'SEA');
+  let events = claimTurn(state, 'TDL-POR', 'POR');
   assert.deepEqual([vpOf(events, 0).firstConnection, vpOf(events, 0).legislative], [K.SCORING.firstConnectionVp, 3]);
   gatherCoinsTurn(state);
-  events = claimTurn(state, 'POR-SPO', 'POR'); // Anna again: Spokane is connected already
+  events = claimTurn(state, 'SEA-TDL', 'SEA'); // Anna again: The Dalles is connected already
   assert.equal(vpOf(events, 0).firstConnection ?? 0, 0);
   assert.equal(vpOf(events, 0).legislative ?? 0, 0);
 });
@@ -989,12 +1014,12 @@ suite.check('R17.3 card 10: the first player to have 5 buildings gains 10 VP at 
   const state = startWith(2, legislative(10));
   ['REN', 'FRE', 'HEL', 'BOI'].forEach((c) => tele(state, 0, c)); // 4 buildings by hand
   state.players[0].telegraphsPlaced = 4;
-  const events = claimTurn(state, 'SEA-SPO', 'SEA', { building: placeTelegraph('SPO') });
+  const events = claimTurn(state, 'TDL-POR', 'POR', { building: placeTelegraph('TDL') });
   assert.equal(vpOf(events, 0).legislative, 10);
   assert.equal(state.modules.legislative.used.LA10, true);
   // Ben reaches 5 buildings later: nothing. Anna's sixth: nothing.
   ['LVG', 'PHX', 'BIL', 'SLC'].forEach((c) => rail(state, 1, c));
-  claimTurn(state, 'LAX-FRE', 'LAX', { building: placeRailway('FRE') });
+  claimTurn(state, 'FRE-LAX', 'LAX', { building: placeRailway('FRE') });
   assert.equal(state.players[1].vp.legislative, 0);
 });
 
@@ -1031,18 +1056,18 @@ suite.check('R17.3 cards 11 to 14: each Gather action of that resource gives +1 
 
 suite.check('R17.3 cards 15 to 17: telegraph +3 VP, railway +3 VP, railway +2 resources of your choice', () => {
   const t = startWith(2, legislative(15));
-  let events = claimTurn(t, 'SEA-SPO', 'SEA', { building: placeTelegraph('SPO') });
+  let events = claimTurn(t, 'TDL-POR', 'POR', { building: placeTelegraph('TDL') });
   assert.equal(vpOf(events, 0).legislative, 3);
   assert.equal(vpOf(events, 0).telegraph, 1, 'the telegraph row VP are the base');
   const tr = startWith(2, legislative(15));
-  assert.equal(vpOf(claimTurn(tr, 'SEA-SPO', 'SEA', { building: placeRailway('SPO') }), 0).legislative ?? 0, 0, 'a railway station is not a telegraph station');
+  assert.equal(vpOf(claimTurn(tr, 'TDL-POR', 'POR', { building: placeRailway('TDL') }), 0).legislative ?? 0, 0, 'a railway station is not a telegraph station');
   const r = startWith(2, legislative(16));
-  events = claimTurn(r, 'SEA-SPO', 'SEA', { building: placeRailway('SPO') });
+  events = claimTurn(r, 'TDL-POR', 'POR', { building: placeRailway('TDL') });
   assert.equal(vpOf(events, 0).legislative, 3);
-  assert.equal(vpOf(claimTurn(startWith(2, legislative(16)), 'SEA-SPO', 'SEA', { building: placeTelegraph('SPO') }), 0).legislative ?? 0, 0);
+  assert.equal(vpOf(claimTurn(startWith(2, legislative(16)), 'TDL-POR', 'POR', { building: placeTelegraph('TDL') }), 0).legislative ?? 0, 0);
   const g = startWith(2, legislative(17));
   const before = { ...g.players[0].resources };
-  claimTurn(g, 'SEA-SPO', 'SEA', { building: placeRailway('SPO') });
+  claimTurn(g, 'TDL-POR', 'POR', { building: placeRailway('TDL') });
   assert.equal(kind(g), 'chooseResource', 'two resources of your choice');
   assert.equal(topFrame(g).remaining, 2);
   take(g, 'chooseResource', { resource: 'iron' });
@@ -1149,11 +1174,12 @@ function buy(state, cardId, options = {}) {
   return act(state, { type: 'buyPonyCard', card: cardId });
 }
 
-suite.check('R3.8.4, R18.2: a token on each of the 17 inland cities, three decks by rank, two cards of each rank face up', () => {
+suite.check('R3.8.4, R18.2: a token on each of the 27 inland cities, three decks by rank, two cards of each rank face up', () => {
   const state = pony(3);
   const m = state.modules.pony;
   assert.deepEqual(Object.keys(m.tokens).sort(), MAP.inlandCities.slice().sort());
-  assert.equal(Object.values(m.tokens).filter(Boolean).length, 17);
+  assert.equal(MAP.inlandCities.length, 27);
+  assert.equal(Object.values(m.tokens).filter(Boolean).length, 27);
   for (const city of MAP.startCities) assert.ok(!(city in m.tokens), 'start cities hold no token (R11.2.3)');
   assert.deepEqual(Object.keys(m.decks), ['A', 'B', 'C']);
   assert.deepEqual(Object.keys(m.market), ['A', 'B', 'C']);
@@ -1201,29 +1227,29 @@ suite.check('R2.4, contract section 7: the three deck orders are hidden and dete
 
 suite.check('R11.5.4, R18.3: the first connection to an inland city takes its token; a start city or a connected city gives none', () => {
   const state = pony(2);
-  const events = claimTurn(state, 'SEA-SPO', 'SEA');
+  const events = claimTurn(state, 'TDL-POR', 'POR');
   const t = eventOf(events, 'ponyToken');
-  assert.deepEqual([t.player, t.city], [0, 'SPO']);
+  assert.deepEqual([t.player, t.city], [0, 'TDL']);
   assert.deepEqual([state.modules.pony.players[0].tokensHeld, state.modules.pony.players[0].tokensCollected], [1, 1]);
-  assert.equal(state.modules.pony.tokens.SPO, false);
-  assert.equal(Object.values(state.modules.pony.tokens).filter(Boolean).length, 16);
-  // Ben claims into Spokane too: it is connected already.
-  const again = claimTurn(state, 'POR-SPO', 'POR');
+  assert.equal(state.modules.pony.tokens.TDL, false);
+  assert.equal(Object.values(state.modules.pony.tokens).filter(Boolean).length, 26);
+  // Ben claims into The Dalles too: it is connected already.
+  const again = claimTurn(state, 'SEA-TDL', 'SEA');
   assert.equal(eventOf(again, 'ponyToken'), undefined);
   assert.equal(state.modules.pony.players[1].tokensHeld, 0);
   // A claim into a start city has no first connection and no token.
   const start = pony(2);
-  const route = MAP.routes.find((r) => r.id === 'BIS-MIN');
-  headsAt(start, 0, 'BIS');
+  const route = MAP.routes.find((r) => r.id === 'FAR-MIN');
+  headsAt(start, 0, 'FAR');
   give(start, 0, { tiles: route.cost });
-  const e = claimTurn(start, 'BIS-MIN', 'BIS');
+  const e = claimTurn(start, 'FAR-MIN', 'FAR');
   assert.equal(eventOf(e, 'ponyToken'), undefined);
   assert.equal(start.modules.pony.players[0].tokensHeld, 0);
 });
 
 suite.check('R18.1: with Pony Express off a first connection still scores its VP and there is no token', () => {
   const state = startWith(2);
-  const events = claimTurn(state, 'SEA-SPO', 'SEA');
+  const events = claimTurn(state, 'TDL-POR', 'POR');
   assert.equal(vpOf(events, 0).firstConnection, K.SCORING.firstConnectionVp);
   assert.equal(eventOf(events, 'ponyToken'), undefined);
   assert.equal(state.modules.pony, undefined);
@@ -1439,7 +1465,7 @@ suite.check('R4.8.5, R18.8: the once-per-turn abilities (cards 14 and 28) are on
   for (const turnStructure of ['continuous', 'rounds']) {
     const state = pony(2, { turnStructure });
     ownCard(state, 0, 'PX14');
-    claim(state, 1, 'SEA-SPO', 'POR-SPO');
+    claim(state, 1, 'SEA-TDL', 'TDL-POR');
     setHeads(state, 0, 'SEA', 'MIN');
     giveTokens(state, 0, 1); // a token to exchange, so that the opportunity is asked; the ability is what we look at
     gatherCoinsTurn(state);
@@ -1449,7 +1475,7 @@ suite.check('R4.8.5, R18.8: the once-per-turn abilities (cards 14 and 28) are on
     assert.equal(eventOf(used, 'ponyCardUsed').card, 'PX14');
     assert.equal(kind(state), 'layTracks');
     assert.ok(getValidActions(state).every((a) => a.type === 'moveTrain'), 'only Move Train steps');
-    act(state, { type: 'moveTrain', from: 'SEA', to: 'SPO' });
+    act(state, { type: 'moveTrain', from: 'SEA', to: 'TDL' });
     if (kind(state) === 'placeBuildings') act(state, { type: 'skipBuilding' }); // the paid building on arrival (R12.4)
     assert.equal(kind(state), 'freeActions', 'one step, then back to the opportunity');
     assert.ok(!keys(state).includes('usePonyCard:PX14'), 'used for this turn / this round');
@@ -1723,7 +1749,7 @@ suite.check('R18.7 card 11: return up to 3 resources and take the same number of
 
 suite.check('R18.7 card 12: 1 VP for each inland city that is an end of a route you own, booked to ponyCards', () => {
   const state = pony(2);
-  claim(state, 0, 'POR-SPO', 'SEA-SPO', 'POR-REN'); // Spokane (twice), Reno: 2 inland cities
+  claim(state, 0, 'TDL-POR', 'SEA-TDL', 'POR-REN'); // The Dalles (twice), Reno: 2 inland cities
   const events = buy(state, 'PX12');
   assert.deepEqual(vpOf(events, 0), { ponyCards: 2 });
   assert.equal(state.players[0].vp.ponyCards, 2);
@@ -1764,29 +1790,35 @@ suite.check('R18.7 cards 13, 24: up to 2 available tier 1 Congress entries, with
 
 suite.check('R18.7 card 3: up to 2 Move Train steps now (and only moves); card 5: 1 claim step, a Lay Tracks action of its own (R11.10)', () => {
   const three = pony(2);
-  claim(three, 1, 'SEA-SPO', 'POR-SPO');
+  claim(three, 1, 'SEA-TDL', 'TDL-POR');
   setHeads(three, 0, 'SEA', 'MIN');
   give(three, 0, { tiles: { ground: 2, bridge: 2 } });
   buy(three, 'PX3');
   assert.equal(kind(three), 'layTracks');
   assert.equal(topFrame(three).steps, 2);
   assert.ok(getValidActions(three).every((a) => a.type === 'moveTrain'), 'a claim is not offered although the tiles are held');
-  act(three, { type: 'moveTrain', from: 'SEA', to: 'SPO' });
+  act(three, { type: 'moveTrain', from: 'SEA', to: 'TDL' });
   if (kind(three) === 'placeBuildings') act(three, { type: 'skipBuilding' });
   assert.ok(keys(three).includes('stopLaying'), 'up to 2: may stop after one');
-  act(three, { type: 'moveTrain', from: 'SPO', to: 'POR' });
+  act(three, { type: 'moveTrain', from: 'TDL', to: 'POR' });
   if (kind(three) === 'placeBuildings') act(three, { type: 'skipBuilding' });
   assert.notEqual(kind(three), 'layTracks', 'two steps taken: over');
   assert.equal(three.players[0].railheads[0], 'POR');
 
-  const five = pony(2, legislative(6));
-  give(five, 0, { tiles: MAP.routeById['SEA-HEL'].cost });
+  // (No route has 5 slots on this map, so the Legislative Agenda card that rides on the card's own action is card 5:
+  // slots of at least 2 terrains in one Lay Tracks action.)
+  const five = pony(2, legislative(5));
+  give(five, 0, { tiles: MAP.routeById['SEA-TDL'].cost });
   setHeads(five, 0, 'SEA', 'MIN');
   const events = buy(five, 'PX5');
-  assert.equal(five.map.routeOwner['SEA-HEL'], 0, 'the one claim was made (the only legal one, so the engine took it)');
+  assert.equal(kind(five), 'layTracks');
+  assert.equal(topFrame(five).steps, 1);
+  assert.equal(five.map.routeOwner['SEA-TDL'], null, 'several claims are legal here (Seattle - The Dalles, Seattle - Yakima, Fargo - Minneapolis): the engine waits');
+  act(five, { type: 'claimRoute', route: 'SEA-TDL', from: 'SEA' });
+  assert.equal(five.map.routeOwner['SEA-TDL'], 0, 'the one claim was made');
   finishLaying(five, 0);
   assert.equal(vpOf(events.concat([]), 0).legislative, undefined);
-  assert.equal(five.players[0].vp.legislative, 5, 'card 6 of the Legislative Agenda: 5 slots in one Lay Tracks action - the card\'s own');
+  assert.equal(five.players[0].vp.legislative, 3, 'card 5 of the Legislative Agenda: 3 terrains in one Lay Tracks action - the card\'s own');
 });
 
 suite.check('R18.7 card 15: at the start of each of your train activations one specialist is activated one extra time', () => {
@@ -1821,7 +1853,7 @@ suite.check('R18.7 card 16: a telegraph station gives 2 resources of your choice
   const state = pony(2);
   ownCard(state, 0, 'PX16');
   give(state, 0, { resources: {} });
-  claimTurn(state, 'SEA-SPO', 'SEA', { building: placeTelegraph('SPO') });
+  claimTurn(state, 'TDL-POR', 'POR', { building: placeTelegraph('TDL') });
   assert.equal(kind(state), 'chooseResource');
   assert.equal(topFrame(state).remaining, 2);
   takeResources(state, 'wood', 2);
@@ -1829,7 +1861,7 @@ suite.check('R18.7 card 16: a telegraph station gives 2 resources of your choice
   // A railway station gives nothing.
   const rail2 = pony(2);
   ownCard(rail2, 0, 'PX16');
-  claimTurn(rail2, 'SEA-SPO', 'SEA', { building: placeRailway('SPO') });
+  claimTurn(rail2, 'TDL-POR', 'POR', { building: placeRailway('TDL') });
   assert.notEqual(kind(rail2), 'chooseResource');
 });
 
@@ -1902,11 +1934,11 @@ suite.check('R18.7 cards 25, 29, 35: completion +10, first connection +3, +3 per
   const state = pony(2, legislative(9));
   ownCard(state, 0, 'PX29');
   ownCard(state, 0, 'PX35');
-  const events = claimTurn(state, 'SEA-SPO', 'SEA');
+  const events = claimTurn(state, 'TDL-POR', 'POR');
   const vp = vpOf(events, 0);
   assert.equal(vp.firstConnection, 5, 'the base stays 5');
   assert.equal(vp.legislative, 3, 'card 9 of the Legislative Agenda');
-  assert.equal(vp.ponyCards, 3 + 3 * MAP.routeById['SEA-SPO'].length, 'card 29 (+3) and card 35 (+3 per slot of the route)');
+  assert.equal(vp.ponyCards, 3 + 3 * MAP.routeById['TDL-POR'].length, 'card 29 (+3) and card 35 (+3 per slot of the route)');
   // The cards belong to their owner: Ben gets nothing from them.
   assert.equal(state.players[1].vp.ponyCards, 0);
 });
@@ -1914,14 +1946,14 @@ suite.check('R18.7 cards 25, 29, 35: completion +10, first connection +3, +3 per
 suite.check('R18.7 card 26: tolls paid to you are 5 VP instead of 3 (the 3 stay in toll, the 2 more are ponyCards)', () => {
   const state = pony(2);
   ownCard(state, 1, 'PX26');
-  rail(state, 1, 'SPO');
-  const events = claimTurn(state, 'SEA-SPO', 'SEA');
+  rail(state, 1, 'TDL');
+  const events = claimTurn(state, 'TDL-POR', 'POR');
   assert.deepEqual(vpOf(events, 1), { toll: K.SCORING.tollVp, ponyCards: 5 - K.SCORING.tollVp });
   assert.equal(state.players[1].vp.toll + state.players[1].vp.ponyCards, 5);
   // Without the card: 3.
   const bare = pony(2);
-  rail(bare, 1, 'SPO');
-  assert.deepEqual(vpOf(claimTurn(bare, 'SEA-SPO', 'SEA'), 1), { toll: 3 });
+  rail(bare, 1, 'TDL');
+  assert.deepEqual(vpOf(claimTurn(bare, 'TDL-POR', 'POR'), 1), { toll: 3 });
 });
 
 suite.check('R18.7 card 28: any one bonus action, at no printed cost, outside the limit of R7.2; a hire still pays its hire cost', () => {
@@ -2013,18 +2045,18 @@ suite.check('R18.7 card 33: until the end of this turn each specialist of the ch
 suite.check('R18.7 card 34: the telegraph row VP are doubled (the printed VP stay in telegraph, the doubling is ponyCards)', () => {
   const state = pony(2);
   ownCard(state, 0, 'PX34');
-  const events = claimTurn(state, 'SEA-SPO', 'SEA', { building: placeTelegraph('SPO') });
+  const events = claimTurn(state, 'TDL-POR', 'POR', { building: placeTelegraph('TDL') });
   assert.deepEqual([vpOf(events, 0).telegraph, vpOf(events, 0).ponyCards], [1, 1]);
   // The second telegraph station prints 2, so the doubling adds 2.
   const again = pony(2);
   ownCard(again, 0, 'PX34');
   again.players[0].telegraphsPlaced = 1;
-  const e = claimTurn(again, 'SEA-SPO', 'SEA', { building: placeTelegraph('SPO') });
+  const e = claimTurn(again, 'TDL-POR', 'POR', { building: placeTelegraph('TDL') });
   assert.deepEqual([vpOf(e, 0).telegraph, vpOf(e, 0).ponyCards], [2, 2]);
   // A railway station scores nothing, doubled or not.
   const rail3 = pony(2);
   ownCard(rail3, 0, 'PX34');
-  assert.equal(vpOf(claimTurn(rail3, 'SEA-SPO', 'SEA', { building: placeRailway('SPO') }), 0).ponyCards ?? 0, 0);
+  assert.equal(vpOf(claimTurn(rail3, 'TDL-POR', 'POR', { building: placeRailway('TDL') }), 0).ponyCards ?? 0, 0);
 });
 
 suite.check('R18.7 cards 31, 38 and R18.10: endgame cards and the tokens still held score in final scoring, booked to ponyEnd', () => {
@@ -2061,7 +2093,7 @@ suite.check('R18.7: cards 3 and 14 are not in a game with claimFrom = network, c
 
 suite.check('R10.1 C6, R13.6 retired: 6 resources of choice and no building; chooseOne stays for cards 8 and 23, placeBuildings for arrivals', () => {
   const state = startWith(2);
-  claim(state, 1, 'SEA-SPO'); // Spokane is a connected city, which once let C6 build there
+  claim(state, 1, 'SEA-TDL'); // The Dalles is a connected city, which once let C6 build there
   setTrain(state, 0, [['financier', 'financier']]);
   give(state, 0, { coins: 5, resources: {} });
   placeAndChoose(state, 'W2', 'D2'); // the Foreman, then two Financiers: 3 lobby points in all
@@ -2072,8 +2104,8 @@ suite.check('R10.1 C6, R13.6 retired: 6 resources of choice and no building; cho
   assert.deepEqual(keys(state), ['chooseResource:gunpowder', 'chooseResource:iron', 'chooseResource:wood']);
   for (let i = 0; i < 6; i++) take(state, 'chooseResource', { resource: 'gunpowder' });
   assert.equal(state.players[0].resources.gunpowder, 6);
-  assert.equal(state.map.telegraphStation.SPO, null);
-  assert.equal(state.map.railwayStation.SPO, null);
+  assert.equal(state.map.telegraphStation.TDL, null);
+  assert.equal(state.map.railwayStation.TDL, null);
   // No Congress entry of either table chooses between options or places a building any more.
   const words = (list) => list.flatMap((e) => (e.type === 'chooseOne' ? ['chooseOne', ...e.options.flat().map((o) => o.type)] : [e.type]));
   for (const table of Object.values(K.CONGRESS.tables)) {

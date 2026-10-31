@@ -32,6 +32,7 @@ import {
   telegraphsWithOpponentRailway,
   cityHasOpponentBuilding,
   isJunctionCity,
+  laidSlotTerrains,
   minNorthSouthBuildings,
   buildingsInJunctionCities,
   installedUpgrades,
@@ -56,9 +57,11 @@ function routeStats(state, p, context) {
     stats.count += 1;
     stats.total += route.length;
     if (route.length > stats.longest) stats.longest = route.length;
-    stats.slots.ground += route.cost.ground;
-    stats.slots.tunnel += route.cost.tunnel;
-    stats.slots.bridge += route.cost.bridge;
+    // R11.12.6 - a wild slot counts under the terrain of its tile (`tile-terrain`) or under none (`no-terrain`).
+    const laid = laidSlotTerrains(state, route);
+    stats.slots.ground += laid.ground;
+    stats.slots.tunnel += laid.tunnel;
+    stats.slots.bridge += laid.bridge;
   }
   if (cache !== null) cache[p] = stats;
   return stats;
@@ -112,7 +115,8 @@ export const METRICS = {
     if (slots === null) return null;
     let n = 0;
     for (const t in slots) n += slots[t];
-    return n;
+    // R11.12.6 - a wild slot is a slot under either value; with `no-terrain` it is in no terrain count, so it is added here.
+    return n + (context.totals.noTerrain ?? 0);
   },
   cityHasOpponentBuilding: (state, p, filter, context) =>
     context !== null && context.city ? (cityHasOpponentBuilding(state, context.city, p) ? 1 : 0) : null,

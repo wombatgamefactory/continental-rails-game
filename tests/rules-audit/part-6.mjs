@@ -66,13 +66,13 @@ export default function part6() {
     setHeads(s, 0, 'POR', 'OMA');
     give(s, 0, { tiles: { bridge: 2 } });
     const ev = placeAndChoose(s, 'W4', 'D5');
-    if (offered(s, 'claimRoute')) ev.push(...act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }));
-    act(s, { type: 'placeTelegraphStation', city: 'SPO' });
-    assert.deepEqual([s.players[0].telegraphsPlaced, s.map.telegraphStation.SPO], [1, 0]);
+    if (offered(s, 'claimRoute')) ev.push(...act(s, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' }));
+    act(s, { type: 'placeTelegraphStation', city: 'TDL' });
+    assert.deepEqual([s.players[0].telegraphsPlaced, s.map.telegraphStation.TDL], [1, 0]);
   });
   check('R1.4', 'buildings exist only on the map: two kinds, in the map part of the state', () => {
     const s = game(2);
-    assert.deepEqual(sorted(Object.keys(s.map)), ['railwayStation', 'routeOwner', 'telegraphStation']);
+    assert.deepEqual(sorted(Object.keys(s.map)), ['railwayStation', 'routeOwner', 'telegraphStation', 'wildFill']);
     assert.ok(!('railwayStation' in s.players[0]) && !('telegraphStation' in s.grid));
   });
   check('R1.5', 'a location of the action grid is a district: nine of them, never called a site or a house', () => {
@@ -118,7 +118,7 @@ export default function part6() {
   check('R1.21', 'a connected city is an end of at least one claimed route, whoever owns it', () => {
     const s = game(2);
     assert.equal(isCityConnected(s, 'SPO'), false);
-    claim(s, 1, 'BOI-SPO');
+    claim(s, 1, 'SPO-BOI');
     assert.deepEqual([isCityConnected(s, 'SPO'), isCityConnected(s, 'BOI'), isCityConnected(s, 'REN')], [true, true, false]);
   });
 
@@ -127,10 +127,10 @@ export default function part6() {
     const s = game(2, { ...PONY, turnStructure: 'rounds' });
     ownCard(s, 1, 'PX14');
     setHeads(s, 1, 'POR', 'OMA');
-    claim(s, 0, 'POR-SPO');
+    claim(s, 0, 'TDL-POR');
     idleTurn(s);
     act(s, { type: 'usePonyCard', card: 'PX14' });
-    if (offered(s, 'moveTrain')) act(s, { type: 'moveTrain', from: 'POR', to: 'SPO' });
+    if (offered(s, 'moveTrain')) act(s, { type: 'moveTrain', from: 'POR', to: 'TDL' });
     if (kind(s) === 'freeActions') act(s, { type: 'endFreeActions' });
     playTurn(s, { type: 'placeWorker', space: 'W12' });
     idleTurn(s);
@@ -198,10 +198,21 @@ export default function part6() {
   });
 
   // ----- the data tables of the spec, every row ----------------------------------------
-  check('A.1', 'Appendix A.1: the 25 cities - id, name, kind, number of routes, junction flag, region, y', () => {
-    assert.equal(SPEC.A1.length, 25);
+  check('A.1', 'Appendix A.1: the 35 cities (8 start, 27 inland) - id, name, kind, number of routes, junction flag, region, y', () => {
+    assert.equal(SPEC.A1.length, 35);
     assert.deepEqual(MAP.cityIds, SPEC.A1.map((c) => c.id), 'ids, in the order of the appendix');
+    assert.deepEqual([MAP.startCities.length, MAP.westStartCities.length, MAP.eastStartCities.length, MAP.inlandCities.length], [8, 4, 4, 27]);
+    assert.deepEqual(SPEC.A1.filter((c) => c.kind.endsWith('start city')).map((c) => c.id), MAP.startCities);
     const state = game(2);
+    const junctions = MAP.cityIds.filter((c) => isJunctionCity(state, c));
+    assert.equal(junctions.length, 12, '12 junction cities: the inland cities with 5 routes');
+    assert.deepEqual(junctions, SPEC.A1.filter((c) => c.junction).map((c) => c.id));
+    const regions = { north: 0, middle: 0, south: 0 };
+    for (const c of MAP.inlandCities) regions[cityRegion(c, RULES.MAP_RULES)] += 1;
+    assert.deepEqual(regions, { north: 8, middle: 8, south: 11 }, 'regions: North 8, Middle 8, South 11');
+    assert.deepEqual(SPEC.A1.filter((c) => c.kind === 'inland city').reduce((n, c) => ({ ...n, [c.region]: (n[c.region] ?? 0) + 1 }), {}), { North: 8, Middle: 8, South: 11 });
+    assert.equal(Object.keys(state.map.railwayStation).length * 2, 54, '54 building spaces: a railway station and a telegraph station in each of the 27 inland cities');
+    assert.deepEqual([Object.keys(state.map.railwayStation).length, Object.keys(state.map.telegraphStation).length], [27, 27]);
     for (const row of SPEC.A1) {
       const c = MAP.cityById[row.id];
       const kindOf = row.kind.startsWith('west') ? 'west' : row.kind.startsWith('east') ? 'east' : 'inland';
@@ -210,26 +221,44 @@ export default function part6() {
       if (kindOf === 'inland') assert.equal(cityRegion(row.id, RULES.MAP_RULES), row.region.toLowerCase(), `${row.id} region`);
     }
   });
-  check('A.2', 'Appendix A.2: the 47 routes - id, ends, slots and terrain in order', () => {
-    assert.equal(SPEC.A2.length, 47);
+  check('A.2', 'Appendix A.2: the 65 routes - id, ends, slots and terrain in order; the wild slot is W', () => {
+    assert.equal(SPEC.A2.length, 65);
     assert.deepEqual(MAP.routeIds, SPEC.A2.map((r) => r.id));
-    const letter = { ground: 'G', tunnel: 'T', bridge: 'B' };
+    const letter = { ground: 'G', tunnel: 'T', bridge: 'B', wild: 'W' };
     for (const row of SPEC.A2) {
       const r = MAP.routeById[row.id];
       assert.deepEqual([MAP.cityById[r.a].name, MAP.cityById[r.b].name], [row.from, row.to], row.id);
       assert.equal(r.terrains.map((t) => letter[t]).join(''), row.terrain, row.id);
-      assert.deepEqual([r.length, r.cost.ground, r.cost.tunnel, r.cost.bridge], [row.slots, row.ground, row.tunnel, row.bridge], row.id);
+      assert.deepEqual([r.length, r.cost.ground, r.cost.tunnel, r.cost.bridge, r.wild], [row.slots, row.ground, row.tunnel, row.bridge, row.wild], row.id);
+      assert.equal(row.ground + row.tunnel + row.bridge + row.wild, row.slots, row.id);
     }
+    // the totals: 134 slots, Ground 46, Tunnel 44, Bridge 41, wild 3
+    const count = (rows, field) => rows.reduce((n, r) => n + r[field], 0);
+    assert.equal(count(SPEC.A2, 'slots'), 134);
+    assert.deepEqual(
+      ['ground', 'tunnel', 'bridge', 'wild'].map((f) => count(SPEC.A2, f)),
+      [46, 44, 41, 3],
+    );
+    assert.deepEqual(
+      ['ground', 'tunnel', 'bridge', 'wild'].map((t) => MAP.routes.reduce((n, r) => n + r.terrains.filter((x) => x === t).length, 0)),
+      [46, 44, 41, 3],
+      'the engine data agrees',
+    );
+    assert.deepEqual(MAP.routes.filter((r) => r.wild > 0).map((r) => r.id), ['SPO-HEL', 'BIL-DEN', 'BIL-BIS'], 'three routes carry a wild slot');
+    assert.deepEqual(SPEC.A2.filter((r) => r.terrain.includes('W')).map((r) => r.id), ['SPO-HEL', 'BIL-DEN', 'BIL-BIS']);
   });
   check('A.3', 'Appendix A.3: facts derived from the map data', () => {
     const byLength = {};
     for (const r of MAP.routes) byLength[r.length] = (byLength[r.length] ?? 0) + 1;
-    assert.deepEqual(byLength, { 2: 20, 3: 19, 4: 2, 5: 5, 6: 1 });
+    assert.deepEqual(byLength, { 1: 16, 2: 31, 3: 16, 4: 2 });
+    assert.equal(MAP.routes.length, 65);
+    assert.equal(MAP.routes.reduce((n, r) => n + r.length, 0), 134);
+    assert.deepEqual(MAP.routes.filter((r) => r.length === 4).map((r) => r.id), ['SPO-GFA', 'GFA-BIS'], 'the two longest routes');
+    assert.equal(RULES.MAP_RULES.longHaulMinSlots, 4, 'Long Haul needs one of those two routes');
     for (const c of MAP.startCities) {
-      const lengths = sorted(MAP.cityRoutes[c].map((id) => MAP.routeById[id].length));
-      assert.ok(lengths[0] === 2 && [2, 5, 6].includes(lengths[1]), c);
+      assert.deepEqual(sorted(MAP.cityRoutes[c].map((id) => MAP.routeById[id].length)), [1, 3], c + ': one route of 1 slot and one of 3');
     }
-    // fewest slots from any west start city to any east start city: 14
+    // fewest slots from any west start city to any east start city: 12 (Portland to Omaha, 8 routes)
     const dist = (from) => {
       const d = Object.fromEntries(MAP.cityIds.map((c) => [c, Infinity]));
       d[from] = 0;
@@ -244,9 +273,19 @@ export default function part6() {
       return d;
     };
     const best = Math.min(...MAP.westStartCities.flatMap((w) => MAP.eastStartCities.map((e) => dist(w)[e])));
-    assert.equal(best, 14);
-    assert.deepEqual([dist('LAX').MIN, dist('LAX').OMA], [17, 17]);
-    assert.equal(MAP.inlandCities.length * 2, 34);
+    assert.equal(best, 12);
+    assert.equal(dist('POR').OMA, 12);
+    assert.deepEqual(
+      Object.fromEntries(MAP.westStartCities.map((w) => [w, MAP.eastStartCities.map((e) => dist(w)[e])])),
+      { SEA: [14, 13, 14, 15], POR: [13, 12, 13, 14], SAC: [15, 14, 13, 13], LAX: [15, 14, 13, 13] },
+      'slots from each west start city to MIN, OMA, KCY, FTW',
+    );
+    // the same line from the printed table, route by route: TDL-POR TDL-BOI HEL-BOI GFA-HEL GFA-BIL BIL-NPL NPL-SXC SXC-OMA
+    const line = ['TDL-POR', 'TDL-BOI', 'HEL-BOI', 'GFA-HEL', 'GFA-BIL', 'BIL-NPL', 'NPL-SXC', 'SXC-OMA'];
+    assert.equal(line.reduce((n, id) => n + SPEC.A2.find((r) => r.id === id).slots, 0), 12);
+    assert.equal(MAP.inlandCities.length * 2, 54, '54 building spaces');
+    assert.equal(MAP.cityIds.length, 35);
+    assert.deepEqual([MAP.board.w, MAP.board.h], [600, 350], 'the board is 600 x 350 mm');
   });
   check('R10.1/table', 'R10.1: every row of the Congress strip', () => {
     const table = RULES.CONGRESS.tables['design-2026-10'];
@@ -348,8 +387,10 @@ export default function part6() {
   check('R20.3/table', 'R20.3: both rows of the building table', () => {
     assert.deepEqual(RULES.SCORING.buildingTable, SPEC.R20_3);
   });
-  check('R21.3/table', 'R21.3: all 25 variants - name, type, allowed values, default, as the spec\'s table has them', () => {
-    assert.equal(SPEC.R21_3.length, 25);
+  check('R21.3/table', 'R21.3: all 26 variants - name, type, allowed values, default, as the spec\'s table has them', () => {
+    assert.equal(SPEC.R21_3.length, 26);
+    assert.equal(VARIANTS.length, 26);
+    assert.equal(VARIANTS[25].name, 'wildSlotTerrain');
     VARIANTS.forEach((v, i) => {
       const row = SPEC.R21_3[i];
       assert.equal(v.name, row.name);

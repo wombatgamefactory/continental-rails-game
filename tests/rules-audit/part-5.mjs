@@ -18,7 +18,19 @@ const UPGRADES = { moduleCarriageUpgrades: true };
 const sorted = (a) => a.slice().sort();
 const held = (p) => ({ ...p.resources, coins: p.coins });
 const TILES = { ground: 9, tunnel: 9, bridge: 9 };
-const INLAND = ['SPO', 'REN', 'FRE', 'HEL', 'BOI', 'LVG', 'PHX', 'BIL', 'SLC', 'SFE', 'BIS', 'CHE', 'DEN', 'ELP', 'SXF', 'NPL', 'DOD'];
+const INLAND = [
+  'SPO', 'REN', 'FRE', 'HEL', 'BOI', 'LVG', 'PHX', 'BIL', 'SLC', 'SFE', 'BIS', 'DEN', 'ELP', 'NPL', 'DOD',
+  'YAK', 'TDL', 'TON', 'SBD', 'GFA', 'FAR', 'SXC', 'PUE', 'GRI', 'WIC', 'AMA', 'ABI',
+]; // the 27 inland cities of route map v3
+
+// Transcontinental lines on route map v3. `owned` are the routes the player already owns, `last` is the route whose claim
+// completes the line (from `head`), `tiles` pay for it, `slots` is its length. The shortest crossing is 12 slots
+// (Portland to Omaha over 8 routes: LINE_SHORT); LINE_LONG is a 14-slot line that ends on a 3-slot route into Omaha;
+// LINE_SOUTH is a 15-slot line from Sacramento to Fort Worth that shares no route with the other two.
+const LINE_LONG = { owned: ['TDL-POR', 'TDL-BOI', 'HEL-BOI', 'GFA-HEL', 'GFA-BIL', 'BIL-NPL', 'NPL-GRI'], last: 'GRI-OMA', head: 'GRI', tiles: { bridge: 2, ground: 1 }, slots: 3 };
+const LINE_SHORT = { owned: ['TDL-POR', 'TDL-BOI', 'HEL-BOI', 'GFA-HEL', 'GFA-BIL', 'BIL-NPL', 'NPL-SXC'], last: 'SXC-OMA', head: 'SXC', tiles: { bridge: 1 }, slots: 1 };
+const LINE_SOUTH = { owned: ['SAC-FRE', 'FRE-LVG', 'LVG-PHX', 'SFE-PHX', 'SFE-ELP', 'ELP-AMA', 'AMA-WIC'], last: 'WIC-FTW', head: 'WIC', tiles: { ground: 1, tunnel: 1, bridge: 1 }, slots: 3 };
+const COMPLETION = 25 + 3 * 3; // the bonus for finishing LINE_LONG: 25 plus 3 per slot of GRI-OMA
 
 function layGame(west = 'POR', east = 'MIN', variants = {}, players = 2) {
   const s = game(players, variants);
@@ -47,14 +59,14 @@ function buildings(s, pid, n, from = 0) {
   assert.equal(placed, n);
 }
 
-/** Seat `pid` (at their worker step, railhead on Bismarck, owning Seattle-Helena-Bismarck) completes the line into Minneapolis. */
-function complete(s, pid, space = 'W4') {
+/** Seat `pid` (at their worker step, owning all but the last route of `line`, a railhead on the last route) completes the line. */
+function complete(s, pid, space = 'W4', line = LINE_LONG) {
   const p = s.players[pid];
-  p.railheads = ['BIS', p.railheads[1]];
-  claim(s, pid, 'SEA-HEL', 'HEL-BIS');
-  give(s, pid, { tiles: { ground: 5 }, resources: {} });
+  p.railheads = [line.head, p.railheads[1]];
+  claim(s, pid, ...line.owned);
+  give(s, pid, { tiles: line.tiles, resources: {} });
   const ev = placeAndChoose(s, space, 'D5');
-  if (offered(s, 'claimRoute', { route: 'BIS-MIN' })) ev.push(...act(s, { type: 'claimRoute', route: 'BIS-MIN', from: 'BIS' }));
+  if (offered(s, 'claimRoute', { route: line.last })) ev.push(...act(s, { type: 'claimRoute', route: line.last, from: line.head }));
   return ev;
 }
 
@@ -75,7 +87,7 @@ const R21_3 = [
   ['claimFrom', 'enum', ['railhead', 'network'], 'railhead'],
   ['layTrackClaims', 'enum', ['per-step', 'per-railhead'], 'per-step'],
   ['gameEndTrigger', 'enum', ['own-crossing', 'any-crossing'], 'own-crossing'],
-  ['endRoutesPerPlayer', 'integer', [0, 23], 8],
+  ['endRoutesPerPlayer', 'integer', [0, 32], 10],
   ['maxTurnsPerPlayer', 'integer', [0, 500], 80],
   ['bonusActionLimit', 'enum', ['once-per-turn', 'once-per-game', 'multiplied'], 'once-per-turn'],
   ['hireCostModel', 'enum', ['fee-plus-table', 'fee-only', 'table-only'], 'fee-only'],
@@ -85,6 +97,7 @@ const R21_3 = [
   ['upgradeVpTiming', 'enum', ['per-activation', 'on-install'], 'per-activation'],
   ['specialistActivations', 'enum', ['by-level', 'once'], 'once'],
   ['gridLayout', 'enum', ['fixed', 'shuffle-resources'], 'fixed'],
+  ['wildSlotTerrain', 'enum', ['tile-terrain', 'no-terrain'], 'tile-terrain'],
 ];
 
 const R20_3 = {
@@ -98,30 +111,27 @@ export default function part5() {
     const s = game(2);
     setHeads(s, 0, 'POR', 'OMA'); // the line need not use the player's own starting cities
     const ev = complete(s, 0);
-    assert.equal(vpBySource(ev, 0).completion, 40);
+    assert.equal(vpBySource(ev, 0).completion, COMPLETION);
     assert.equal(s.gameEnd.reason, 'transcontinental');
     const t = game(2);
     setHeads(t, 0, 'POR', 'OMA');
-    t.players[0].railheads = ['BIS', 'OMA'];
-    claim(t, 0, 'SEA-HEL');
-    claim(t, 1, 'HEL-BIS'); // one link belongs to somebody else
-    give(t, 0, { tiles: { ground: 5 }, resources: {} });
+    t.players[0].railheads = ['GRI', 'OMA'];
+    claim(t, 0, ...LINE_LONG.owned.filter((id) => id !== 'HEL-BOI'));
+    claim(t, 1, 'HEL-BOI'); // one link belongs to somebody else
+    give(t, 0, { tiles: LINE_LONG.tiles, resources: {} });
     const ev2 = placeAndChoose(t, 'W4', 'D5');
-    if (offered(t, 'claimRoute', { route: 'BIS-MIN' })) ev2.push(...act(t, { type: 'claimRoute', route: 'BIS-MIN', from: 'BIS' }));
-    assert.equal(t.map.routeOwner['BIS-MIN'], 0);
+    if (offered(t, 'claimRoute', { route: 'GRI-OMA' })) ev2.push(...act(t, { type: 'claimRoute', route: 'GRI-OMA', from: 'GRI' }));
+    assert.equal(t.map.routeOwner['GRI-OMA'], 0);
     assert.equal(vpBySource(ev2, 0).completion, undefined);
     assert.equal(t.gameEnd, null);
   });
   check('R19.2.1', 'completing it: 25 VP plus 3 VP per slot of the route just claimed, on top of that route\'s track VP', () => {
     const s = game(2);
     const ev = complete(s, 0);
-    assert.deepEqual(vpBySource(ev, 0), { track: 5, completion: 25 + 3 * 5 });
-    const short = layGame('SXF', 'OMA');
-    short.players[0].railheads = ['SXF', 'OMA'];
-    claim(short, 0, 'SEA-HEL', 'HEL-BIS', 'BIS-SXF');
-    const ev2 = placeAndChoose(short, 'W4', 'D5');
-    ev2.push(...act(short, { type: 'claimRoute', route: 'MIN-SXF', from: 'SXF' }));
-    assert.deepEqual(vpBySource(ev2, 0), { track: 2, completion: 25 + 3 * 2 });
+    assert.deepEqual(vpBySource(ev, 0), { track: 3, completion: 25 + 3 * 3 });
+    const short = game(2); // the shortest crossing, 12 slots, completed by a 1-slot route
+    const ev2 = complete(short, 0, 'W4', LINE_SHORT);
+    assert.deepEqual(vpBySource(ev2, 0), { track: 1, completion: 25 + 3 * 1 });
   });
   check('R19.2.2', 'completing it triggers the game end', () => {
     const s = game(3);
@@ -131,22 +141,18 @@ export default function part5() {
   check('R19.2/once', 'it happens once per game: a second line completed later scores nothing extra and triggers nothing', () => {
     const s = game(2);
     const first = complete(s, 0);
-    assert.equal(vpBySource(first, 0).completion, 40);
+    assert.equal(vpBySource(first, 0).completion, COMPLETION);
     if (s.turn.player === 0) finishTurn(s);
     // Ben completes a line of his own in the south on the last turn of the game.
-    s.players[1].railheads = ['ELP', s.players[1].railheads[1]];
-    claim(s, 1, 'LAX-PHX', 'PHX-ELP');
-    give(s, 1, { tiles: { ground: 5 }, resources: {} });
-    const ev = placeAndChoose(s, 'W6', 'D5');
-    if (offered(s, 'claimRoute', { route: 'ELP-FTW' })) ev.push(...act(s, { type: 'claimRoute', route: 'ELP-FTW', from: 'ELP' }));
-    assert.equal(s.map.routeOwner['ELP-FTW'], 1);
-    assert.deepEqual(vpBySource(ev, 1), { track: 5 });
+    const ev = complete(s, 1, 'W6', LINE_SOUTH);
+    assert.equal(s.map.routeOwner['WIC-FTW'], 1);
+    assert.deepEqual(vpBySource(ev, 1), { track: 3 });
     assert.equal(s.completion.player, 0);
     assert.equal(s.gameEnd.reason, 'transcontinental');
   });
-  check('R19.3', 'second trigger: at step 6, claimed routes >= endRoutesPerPlayer x players (16, 24, 32 by default); nobody scores for it; 0 switches it off', () => {
+  check('R19.3', 'second trigger: at step 6, claimed routes >= endRoutesPerPlayer x players (20, 30, 40 by default); nobody scores for it; 0 switches it off', () => {
     const ids = MAP.routeIds;
-    for (const [n, limit] of [[2, 16], [3, 24], [4, 32]]) {
+    for (const [n, limit] of [[2, 20], [3, 30], [4, 40]]) {
       const s = game(n);
       claim(s, 1, ...ids.slice(0, limit - 1));
       idleTurn(s);
@@ -208,13 +214,13 @@ export default function part5() {
     assert.equal(kind(s), 'freeActions');
     act(s, { type: 'endFreeActions' });
     assert.ok(isGameOver(s));
-    assert.equal(vpBySource(ev, 1).completion, 40);
+    assert.equal(vpBySource(ev, 1).completion, COMPLETION);
   });
   check('R19.6', 'after the trigger everything works normally: routes are claimed, milestones claimed, buildings placed', () => {
     const s = game(2, { endGameScoring: 'milestones' });
     s.modules.milestones.inPlay = ['MS5'];
     s.modules.milestones.claimedBy = { MS5: null };
-    s.modules.milestones.claimedBy.MS5 = 0; // Anna has it already (her 5-slot route below)
+    s.modules.milestones.claimedBy.MS5 = 0; // Anna has it already (as if she owned a route of 4 slots)
     complete(s, 0);
     if (s.turn.player === 0) finishTurn(s);
     assert.ok(!isGameOver(s));
@@ -223,23 +229,23 @@ export default function part5() {
     setTrain(s, 1, [['crew', null], [null, null]]);
     s.players[1].train.storageCarriages = 3;
     setHeads(s, 1, 'POR', 'OMA');
-    give(s, 1, { tiles: { bridge: 2 }, resources: {} });
+    give(s, 1, { tiles: { bridge: 1, tunnel: 1, ground: 1 }, resources: {} });
     const ev = placeAndChoose(s, 'W6', 'D5');
-    if (offered(s, 'claimRoute', { route: 'POR-SPO' })) ev.push(...act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }));
-    ev.push(...act(s, { type: 'placeTelegraphStation', city: 'SPO' }));
+    if (offered(s, 'claimRoute', { route: 'POR-REN' })) ev.push(...act(s, { type: 'claimRoute', route: 'POR-REN', from: 'POR' }));
+    ev.push(...act(s, { type: 'placeTelegraphStation', city: 'REN' }));
     // the game then ends (Ben is the last seat), so the events also carry his final building score: 1 building = 2 VP
-    assert.deepEqual(vpBySource(ev, 1), { track: 2, firstConnection: 5, telegraph: 1, milestones: 5, buildingsEnd: 2 });
+    assert.deepEqual(vpBySource(ev, 1), { track: 3, firstConnection: 5, telegraph: 1, milestones: 5, buildingsEnd: 2 });
     assert.ok(isGameOver(s));
   });
   check('R19.7', 'any-crossing: a chain of claimed routes of any owners; the player whose claim completes the first one gets the bonus and triggers the end', () => {
     const s = game(3, { gameEndTrigger: 'any-crossing' });
-    s.players[0].railheads = ['BIS', s.players[0].railheads[1]];
-    claim(s, 1, 'SEA-HEL');
-    claim(s, 2, 'HEL-BIS');
-    give(s, 0, { tiles: { ground: 5 }, resources: {} });
+    s.players[0].railheads = ['GRI', s.players[0].railheads[1]];
+    claim(s, 1, ...LINE_LONG.owned.slice(0, 4));
+    claim(s, 2, ...LINE_LONG.owned.slice(4));
+    give(s, 0, { tiles: LINE_LONG.tiles, resources: {} });
     const ev = placeAndChoose(s, 'W4', 'D5');
-    if (offered(s, 'claimRoute', { route: 'BIS-MIN' })) ev.push(...act(s, { type: 'claimRoute', route: 'BIS-MIN', from: 'BIS' }));
-    assert.deepEqual(vpBySource(ev, 0), { track: 5, completion: 40 });
+    if (offered(s, 'claimRoute', { route: 'GRI-OMA' })) ev.push(...act(s, { type: 'claimRoute', route: 'GRI-OMA', from: 'GRI' }));
+    assert.deepEqual(vpBySource(ev, 0), { track: 3, completion: COMPLETION });
     assert.deepEqual([vpBySource(ev, 1), vpBySource(ev, 2)], [{}, {}]);
     assert.equal(s.gameEnd.reason, 'transcontinental');
     assert.equal(s.gameEnd.triggeredBy, 0);
@@ -265,13 +271,13 @@ export default function part5() {
   });
   check('R20.1/total', 'a player\'s score is the sum of the sources', () => {
     const s = layGame();
-    building(s, 1, 'railwayStation', 'SPO');
+    building(s, 1, 'railwayStation', 'TDL');
     placeAndChoose(s, 'W4', 'D5');
-    act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' });
-    act(s, { type: 'placeTelegraphStation', city: 'SPO' });
+    act(s, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' });
+    act(s, { type: 'placeTelegraphStation', city: 'TDL' });
     const score = scoreGame(s);
-    assert.deepEqual(score.players[0].bySource, { track: 2, firstConnection: 5, completion: 0, telegraph: 1, toll: 0, congress: 0, buildingsEnd: 2 });
-    assert.equal(score.players[0].total, 10);
+    assert.deepEqual(score.players[0].bySource, { track: 1, firstConnection: 5, completion: 0, telegraph: 1, toll: 0, congress: 0, buildingsEnd: 2 });
+    assert.equal(score.players[0].total, 9);
     assert.equal(score.players[1].bySource.toll, 3);
   });
   check('R20.2.1', 'final scoring, buildings: railway stations plus telegraph stations on the map, scored from the building table', () => {
@@ -343,7 +349,7 @@ export default function part5() {
     buildings(s, 2, 2); // 4 VP at the end
     s.players[0].vp.track = 4;
     s.players[1].vp.track = 4;
-    claim(s, 0, 'SEA-HEL', 'LAX-PHX'); // more slots, more cargo, earlier seat: none of it matters
+    claim(s, 0, 'SPO-GFA', 'GFA-BIS'); // more slots, more cargo, earlier seat: none of it matters
     for (let i = 0; i < 3; i++) idleTurn(s);
     const score = scoreGame(s);
     assert.deepEqual(score.players.map((p) => p.total), [4, 4, 4]);
@@ -351,9 +357,9 @@ export default function part5() {
   });
   check('R20.5.2', 'tie-break 2: most slots in routes they own', () => {
     const s = game(3, { maxTurnsPerPlayer: 1 });
-    claim(s, 1, 'POR-SPO', 'SPO-REN'); // 5 slots
-    claim(s, 0, 'SEA-SPO', 'POR-REN'); // 4 slots in two routes
-    claim(s, 2, 'HEL-BIS'); // 4 slots
+    claim(s, 1, 'SPO-GFA', 'GFA-HEL'); // 5 slots
+    claim(s, 0, 'SEA-TDL', 'TDL-POR'); // 4 slots in two routes
+    claim(s, 2, 'GFA-BIS'); // 4 slots
     give(s, 0, { resources: { iron: 9 } });
     for (let i = 0; i < 3; i++) idleTurn(s);
     const score = scoreGame(s);
@@ -395,9 +401,9 @@ export default function part5() {
     const s = game(2);
     assert.deepEqual(s.players.map((p) => p.workersInSupply), [6, 6]);
     assert.ok(Object.values(s.grid.spaces).every((x) => x === null) && Object.values(s.grid.centres).every((x) => x === null), 'no neutral blocker');
-    assert.equal(Object.keys(s.map.routeOwner).length, 47, 'the whole map');
+    assert.equal(Object.keys(s.map.routeOwner).length, 65, 'the whole map');
   });
-  check('R21.3', 'the variants object: exactly the 25 variants of the spec; unknown names are rejected', () => {
+  check('R21.3', 'the variants object: exactly the 26 variants of the spec; unknown names are rejected', () => {
     assert.deepEqual(VARIANTS.map((v) => v.name), R21_3.map((r) => r[0]));
     assert.deepEqual(Object.keys(defaultVariants()), R21_3.map((r) => r[0]));
     assert.throws(() => resolveVariants({ noSuchVariant: 1 }));
@@ -474,7 +480,7 @@ export default function part5() {
     assert.deepEqual(K.SCORING.buildingTable, R20_3);
     assert.deepEqual([K.HATS.displacementHatsPerWorker, K.CONGRESS.lobbyPointsPerFinancierStep, K.CONGRESS.resetVpPerSenator], [1, 1, 1]);
     assert.deepEqual(K.MAP_RULES.buildingsPerInlandCity, { railwayStation: 1, telegraphStation: 1 });
-    assert.deepEqual([K.MAP_RULES.junctionMinRoutes, K.MAP_RULES.northRegionMaxY, K.MAP_RULES.southRegionMinY], [5, 140, 250]);
+    assert.deepEqual([K.MAP_RULES.junctionMinRoutes, K.MAP_RULES.northRegionMaxY, K.MAP_RULES.southRegionMinY, K.MAP_RULES.longHaulMinSlots], [5, 116.7, 233.3, 4]);
   });
   // Every tuning number must be READ from the constants: change one and the behaviour follows.
   const probe = (constants, variants = {}, players = 2) => game(players, variants, { constants });
@@ -522,40 +528,40 @@ export default function part5() {
   check('R21.4/track', 'vpPerSlot, firstConnectionVp and tollVp are read from the constants', () => {
     const s = probe({ SCORING: { vpPerSlot: 2, firstConnectionVp: 7, tollVp: 4 } });
     setHeads(s, 0, 'POR', 'OMA');
-    give(s, 0, { tiles: { bridge: 2 } });
-    s.map.railwayStation.SPO = 1;
+    give(s, 0, { tiles: { bridge: 1 } });
+    s.map.railwayStation.TDL = 1;
     const ev = placeAndChoose(s, 'W4', 'D5');
-    if (offered(s, 'claimRoute')) ev.push(...act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }));
-    assert.deepEqual([vpBySource(ev, 0), vpBySource(ev, 1)], [{ track: 4, firstConnection: 7 }, { toll: 4 }]);
+    if (offered(s, 'claimRoute', { route: 'TDL-POR' })) ev.push(...act(s, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' }));
+    assert.deepEqual([vpBySource(ev, 0), vpBySource(ev, 1)], [{ track: 2, firstConnection: 7 }, { toll: 4 }]);
   });
   check('R21.4/completion', 'completionVp and completionVpPerSlot are read from the constants', () => {
     const s = probe({ SCORING: { completionVp: 30, completionVpPerSlot: 4 } });
-    assert.equal(vpBySource(complete(s, 0), 0).completion, 30 + 4 * 5);
+    assert.equal(vpBySource(complete(s, 0), 0).completion, 30 + 4 * 3);
   });
   check('R21.4/move', 'moveBuildCost and stationStepCost are read from the constants', () => {
     const s = probe({ MAP_RULES: { moveBuildCost: { coins: 3 } } });
     setHeads(s, 0, 'POR', 'OMA');
-    claim(s, 1, 'POR-SPO');
+    claim(s, 1, 'TDL-POR');
     give(s, 0, { coins: 3 });
     placeAndChoose(s, 'W4', 'D5');
-    if (offered(s, 'moveTrain')) act(s, { type: 'moveTrain', from: 'POR', to: 'SPO' });
-    act(s, { type: 'placeTelegraphStation', city: 'SPO' });
+    if (offered(s, 'moveTrain')) act(s, { type: 'moveTrain', from: 'POR', to: 'TDL' });
+    act(s, { type: 'placeTelegraphStation', city: 'TDL' });
     assert.equal(s.players[0].coins, 0);
     const n = probe({ MAP_RULES: { stationStepCost: { coins: 4 } } }, { claimFrom: 'network' });
     setHeads(n, 0, 'POR', 'OMA');
-    claim(n, 0, 'POR-SPO');
-    give(n, 0, { coins: 4, tiles: { tunnel: 2 } });
+    claim(n, 0, 'TDL-POR');
+    give(n, 0, { coins: 4, tiles: { bridge: 1 } }); // Sioux City - Omaha is a legal claim, so Lay Tracks can be chosen
     placeAndChoose(n, 'W4', 'D5');
-    act(n, { type: 'placeTelegraphStation', city: 'SPO' });
+    act(n, { type: 'placeTelegraphStation', city: 'TDL' });
     assert.equal(n.players[0].coins, 0);
   });
   check('R21.4/telegraph', 'telegraphRowVp and the building table are read from the constants', () => {
     const s = probe({ PLAYER_BOARD: { telegraphRowVp: [3, 2, 3, 4, 5, 6, 9] }, SCORING: { buildingTable: { rising: [0, 9, 4, 7, 10, 14, 18, 23, 28, 34, 40, 47, 54, 62, 70, 79, 88, 98, 108] } } });
     setHeads(s, 0, 'POR', 'OMA');
-    give(s, 0, { tiles: { bridge: 2 } });
+    give(s, 0, { tiles: { bridge: 1 } });
     const ev = placeAndChoose(s, 'W4', 'D5');
-    if (offered(s, 'claimRoute')) ev.push(...act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }));
-    ev.push(...act(s, { type: 'placeTelegraphStation', city: 'SPO' }));
+    if (offered(s, 'claimRoute', { route: 'TDL-POR' })) ev.push(...act(s, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' }));
+    ev.push(...act(s, { type: 'placeTelegraphStation', city: 'TDL' }));
     assert.equal(vpBySource(ev, 0).telegraph, 3);
     assert.equal(scoreGame(s).players[0].bySource.buildingsEnd, 9);
   });
@@ -570,13 +576,17 @@ export default function part5() {
     assert.equal(vpBySource(ev, 0).congress, 3);
   });
   check('R21.4/goals', 'goalVp and junctionMinRoutes are read from the constants', () => {
-    const s = probe({ SCORING: { goalVp: [12, 6] }, MAP_RULES: { junctionMinRoutes: 6 } }, { endGameScoring: 'goals' }, 3);
+    const s = probe({ SCORING: { goalVp: [12, 6] }, MAP_RULES: { junctionMinRoutes: 4 } }, { endGameScoring: 'goals' }, 3);
     s.modules.goals.inPlay = ['G11'];
     building(s, 0, 'telegraphStation', 'SPO');
     building(s, 0, 'telegraphStation', 'BOI');
     building(s, 1, 'telegraphStation', 'REN');
     assert.deepEqual(scoreGame(s).players.map((p) => p.bySource.goals), [12, 6, 0]);
-    assert.deepEqual(sorted(MAP.inlandCities.filter((c) => isJunctionCity(s, c))), ['CHE', 'DEN', 'REN']);
+    // inland cities with 4 or more routes on route map v3 (the default of 5 gives the 12 junction cities of the spec)
+    assert.deepEqual(sorted(MAP.inlandCities.filter((c) => isJunctionCity(s, c))), sorted([
+      'AMA', 'BIL', 'BIS', 'BOI', 'DEN', 'DOD', 'FRE', 'GFA', 'GRI', 'HEL', 'LVG', 'NPL', 'PUE', 'REN', 'SFE', 'SLC', 'SPO', 'SXC', 'TDL', 'TON', 'WIC',
+    ]));
+    assert.equal(MAP.inlandCities.filter((c) => isJunctionCity(game(2), c)).length, 12);
   });
   check('R21.4/pony', 'ponyCosts, ponyMarketPerRank and ponyTokenEndVp are read from the constants', () => {
     const s = probe({ PONY: { costs: { A: 1, B: 3, C: 5 }, marketPerRank: 3 }, SCORING: { ponyTokenEndVp: 2 } }, PONY);
@@ -705,53 +715,54 @@ export default function part5() {
   check('E7', 'Lay Tracks', () => {
     const s = game(2, PONY);
     setHeads(s, 0, 'POR', 'KCY');
-    setHeads(s, 1, 'SEA', 'OMA');
+    setHeads(s, 1, 'SAC', 'OMA');
     give(s, 0, { resources: {}, tiles: { bridge: 2, tunnel: 2, ground: 1 } });
     put(s, 0, 'W6');
     const ev = choose(s, act(s, { type: 'removeWorker', from: 'W6' }), 'D5');
     assert.equal(eventOf(ev, 'districtChosen').multiplier, 1);
-    assert.deepEqual(sorted(offers(s, 'claimRoute').map((a) => a.route)), ['POR-REN', 'POR-SPO']);
-    ev.push(...act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' }));
-    assert.equal(s.players[0].railheads[0], 'SPO');
+    // Portland: The Dalles (B) and Reno (B-T-G); Kansas City: Wichita (T), but Grand Island (G-G-B) needs a second Ground tile
+    assert.deepEqual(sorted(offers(s, 'claimRoute').map((a) => a.route)), ['POR-REN', 'TDL-POR', 'WIC-KCY']);
+    ev.push(...act(s, { type: 'claimRoute', route: 'POR-REN', from: 'POR' }));
+    assert.equal(s.players[0].railheads[0], 'REN');
     assert.equal(s.modules.pony.players[0].tokensHeld, 1);
-    ev.push(...act(s, { type: 'placeTelegraphStation', city: 'SPO' }));
-    assert.deepEqual(vpBySource(ev, 0), { track: 2, firstConnection: 5, telegraph: 1 });
-    assert.equal(vpTotal(s, 0), 8);
-    assert.deepEqual(s.players[0].builtTiles, { ground: 1, tunnel: 2, bridge: 0 });
-    // had he placed a railway station instead: 7 VP and one more production
+    ev.push(...act(s, { type: 'placeTelegraphStation', city: 'REN' }));
+    assert.deepEqual(vpBySource(ev, 0), { track: 3, firstConnection: 5, telegraph: 1 });
+    assert.equal(vpTotal(s, 0), 9);
+    assert.deepEqual(s.players[0].builtTiles, { ground: 0, tunnel: 1, bridge: 1 });
+    // had he placed a railway station instead: 8 VP and one more production
     const alt = game(2, PONY);
     setHeads(alt, 0, 'POR', 'KCY');
     give(alt, 0, { resources: {}, tiles: { bridge: 2, tunnel: 2, ground: 1 } });
     placeAndChoose(alt, 'W6', 'D5');
-    act(alt, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' });
-    act(alt, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' });
-    assert.equal(vpTotal(alt, 0), 7);
+    act(alt, { type: 'claimRoute', route: 'POR-REN', from: 'POR' });
+    act(alt, { type: 'placeRailwayStation', city: 'REN', houseTrack: 'wood' });
+    assert.equal(vpTotal(alt, 0), 8);
     assert.equal(production(alt, 0, 'wood'), 2);
-    // later Hal, on Seattle, claims Seattle - Spokane
+    // later Hal, on Sacramento, claims Sacramento - Reno
     if (kind(s) === 'freeActions') act(s, { type: 'endFreeActions' });
     assert.equal(s.turn.player, 1);
-    give(s, 1, { resources: {}, tiles: { ground: 2 } });
+    give(s, 1, { resources: {}, tiles: { tunnel: 2, ground: 1 } });
     const hal = placeAndChoose(s, 'W4', 'D5');
-    if (offered(s, 'claimRoute')) hal.push(...act(s, { type: 'claimRoute', route: 'SEA-SPO', from: 'SEA' }));
-    assert.deepEqual(vpBySource(hal, 1), { track: 2 });
-    assert.equal(s.players[1].railheads[0], 'SPO');
+    if (offered(s, 'claimRoute', { route: 'REN-SAC' })) hal.push(...act(s, { type: 'claimRoute', route: 'REN-SAC', from: 'SAC' }));
+    assert.deepEqual(vpBySource(hal, 1), { track: 3 });
+    assert.equal(s.players[1].railheads[0], 'REN');
     assert.equal(s.modules.pony.players[1].tokensHeld, 0);
     const coins = s.players[1].coins;
-    act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'iron' });
-    assert.deepEqual([s.map.railwayStation.SPO, s.players[1].coins], [1, coins]);
+    act(s, { type: 'placeRailwayStation', city: 'REN', houseTrack: 'iron' });
+    assert.deepEqual([s.map.railwayStation.REN, s.players[1].coins], [1, coins]);
   });
   check('E8', 'Move Train', () => {
     const s = game(2);
     setHeads(s, 0, 'POR', 'MIN');
-    s.players[0].railheads = ['SPO', 'MIN'];
-    claim(s, 0, 'POR-SPO');
-    claim(s, 1, 'BOI-SPO', 'BOI-SLC');
+    s.players[0].railheads = ['TDL', 'MIN'];
+    claim(s, 0, 'TDL-POR');
+    claim(s, 1, 'TDL-BOI', 'BOI-SLC');
     building(s, 1, 'railwayStation', 'BOI');
     building(s, 1, 'telegraphStation', 'SLC');
     give(s, 0, { coins: 3, resources: {} });
     const iron = production(s, 0, 'iron');
     const ev = placeAndChoose(s, 'W4', 'D5');
-    ev.push(...act(s, { type: 'moveTrain', from: 'SPO', to: 'SLC' }));
+    ev.push(...act(s, { type: 'moveTrain', from: 'TDL', to: 'SLC' }));
     assert.deepEqual(vpBySource(ev, 1), { toll: 3 });
     assert.deepEqual(vpBySource(ev, 0), {});
     ev.push(...act(s, { type: 'placeRailwayStation', city: 'SLC', houseTrack: 'iron' }));
@@ -774,7 +785,7 @@ export default function part5() {
     give(s, 0, { hats: 1, resources: {} });
     give(s, 1, { hats: 2, resources: {} });
     give(s, 2, { hats: 0 });
-    give(s, 3, { hats: 1, tiles: { bridge: 2, tunnel: 2 } });
+    give(s, 3, { hats: 1, tiles: { bridge: 2, tunnel: 2, ground: 1 } });
     setHeads(s, 3, 'POR', 'MIN');
     act(s, { type: 'displaceWorker', district: 'D5' });
     assert.deepEqual(s.players.slice(0, 3).map((p) => p.workersInSupply), [3, 3, 3]);
@@ -788,7 +799,7 @@ export default function part5() {
     assert.equal(s.toAct, 3);
     assert.deepEqual(keys(s), ['chooseDistrict:D5:false', 'chooseDistrict:D5:true'], 'M = 1, or 2 if Lou spends a hat');
     act(s, { type: 'chooseDistrict', district: 'D5', hat: true });
-    act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' });
+    act(s, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' });
     act(s, { type: 'skipBuilding' });
     assert.equal(kind(s), 'layTracks', 'a second step');
     finishTurn(s);
@@ -813,16 +824,17 @@ export default function part5() {
     idleTurn(s);
     assert.equal(s.turn.player, 2);
     if (kind(s) === 'freeActions') act(s, { type: 'endFreeActions' });
-    claim(s, 2, 'SEA-HEL', 'HEL-BIS');
-    const others = MAP.routeIds.filter((id) => !['SEA-HEL', 'HEL-BIS', 'BIS-MIN'].includes(id)).slice(0, 17);
+    claim(s, 2, ...LINE_LONG.owned);
+    const line = [...LINE_LONG.owned, LINE_LONG.last];
+    const others = MAP.routeIds.filter((id) => !line.includes(id)).slice(0, 17);
     claim(s, 0, ...others);
-    assert.equal(Object.values(s.map.routeOwner).filter((o) => o !== null).length, 19);
-    s.players[2].railheads = ['BIS', s.players[2].railheads[1]];
-    give(s, 2, { resources: {}, tiles: { ground: 5 } });
+    assert.equal(Object.values(s.map.routeOwner).filter((o) => o !== null).length, 24);
+    s.players[2].railheads = [LINE_LONG.head, s.players[2].railheads[1]];
+    give(s, 2, { resources: {}, tiles: LINE_LONG.tiles });
     const ev = placeAndChoose(s, 'W4', 'D5');
-    if (offered(s, 'claimRoute', { route: 'BIS-MIN' })) ev.push(...act(s, { type: 'claimRoute', route: 'BIS-MIN', from: 'BIS' }));
-    assert.deepEqual(vpBySource(ev, 2), { track: 5, completion: 40 });
-    assert.equal(s.players[2].railheads[0], 'MIN');
+    if (offered(s, 'claimRoute', { route: 'GRI-OMA' })) ev.push(...act(s, { type: 'claimRoute', route: 'GRI-OMA', from: 'GRI' }));
+    assert.deepEqual(vpBySource(ev, 2), { track: 3, completion: COMPLETION });
+    assert.equal(s.players[2].railheads[0], 'OMA');
     assert.notEqual(kind(s), 'placeBuildings');
     assert.equal(s.gameEnd.reason, 'transcontinental');
     if (s.turn.player === 2) finishTurn(s);

@@ -585,11 +585,16 @@ report.push(
 // -----------------------------------------------------------------------------
 
 const builderRuns = {};
+// On the 65-route map a crossing takes at least 6 routes of one player's own (12 slots at the least), and at the default of
+// 8 routes per player the map-filling end always comes first. So the 'line' builder plays with the route limit raised to
+// 16 per player, which lets it finish a crossing in most games (the end by the turn limit or by the map filling up is
+// still possible); the 'sprawl' builder keeps the default and is what ends games by the map filling up.
+const BUILDER_VARIANTS = { line: { endRoutesPerPlayer: 16 }, sprawl: {} };
 for (const mode of ['line', 'sprawl']) {
   const run = { mode, games: 0, reasons: {}, completions: 0, refusals: 0, capHits: 0, decisions: 0, routes: 0 };
   for (const players of [2, 3, 4]) {
     for (let g = 0; g < 12; g++) {
-      const state = createGame({ playerCount: players, seed: `builder-${mode}-${players}-${g}` });
+      const state = createGame({ playerCount: players, seed: `builder-${mode}-${players}-${g}`, variants: BUILDER_VARIANTS[mode] });
       const rng = makeRng(`builder-bots-${mode}-${players}-${g}`);
       const choose = makeBuilder(mode);
       let decisions = 0;
@@ -857,12 +862,10 @@ const NOT_REACHED = {
   // item id -> why whole games do not reach it
 };
 const ONLY_WITH_TOKENS_HANDED_OUT = Object.fromEntries(
-  // A rank C card costs 5 tokens, and a player must hold them all at once. The 17 tokens of the map are shared by 2 to 4
+  // A rank C card costs 5 tokens, and a player must hold them all at once. The 27 tokens of the map are shared by 2 to 4
   // players and the bots spend them on cheaper cards as they collect them, so in games as played nobody gets to 5.
   [
     ...RULES.PONY_CARDS.filter((c) => c.rank === 'C').map((c) => [c.id, 'rank C costs 5 tokens held at once; games as played do not collect that many in one hand']),
-    // Since rules spec v8, Congress C5 gives the same 3 built tiles for 3 Coins, and the games of this run no longer buy card 19 unprompted.
-    ['PX19', 'Track Stockpile (3 built tiles for 3 tokens) duplicates Congress C5 since spec v8; the seeded games of this run do not buy it'],
   ],
 );
 const COUNTED = {

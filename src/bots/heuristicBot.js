@@ -427,7 +427,10 @@ const RT = MAP.routes.map((r) => ({
   ai: CI[r.a],
   bi: CI[r.b],
   len: r.length,
+  /** Fixed slots by terrain. A wild slot (R1.25) is not in it: see `wild` and `withWild`. */
   cost: r.cost,
+  /** Number of wild slots: each takes one more built tile of any type (R11.4.3). */
+  wild: r.wild,
   kinds: TERRAINS3.filter((t) => r.cost[t] > 0).length,
 }));
 const R = RT.length;
@@ -520,6 +523,11 @@ function analyse(state) {
       t.ground += r.cost.ground;
       t.tunnel += r.cost.tunnel;
       t.bridge += r.cost.bridge;
+      // A laid wild slot counts as the terrain of its tile under `tile-terrain` (R11.12.6), as for the milestones.
+      if (r.wild > 0 && state.variants.wildSlotTerrain === 'tile-terrain') {
+        const fill = state.map.wildFill[r.id];
+        if (fill !== undefined) for (const f of fill) t[f.terrain] += 1;
+      }
     }
   }
   // Cities joined by claimed routes of any owner (R12.2: where a railhead can move).
@@ -1437,14 +1445,18 @@ function routeValue(ctx, r, arrival) {
   const { state, pid, an, W, flags, K } = ctx;
   const S = K.SCORING;
   let vp = 0;
+  // The slots whose terrain counts: with a wild slot, its planned tile's terrain (`withWild`) under `tile-terrain`, none under `no-terrain`.
+  const sc = r.scoreCost ?? r.cost;
   for (let i = 0; i < 3; i++) {
     const t = TERRAINS3[i];
-    const n = r.cost[t];
+    const n = sc[t];
     if (n === 0) continue;
     let per = S.vpPerSlot;
     if (state.scoringCard === t) per += S.scoringCardVpPerSlot;
     vp += n * per * W[BIAS_OF[t]];
   }
+  // A wild slot that counts as no terrain still scores the base VP per slot (R11.9).
+  if (r.wild > 0 && r.scoreCost === r.cost0) vp += r.wild * S.vpPerSlot;
   if (flags.distinct > 0 && r.kinds >= 2) vp += flags.distinct;
   if (flags.slotsBonus > 0 && r.len >= flags.slotsBonusAt) vp += flags.slotsBonus;
   let strat = 0;
@@ -1486,7 +1498,7 @@ function routeValue(ctx, r, arrival) {
     const mine = an.ownedTerrain[pid];
     for (let i = 0; i < 3; i++) {
       const t = TERRAINS3[i];
-      if (r.cost[t] > 0) strat += milestoneGain(ctx, 'ownSlots', t, mine[t], r.cost[t]);
+      if (sc[t] > 0) strat += milestoneGain(ctx, 'ownSlots', t, mine[t], sc[t]);
     }
     strat += milestoneGain(ctx, 'ownRoutes', null, an.ownedRoutes[pid], 1);
     if (r.len > an.longest[pid]) strat += milestoneGain(ctx, 'longestOwnRoute', null, an.longest[pid], r.len - an.longest[pid]);
@@ -1518,8 +1530,52 @@ function feasible(ctx, e) {
   return smooth(ctx.turnsLeft - e + ctx.W.feasSlack, 0, ctx.W.feasWidth);
 }
 
+/**
+ * R11.4.3, R11.12.7. The route as the planner sees it: for a route with wild slots, a copy whose
+ * `cost` adds one tile of a chosen terrain for each wild slot, so everything that plans with a
+ * `{ ground, tunnel, bridge }` cost works unchanged. Each wild slot takes, in this order of
+ * preference: a terrain of which the player holds a spare tile after the fixed slots (the one
+ * with most spare), the scoring card's terrain (+2 VP a slot, only under `tile-terrain`), and
+ * otherwise the terrain cheapest to build. `scoreCost` is the cost as rules that read a slot's
+ * terrain see it; `cost0` is the fixed cost it equals under `no-terrain`. Memoised per decision.
+ */
+function withWild(ctx, r) {
+  if (r.wild === 0) return r;
+  if (ctx._wild === undefined) ctx._wild = {};
+  const memo = ctx._wild[r.id];
+  if (memo !== undefined) return memo;
+  const tiles = ctx.player.builtTiles;
+  const tileTerrain = ctx.V.wildSlotTerrain === 'tile-terrain';
+  const card = tileTerrain ? ctx.state.scoringCard : null;
+  const cost = { ground: r.cost.ground, tunnel: r.cost.tunnel, bridge: r.cost.bridge };
+  for (let k = 0; k < r.wild; k++) {
+    let pick = TERRAINS3[0];
+    let best = -INF;
+    for (const t of TERRAINS3) {
+      const sp = tiles[t] - cost[t];
+      const rec = ctx.recipe[t];
+      const price = (rec.iron || 0) + (rec.wood || 0) + (rec.gunpowder || 0);
+      const score = (sp >= 1 ? 100 + sp : 0) + (t === card ? 1.5 : 0) - 0.01 * price;
+      if (score > best) {
+        best = score;
+        pick = t;
+      }
+    }
+    cost[pick] += 1;
+  }
+  const out = {
+    ...r,
+    cost,
+    cost0: r.cost,
+    scoreCost: tileTerrain ? cost : r.cost,
+    kinds: TERRAINS3.filter((t) => (tileTerrain ? cost : r.cost)[t] > 0).length,
+  };
+  ctx._wild[r.id] = out;
+  return out;
+}
+
 function makeCand(ctx, ri, from, arrival, move) {
-  const r = RT[ri];
+  const r = withWild(ctx, RT[ri]);
   return { ri, r, from, arrival, move, rv: routeValue(ctx, r, arrival) };
 }
 
@@ -2342,8 +2398,9 @@ function scoreLayTracks(ctx, frame, actions) {
     for (const ri of ADJ[ci]) {
       if (an.own[ri] !== -1 || ri === skipRoute) continue;
       const r = RT[ri];
-      if (!affordH(h, r.cost)) continue;
-      const g = claimGain(ctx, h, makeCand(ctx, ri, city, r.ai === ci ? r.b : r.a, false), 0);
+      const cand = makeCand(ctx, ri, city, r.ai === ci ? r.b : r.a, false);
+      if (!affordH(h, cand.r.cost)) continue;
+      const g = claimGain(ctx, h, cand, 0);
       if (g > best) best = g;
     }
     return best;
@@ -2364,9 +2421,9 @@ function scoreLayTracks(ctx, frame, actions) {
       let g = claimGain(ctx, h, cand, 0);
       // With a step to spare, a claim that opens a second one is worth a little more.
       if (stepsAfter >= 1 && arrival !== null && !ctx.network) {
-        for (const t of TERRAINS3) h[t] -= r.cost[t];
+        for (const t of TERRAINS3) h[t] -= cand.r.cost[t];
         g += 0.25 * bestAt(arrival, ri);
-        for (const t of TERRAINS3) h[t] += r.cost[t];
+        for (const t of TERRAINS3) h[t] += cand.r.cost[t];
       }
       return g;
     }
@@ -2399,6 +2456,37 @@ function scoreLayTracks(ctx, frame, actions) {
       return buildingValue(ctx, a.city, kind, a.houseTrack || null) - costValue(ctx, h, cost) - 0.5;
     }
     return null;
+  });
+}
+
+/**
+ * R11.12.7. Which built tile fills a wild slot. Every legal answer has a spare tile (the engine
+ * offers only those). Each terrain is scored by how many spares of it the player keeps after the
+ * fill beyond what the next two planned claims need (the plan excludes the route being claimed),
+ * plus a bonus for the scoring card's terrain under `tile-terrain` (that slot scores 2 VP more;
+ * the bonus is worth a tile and a half, so it wins unless another terrain has two more tiles to
+ * spare), less a hair for the terrain dearer to build again. Under `no-terrain` only the first
+ * and last terms count.
+ */
+function scoreWildSlot(ctx, frame, actions) {
+  const { state, player } = ctx;
+  getPlan(ctx);
+  const route = MAP.routeById[frame.route];
+  const need = { ground: 0, tunnel: 0, bridge: 0 };
+  for (const target of [ctx.t1, ctx.t2]) {
+    if (target === null || target.r.id === frame.route) continue;
+    for (const t of TERRAINS3) need[t] += target.r.cost[t];
+  }
+  const card = ctx.V.wildSlotTerrain === 'tile-terrain' ? state.scoringCard : null;
+  return actions.map((a) => {
+    if (a.type !== 'fillWildSlot') return null;
+    const t = a.terrain;
+    let held = player.builtTiles[t] - route.cost[t];
+    for (const c of frame.chosen) if (c.terrain === t) held -= 1;
+    held -= 1; // the tile this fill uses
+    const rec = ctx.recipe[t];
+    const price = (rec.iron || 0) + (rec.wood || 0) + (rec.gunpowder || 0);
+    return held - need[t] + (t === card ? 1.5 : 0) - 0.01 * price;
   });
 }
 
@@ -2779,6 +2867,8 @@ function scoreActions(ctx, frame, actions) {
       return scoreTrainActivation(ctx, frame, actions);
     case 'layTracks':
       return scoreLayTracks(ctx, frame, actions);
+    case 'wildSlot':
+      return scoreWildSlot(ctx, frame, actions);
     case 'placeBuildings':
       return scorePlaceBuildings(ctx, frame, actions);
     case 'bonusAction':
@@ -2955,6 +3045,26 @@ function districtRoles(state) {
   return memo;
 }
 
+/** The terrain whose built tile costs the fewest resources to make, for the rollout policy's wild slots. */
+const LITE_CHEAPEST = {};
+function liteCheapest(state) {
+  const rate = state.variants.conversionRate;
+  if (LITE_CHEAPEST[rate] !== undefined) return LITE_CHEAPEST[rate];
+  const recipes = getConstants(state).TRAIN.recipes[rate];
+  let pick = TERRAINS3[0];
+  let least = INF;
+  for (const t of TERRAINS3) {
+    const cost = recipes[SPEC_OF[t]].cost;
+    const n = (cost.iron || 0) + (cost.wood || 0) + (cost.gunpowder || 0);
+    if (n < least) {
+      least = n;
+      pick = t;
+    }
+  }
+  LITE_CHEAPEST[rate] = pick;
+  return pick;
+}
+
 /** The route the rollout policy aims for: `{ r, from, short, missing: { ground, tunnel, bridge } }` or null. */
 function liteTarget(state, pid, an) {
   const player = state.players[pid];
@@ -2972,10 +3082,18 @@ function liteTarget(state, pid, an) {
     if (r.cost.ground > tiles.ground) short += r.cost.ground - tiles.ground;
     if (r.cost.tunnel > tiles.tunnel) short += r.cost.tunnel - tiles.tunnel;
     if (r.cost.bridge > tiles.bridge) short += r.cost.bridge - tiles.bridge;
+    // Each wild slot needs one tile of any type beyond the fixed slots (R11.4.3): short by what the spares do not cover.
+    let wildShort = 0;
+    if (r.wild > 0) {
+      let spares = 0;
+      for (const t of TERRAINS3) spares += tiles[t] > r.cost[t] ? tiles[t] - r.cost[t] : 0;
+      wildShort = r.wild > spares ? r.wild - spares : 0;
+      short += wildShort;
+    }
     const score = value / (1 + short);
     if (score > bestScore) {
       bestScore = score;
-      best = { r, from, short, missing: null };
+      best = { r, from, short, wildShort, missing: null };
     }
   };
   if (state.variants.claimFrom === 'network') {
@@ -3012,6 +3130,8 @@ function liteTarget(state, pid, an) {
       tunnel: c.tunnel > tiles.tunnel ? c.tunnel - tiles.tunnel : 0,
       bridge: c.bridge > tiles.bridge ? c.bridge - tiles.bridge : 0,
     };
+    // A wild slot's missing tile is of the terrain cheapest to build.
+    if (best.wildShort > 0) best.missing[liteCheapest(state)] += best.wildShort;
   }
   return best;
 }
@@ -3153,6 +3273,24 @@ function liteChoose(state, actions, rng) {
       }
       if (best !== null) return best;
       return stop !== null ? stop : repeatGuard.filter(state, actions, pid)[0];
+    }
+    case 'wildSlot': {
+      // R11.12.7: the scoring card's terrain when it is on offer (under `tile-terrain`), else the terrain held most beyond the target's other slots.
+      const card = state.variants.wildSlotTerrain === 'tile-terrain' ? state.scoringCard : null;
+      const target = liteTarget(state, pid, analyse(state));
+      const claimed = MAP.routeById[frame.route];
+      let best = actions[0];
+      let bestScore = -INF;
+      for (let i = 0; i < actions.length; i++) {
+        const t = actions[i].terrain;
+        const needed = target !== null && target.r.id !== frame.route ? target.r.cost[t] : 0;
+        const score = player.builtTiles[t] - claimed.cost[t] - needed + (t === card ? 1.5 : 0) + rand() * 0.01;
+        if (score > bestScore) {
+          bestScore = score;
+          best = actions[i];
+        }
+      }
+      return best;
     }
     case 'placeBuildings': {
       const tele = find('placeTelegraphStation');

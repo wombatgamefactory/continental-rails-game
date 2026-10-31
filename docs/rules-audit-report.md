@@ -2,8 +2,21 @@
 
 - Date: 11/10/2026. The checks were written from the designer's rules text before any engine code or existing test was read. The rules text itself is not part of this repository; rule numbers (`R11.5.4`) refer to it.
 - Subject: `src/engine/` against that rules text.
-- Suite: `tests/rules-audit.test.mjs` (checks in `tests/rules-audit/part-1.mjs` to `part-6.mjs`, runner and helpers in `kit.mjs`, the spec's data tables in `spec-tables.mjs`).
+- Suite: `tests/rules-audit.test.mjs` (checks in `tests/rules-audit/part-1.mjs` to `part-7.mjs`, runner and helpers in `kit.mjs`, the spec's data tables in `spec-tables.mjs`).
 - Result: `rules-audit: 476/476 checks passed (6 skipped)`. `npm test`: 11 suites, 0 failed; smoke 2,934 random games, 0 refusals.
+
+## Update of 31/10/2026: rules spec v9, route map v3 and the wild slot
+
+The map is now route map v3 (35 cities, 27 of them inland, 65 routes of 1 to 4 slots, 134 slots: Ground 46, Tunnel 44, Bridge 41, wild 3; board 600 x 350 mm) and three slots are **wild slots** that take any built tile. The engine still plays the v4 forms of the milestones and the v6 specialists, so only the map changes and the wild slot were put in (no ownerless routes). The checks were changed to the new rules, not the other way round:
+
+- `spec-tables.mjs`: A.1 and A.2 re-read from Appendix A of spec v9 (35 cities, 65 routes, a `wild` count per route), R21.3 now 26 rows (`wildSlotTerrain`; `endRoutesPerPlayer` 0 to 32), MS5 "a route of 4 or more slots" (ruled 31/10/2026: no route has 5 slots; `MAP_RULES.longHaulMinSlots`). MS2 to MS4 keep "6 or more slots of the terrain in total".
+- Every check that named an old city or route (Cheyenne, Sioux Falls, Portland-Spokane, Seattle-Spokane, ...) now names a route that exists on map v3, with its expected numbers worked out by hand from the data: the first inland city from Portland is The Dalles (route `TDL-POR`, 1 Bridge slot), from Seattle `SEA-TDL` (Ground, Tunnel, Bridge) or `SEA-YAK`. No route has 5 or 6 slots, so the checks that needed one (the 5-slot claim, Legislative Agenda card 6, a 6-slot completion) use two routes in one action or a 4-slot route. The shortest crossing is 12 slots (Portland to Omaha, 8 routes), so the end-trigger and completion checks use hand-built lines of 12, 14 and 15 slots.
+- Counts: 35 cities, 27 inland, 65 routes, 134 slots, 27 Pony Express tokens, 26 variants, regions North 8 / Middle 8 / South 11 (y below 116.7 mm, above 233.3 mm), 12 junction cities. `R21.4/goals` probes the `junctionMinRoutes` constant at 4 (21 cities) because no city has more than 5 routes.
+- New `part-7.mjs`, 20 checks on the wild slot: `R1.25/data`, `R1.25/not-a-tile`, `R21.3/26`, `R11.4.3/wild` (legality: fixed slots first, then any tile), `R11.12.2/formula` (every holding of 0 to 2 of each type against the spec's inequality), `R11.12.2/reason` (the block reason and `formatRouteCost`), `R11.12.4/forced` (one spare terrain: the engine fills the slot with `auto: true`), `R11.12.3/frame` (two or more spare terrains: a `wildSlot` frame, nothing else of the claim has happened, one `fillWildSlot` per spare terrain, the claim cannot be abandoned), `R11.12.5/resolve` (tiles paid, `wildFill`, `routeClaimed.cost` and `.wild`, the order of the events), `R11.12.5/plain`, `R11.12.1/step`, `R11.12.1/everywhere` (per-railhead and network mode), `R11.12.3/refuse`, `R11.12.5/saved` (save, load and clone while the question is open), `R11.9/wild` and `R16.8/wild` and `R17.3/5-wild` and `R17.3/6-wild` (what a filled wild slot counts as under both values of `wildSlotTerrain`), `R19.2/wild` (the completion bonus counts it), `R16.6/computed` (junctions and regions from data and constants).
+
+Result: `rules-audit: 496/496 checks passed (6 skipped)`. The counts in sections 1 and 2 are those of the audit of 11/10/2026.
+
+**Found while porting (not changed, for the designer).** At the engine's default `gameEndTrigger` (`own-crossing`) a crossing needs 6 or more routes of one player (12 slots at the least), and the second end trigger (8 routes a player) now comes first in almost every game (in the simulator the 8-routes trigger ends 96%, 73% and 64% of Medium games at 2, 3 and 4 players, against 28%, 34% and 15% on the old map); the spec's v7 default `any-crossing` is not in the engine yet.
 
 ## Update of 20/10/2026: rules spec v8, the Congress table
 

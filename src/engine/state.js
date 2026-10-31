@@ -20,7 +20,7 @@ import { MAP, DISTRICT_IDS, SPACE_IDS } from './board.js';
 export const SCHEMA_VERSION = 1;
 
 /** Identifies the map data in play; stored in the state so a save made on another map is refused. */
-export const MAP_ID = 'route-map-v2';
+export const MAP_ID = 'route-map-v3';
 
 /**
  * Variant values that are legal (spec R21.3) but whose rules are not written
@@ -430,7 +430,9 @@ export function createInitialState(config, options = {}) {
     railwayStation[id] = null;
     telegraphStation[id] = null;
   }
-  state.map = { routeOwner, railwayStation, telegraphStation };
+  // R11.12.5 - `wildFill` records which terrain fills each wild slot of a laid route: `{ [routeId]: [{ slot, terrain }] }`.
+  // A route without a wild slot, or not yet laid, has no entry.
+  state.map = { routeOwner, wildFill: {}, railwayStation, telegraphStation };
 
   // R2.1 - the limited supply of specialist tiles.
   const specialists = {};

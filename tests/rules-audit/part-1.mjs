@@ -103,11 +103,10 @@ export default function part1() {
   check('R1.12', 'a track tile is in the supply, in storage (built) or on a route (laid)', () => {
     const s = game(2);
     setHeads(s, 0, 'POR', 'MIN');
-    give(s, 0, { tiles: { bridge: 2 } });
-    placeAndChoose(s, 'W4', 'D5');
-    take(s, 'claimRoute', { route: 'POR-SPO' });
+    give(s, 0, { tiles: { bridge: 1 } });
+    placeAndChoose(s, 'W4', 'D5'); // the one legal claim is made by the engine itself
     assert.equal(s.players[0].builtTiles.bridge, 0);
-    assert.equal(s.map.routeOwner['POR-SPO'], 0);
+    assert.equal(s.map.routeOwner['TDL-POR'], 0);
   });
   check('R1.13', 'building never touches the map', () => {
     const s = game(2);
@@ -120,12 +119,11 @@ export default function part1() {
   });
   check('R1.14', 'laying never creates tiles: only built tiles can be laid', () => {
     const s = game(2);
-    setHeads(s, 0, 'POR', 'MIN');
-    give(s, 0, { resources: { wood: 9 }, tiles: { bridge: 1 } });
-    assert.notEqual(getDistrictActionBlockReason(s, 0, 'D5'), null, 'one Bridge tile does not pay for B-B, whatever Wood is held');
-    s.players[0].builtTiles.bridge = 2;
-    placeAndChoose(s, 'W4', 'D5');
-    take(s, 'claimRoute', { route: 'POR-SPO' });
+    setHeads(s, 0, 'TDL', 'OMA');
+    give(s, 0, { resources: { wood: 9 }, tiles: { ground: 1 } });
+    assert.notEqual(getDistrictActionBlockReason(s, 0, 'D5'), null, 'one Ground tile does not pay for G-G, whatever Wood is held');
+    s.players[0].builtTiles.ground = 2;
+    placeAndChoose(s, 'W4', 'D5'); // the one legal claim is made by the engine itself
     const p = s.players[0];
     assert.deepEqual(p.builtTiles, { ground: 0, tunnel: 0, bridge: 0 });
     assert.equal(p.resources.wood, 9);
@@ -139,16 +137,16 @@ export default function part1() {
     s.players[0].train.storageCarriages = 2;
     assert.equal(storageCapacity(s, 0), 18);
   });
-  check('R1.18', '25 cities: 4 west start cities, 4 east start cities, 17 inland cities', () => {
-    assert.equal(MAP.cityIds.length, 25);
+  check('R1.18', '35 cities: 4 west start cities, 4 east start cities, 27 inland cities', () => {
+    assert.equal(MAP.cityIds.length, 35);
     assert.deepEqual(sorted(MAP.westStartCities), sorted(['SEA', 'POR', 'SAC', 'LAX']));
     assert.deepEqual(sorted(MAP.eastStartCities), sorted(['MIN', 'OMA', 'KCY', 'FTW']));
-    assert.equal(MAP.inlandCities.length, 17);
+    assert.equal(MAP.inlandCities.length, 27);
   });
-  check('R1.19', '47 routes of 2 to 6 slots, 136 slots; a claimed route has one owner for good', () => {
-    assert.equal(MAP.routes.length, 47);
-    assert.equal(MAP.routes.reduce((n, r) => n + r.length, 0), 136);
-    assert.ok(MAP.routes.every((r) => r.length >= 2 && r.length <= 6));
+  check('R1.19', '65 routes of 1 to 4 slots, 134 slots; a claimed route has one owner for good', () => {
+    assert.equal(MAP.routes.length, 65);
+    assert.equal(MAP.routes.reduce((n, r) => n + r.length, 0), 134);
+    assert.ok(MAP.routes.every((r) => r.length >= 1 && r.length <= 4));
   });
   check('R1.20', 'each player has two railheads, one starting in the west and one in the east', () => {
     for (const n of [2, 3, 4]) {
@@ -177,9 +175,9 @@ export default function part1() {
 
   // ----- R2 ------------------------------------------------------------------
   check('R2.1', 'component counts', () => {
-    const letters = { ground: 0, tunnel: 0, bridge: 0 };
+    const letters = { ground: 0, tunnel: 0, bridge: 0, wild: 0 };
     for (const r of MAP.routes) for (const t of r.terrains) letters[t] += 1;
-    assert.deepEqual(letters, { ground: 44, tunnel: 46, bridge: 46 });
+    assert.deepEqual(letters, { ground: 46, tunnel: 44, bridge: 41, wild: 3 });
     const s = game(4, { moduleCarriageUpgrades: true, modulePonyExpress: true });
     assert.deepEqual(s.supply.specialists, { crew: 8, miner: 12, engineer: 12, financier: 12 }, '12 of each, less the free Crew each of the four players took at setup');
   });
@@ -187,7 +185,7 @@ export default function part1() {
     const s = fresh(4);
     assert.deepEqual(s.supply.specialists, { crew: 12, miner: 12, engineer: 12, financier: 12 });
   });
-  check('R2.1/modules', '16 upgrade tiles (6/5/5), 12 goals, 10 milestones, 17 Legislative Agenda cards (4 to 20), 38 Pony Express cards (13/11/14), 17 tokens', () => {
+  check('R2.1/modules', '16 upgrade tiles (6/5/5), 12 goals, 10 milestones, 17 Legislative Agenda cards (4 to 20), 38 Pony Express cards (13/11/14), 27 tokens', () => {
     const byLevel = [1, 2, 3].map((l) => RULES.UPGRADE_TILES.filter((t) => t.level === l).length);
     assert.deepEqual(byLevel, [6, 5, 5]);
     assert.equal(RULES.GOAL_CARDS.length, 12);
@@ -195,7 +193,7 @@ export default function part1() {
     assert.equal(RULES.LEGISLATIVE_CARDS.length, 17);
     assert.deepEqual(['A', 'B', 'C'].map((r) => RULES.PONY_CARDS.filter((c) => c.rank === r).length), [13, 11, 14]);
     const s = game(2, PONY);
-    assert.equal(Object.values(s.modules.pony.tokens).filter(Boolean).length, 17);
+    assert.equal(Object.values(s.modules.pony.tokens).filter(Boolean).length, 27);
   });
   check('R2.2', 'per player: 11 houses, 7 telegraph stations printed 1 2 3 4 5 6 9, 2 railheads, at most 2 hats', () => {
     const s = game(3);
@@ -386,7 +384,7 @@ export default function part1() {
     }
     for (const n of [1, 2, 3]) assert.throws(() => fresh(2, { moduleLegislativeAgenda: true, legislativeAgendaCard: n }), 'cards 1 to 3 are retired (R17.2)');
   });
-  check('R3.8.4', 'Pony Express: a token on each of the 17 inland cities, three decks by rank, 2 cards face up from each', () => {
+  check('R3.8.4', 'Pony Express: a token on each of the 27 inland cities, three decks by rank, 2 cards face up from each', () => {
     const s = fresh(2, PONY);
     const pony = s.modules.pony;
     assert.deepEqual(sorted(Object.keys(pony.tokens)), sorted(MAP.inlandCities));
@@ -586,11 +584,11 @@ export default function part1() {
     assert.equal(s.turn.district ?? 'D2', 'D2');
     const t = game(2);
     setHeads(t, 0, 'POR', 'MIN');
-    give(t, 0, { tiles: { tunnel: 2 } });
-    assert.equal(getDistrictActionBlockReason(t, 0, 'D5'), null, 'a legal claim (Portland - Reno, T-T)');
+    give(t, 0, { tiles: { bridge: 1, tunnel: 1, ground: 1 } });
+    assert.equal(getDistrictActionBlockReason(t, 0, 'D5'), null, 'a legal claim (Portland - Reno, B-T-G)');
     const u = game(2);
     setHeads(u, 0, 'POR', 'MIN');
-    claim(u, 1, 'POR-SPO');
+    claim(u, 1, 'TDL-POR');
     assert.equal(getDistrictActionBlockReason(u, 0, 'D5'), null, 'a legal move along an opponent route');
     act(u, { type: 'placeWorker', space: 'W4' });
     assert.ok(offered(u, 'chooseDistrict', { district: 'D5' }));
@@ -764,11 +762,11 @@ export default function part1() {
   check('R5.4.4/only', 'action "none" is offered only in that case: with a legal move the removal gives the D5 action', () => {
     const s = game(2);
     setHeads(s, 0, 'POR', 'MIN');
-    claim(s, 1, 'POR-SPO');
+    claim(s, 1, 'TDL-POR');
     put(s, 0, 'D5');
     const moved = act(s, { type: 'removeWorker', from: 'D5' });
     assert.equal(eventOf(moved, 'districtChosen').district, 'D5');
-    assert.equal(s.players[0].railheads[0], 'SPO', 'the one legal step, a move to Spokane, was taken');
+    assert.equal(s.players[0].railheads[0], 'TDL', 'the one legal step, a move to The Dalles, was taken');
     const t = game(2);
     put(t, 0, 'D4');
     give(t, 0, { hats: 1 });
@@ -860,7 +858,7 @@ export default function part1() {
     give(s, 2, { hats: 2 });
     give(s, 3, { hats: 1 });
     setHeads(s, 3, 'POR', 'MIN');
-    claim(s, 0, 'POR-SPO');
+    claim(s, 0, 'TDL-POR');
     act(s, { type: 'displaceWorker', district: 'D5' });
     assert.equal(s.players[0].hats, 2);
     assert.equal(kind(s), 'chooseResource');
@@ -962,12 +960,12 @@ export default function part1() {
   check('R5.6.4/lay', 'Lay Tracks / Move Train: M steps', () => {
     const s = game(2);
     setHeads(s, 0, 'POR', 'MIN');
-    claim(s, 1, 'POR-SPO', 'BOI-SPO', 'HEL-SPO');
+    claim(s, 1, 'TDL-POR', 'SPO-TDL', 'SPO-BOI');
     put(s, 0, 'W6');
     placeAndChoose(s, 'W4', 'D5');
-    act(s, { type: 'moveTrain', from: 'POR', to: 'SPO' });
+    act(s, { type: 'moveTrain', from: 'POR', to: 'TDL' });
     assert.equal(kind(s), 'layTracks', 'M = 2: a second step is on offer');
-    act(s, { type: 'moveTrain', from: 'SPO', to: 'BOI' });
+    act(s, { type: 'moveTrain', from: 'TDL', to: 'SPO' });
     assert.equal(s.turn.player, 1, 'two steps and the action is over');
   });
   check('R5.7', 'opponents\' workers never change your multiplier', () => {

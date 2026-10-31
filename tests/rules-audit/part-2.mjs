@@ -528,7 +528,7 @@ export default function part2() {
   check('R9.1', 'a train activation happens at Ground Tracks, Tunnel Tracks, Bridge Tracks and Lobby Congress, and nowhere else on the grid', () => {
     const count = (d) => {
       const s = game(2);
-      give(s, 0, { coins: 0, tiles: { tunnel: 2 } });
+      give(s, 0, { coins: 0, tiles: { tunnel: 2, bridge: 1 } }); // the Bridge tile pays for Portland - The Dalles, a legal claim at D5
       setHeads(s, 0, 'POR', 'MIN');
       return eventsOf(goTo(s, d), 'trainActivation').length;
     };
@@ -668,10 +668,9 @@ export default function part2() {
     assert.ok(Object.values(s.map.routeOwner).every((o) => o === null));
     assert.equal(s.players[0].builtTiles.bridge, 1);
     idleUntil(s, 0);
-    s.players[0].builtTiles.bridge = 2;
     choose(s, act(s, { type: 'removeWorker', from: 'W7' }), 'D5');
-    if (kind(s) === 'layTracks') act(s, { type: 'claimRoute', route: 'POR-SPO', from: 'POR' });
-    assert.equal(s.map.routeOwner['POR-SPO'], 0);
+    if (kind(s) === 'layTracks') act(s, { type: 'claimRoute', route: 'TDL-POR', from: 'POR' });
+    assert.equal(s.map.routeOwner['TDL-POR'], 0);
     assert.deepEqual(s.players[0].builtTiles, { ground: 0, tunnel: 0, bridge: 0 });
   });
   check('R9.7', 'with no specialist that matches the district the player still builds through the Foreman', () => {
@@ -741,7 +740,7 @@ export default function part2() {
   });
   check('R10.1/C6', 'C6: 3 lobby points and 3 Coins for 6 resources of your choice, mixed as you like', () => {
     const s = lobbyGame();
-    claim(s, 1, 'POR-SPO');
+    claim(s, 1, 'TDL-POR');
     waitLobby(s, 3);
     const ev = act(s, { type: 'takeCongressEntry', entry: 'C6' });
     assert.equal(kind(s), 'chooseResource');

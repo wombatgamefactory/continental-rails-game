@@ -35,6 +35,7 @@ import {
   lastSeatId,
   claimedRouteCount,
   isCityConnected,
+  laidSlotTerrains,
   networkCities,
   moveTrainPath,
   hasTranscontinentalLine,
@@ -729,7 +730,7 @@ function finishActivation(state, frame) {
 export function pushLayTracks(state, playerId, m) {
   const v = state.variants;
   const heads = state.players[playerId].railheads.length;
-  const frame = { kind: 'layTracks', player: playerId, taken: 0, totals: { routes: 0, slots: { ground: 0, tunnel: 0, bridge: 0 } } };
+  const frame = { kind: 'layTracks', player: playerId, taken: 0, totals: { routes: 0, slots: { ground: 0, tunnel: 0, bridge: 0 }, noTerrain: 0 } };
   if (v.layTrackClaims === 'per-step') {
     frame.steps = m; // M steps, each a claim or a move (a station step in network mode)
   } else if (v.claimFrom === 'network') {
@@ -751,7 +752,7 @@ function pushCardSteps(state, playerId, only, n) {
     kind: 'layTracks',
     player: playerId,
     taken: 0,
-    totals: { routes: 0, slots: { ground: 0, tunnel: 0, bridge: 0 } },
+    totals: { routes: 0, slots: { ground: 0, tunnel: 0, bridge: 0 }, noTerrain: 0 },
     steps: n,
     only,
   });
@@ -795,6 +796,68 @@ function completeTranscontinental(state, playerId, route) {
   hookCompletion(state, playerId, route);
   // R19.6 - the bonus is paid even if the end was triggered earlier; the end only once.
   if (state.gameEnd === null) triggerGameEnd(state, 'transcontinental');
+}
+
+/**
+ * R11.5. The eight steps of resolving a claim, in order. `fills` is the chosen tile of each wild
+ * slot, `[{ slot, terrain }]` (empty for a route without one, R11.12.5). `frame` is the Lay
+ * Tracks frame the claim belongs to; `idx` the train that makes it (railhead mode).
+ */
+function resolveClaim(state, frame, route, from, idx, fills) {
+  const K = getConstants(state);
+  const player = state.players[frame.player];
+  const network = state.variants.claimFrom === 'network';
+  // The arrival city Y. In network mode there is none if both ends were already in the network (R11.11.4).
+  let arrival;
+  if (network) {
+    const other = otherEnd(route, from);
+    arrival = networkCities(state, player.id).includes(other) ? null : other;
+  } else {
+    arrival = otherEnd(route, from);
+  }
+  // R11.5.4 asks whether Y was connected BEFORE this claim.
+  const wasConnected = arrival !== null && isCityConnected(state, arrival);
+
+  // R11.5.1 Pay. The tiles move from storage onto the route, which is now owned for good (R11.6).
+  // The fixed slots first, then the chosen tile of each wild slot (R11.12.5).
+  const paid = { ground: route.cost.ground, tunnel: route.cost.tunnel, bridge: route.cost.bridge };
+  for (const f of fills) paid[f.terrain] += 1;
+  for (const t of K.TERRAINS) player.builtTiles[t] -= paid[t];
+  state.map.routeOwner[route.id] = player.id;
+  if (fills.length > 0) state.map.wildFill[route.id] = fills.map((f) => ({ slot: f.slot, terrain: f.terrain }));
+  emit({ type: 'routeClaimed', player: player.id, route: route.id, from, to: arrival, slots: route.length, cost: paid, wild: fills.map((f) => ({ slot: f.slot, terrain: f.terrain })) });
+  // R11.5.2 Track VP: 1 per slot (a wild slot too), plus 2 more per slot of the scoring card's terrain (R11.9); both are `track` (R20.1).
+  // R11.12.6 - under `tile-terrain` a wild slot is "of" the terrain of its tile; under `no-terrain` of none.
+  const laid = laidSlotTerrains(state, route);
+  addVp(state, player.id, 'track', K.SCORING.vpPerSlot * route.length, 'R11.5.2');
+  if (state.scoringCard !== null) {
+    addVp(state, player.id, 'track', K.SCORING.scoringCardVpPerSlot * laid[state.scoringCard], 'R11.9');
+  }
+  // R11.5.3 Advance the railhead used from X to Y (railheads never move in network mode, R11.11.1).
+  if (!network) player.railheads[idx] = arrival;
+  const inland = arrival !== null && MAP.cityById[arrival].kind === 'inland';
+  // R11.5.4 First connection (never at a start city, R11.2.4).
+  if (inland && !wasConnected) {
+    addVp(state, player.id, 'firstConnection', K.SCORING.firstConnectionVp, 'R11.5.4');
+    emit({ type: 'firstConnection', player: player.id, city: arrival });
+    hookFirstConnection(state, player.id, arrival, route);
+  }
+  // R11.5.5 Toll, R13.9: entering a city that holds another player's railway station.
+  if (arrival !== null && hasOpponentRailwayStation(state, arrival, player.id)) {
+    const owner = state.map.railwayStation[arrival];
+    addVp(state, owner, 'toll', K.SCORING.tollVp, 'R13.9');
+    tollBonus(state, owner);
+    emit({ type: 'toll', player: owner, by: player.id, city: arrival });
+  }
+  // R11.5.6 Transcontinental check, R19.1, R19.7: only the first line of the game counts (R19.2).
+  if (state.completion === null && hasTranscontinentalLine(state, player.id)) completeTranscontinental(state, player.id, route);
+  // R11.5.8 The route's slots join the running totals of this action (R11.10): by terrain as R11.12.6 reads them;
+  // under `no-terrain` the wild slots are counted apart, in `noTerrain`.
+  frame.totals.routes += 1;
+  for (const t of K.TERRAINS) frame.totals.slots[t] += laid[t];
+  frame.totals.noTerrain = (frame.totals.noTerrain ?? 0) + (route.length - laid.ground - laid.tunnel - laid.bridge);
+  // R11.5.7 Building: one, free, in the arrival city (R13.4). Pushed last, so it is asked first.
+  if (arrival !== null) offerArrivalBuilding(state, player.id, arrival, {}, 'arrival');
 }
 
 // ---------------------------------------------------------------------------
@@ -1085,59 +1148,39 @@ export const MUTATORS = {
 
   // ----- Lay Tracks / Move Train (R11, R12) ---------------------------------
 
-  /** R11.5. The eight steps of resolving a claim, in order. */
+  /**
+   * R11.4, R11.12.1. A claim is chosen. The step it uses is spent now; if the route has a wild
+   * slot, nothing of R11.5 happens until each wild slot has its tile, so a `wildSlot` frame
+   * asks first (`fillWildSlot`); otherwise the claim resolves at once.
+   */
   claimRoute(state, frame, action) {
-    const K = getConstants(state);
-    const player = state.players[frame.player];
     const route = MAP.routeById[action.route];
-    const network = state.variants.claimFrom === 'network';
     const idx = claimRailheadIndex(state, frame, action.from);
-    // The arrival city Y. In network mode there is none if both ends were already in the network (R11.11.4).
-    let arrival;
-    if (network) {
-      const other = otherEnd(route, action.from);
-      arrival = networkCities(state, player.id).includes(other) ? null : other;
-    } else {
-      arrival = otherEnd(route, action.from);
-    }
-    // R11.5.4 asks whether Y was connected BEFORE this claim.
-    const wasConnected = arrival !== null && isCityConnected(state, arrival);
     if (frame.steps !== undefined) frame.steps -= 1;
     else frame.claimsLeft[idx] -= 1;
     frame.taken += 1;
+    if (route.wild > 0) {
+      pushFrame(state, { kind: 'wildSlot', player: frame.player, route: route.id, slot: route.wildSlots[0], from: action.from, idx, cause: 'claim', chosen: [] });
+      return;
+    }
+    resolveClaim(state, frame, route, action.from, idx, []);
+  },
 
-    // R11.5.1 Pay. The tiles move from storage onto the route, which is now owned for good (R11.6).
-    for (const t of K.TERRAINS) player.builtTiles[t] -= route.cost[t];
-    state.map.routeOwner[route.id] = player.id;
-    emit({ type: 'routeClaimed', player: player.id, route: route.id, from: action.from, to: arrival, slots: route.length, cost: { ...route.cost } });
-    // R11.5.2 Track VP: 1 per slot, plus 2 more per slot of the scoring card's terrain (R11.9); both are `track` (R20.1).
-    addVp(state, player.id, 'track', K.SCORING.vpPerSlot * route.length, 'R11.5.2');
-    if (state.scoringCard !== null) {
-      addVp(state, player.id, 'track', K.SCORING.scoringCardVpPerSlot * route.cost[state.scoringCard], 'R11.9');
+  /**
+   * R11.12.3 to R11.12.5. The tile for one wild slot. The next wild slot of the route, if any,
+   * is asked in its turn; after the last one the claim resolves in full (R11.5).
+   */
+  fillWildSlot(state, frame, action) {
+    const route = MAP.routeById[frame.route];
+    const chosen = [...frame.chosen, { slot: frame.slot, terrain: action.terrain }];
+    popFrame(state);
+    const next = route.wildSlots[chosen.length];
+    if (next !== undefined) {
+      pushFrame(state, { kind: 'wildSlot', player: frame.player, route: route.id, slot: next, from: frame.from, idx: frame.idx, cause: frame.cause, chosen });
+      return;
     }
-    // R11.5.3 Advance the railhead used from X to Y (railheads never move in network mode, R11.11.1).
-    if (!network) player.railheads[idx] = arrival;
-    const inland = arrival !== null && MAP.cityById[arrival].kind === 'inland';
-    // R11.5.4 First connection (never at a start city, R11.2.4).
-    if (inland && !wasConnected) {
-      addVp(state, player.id, 'firstConnection', K.SCORING.firstConnectionVp, 'R11.5.4');
-      emit({ type: 'firstConnection', player: player.id, city: arrival });
-      hookFirstConnection(state, player.id, arrival, route);
-    }
-    // R11.5.5 Toll, R13.9: entering a city that holds another player's railway station.
-    if (arrival !== null && hasOpponentRailwayStation(state, arrival, player.id)) {
-      const owner = state.map.railwayStation[arrival];
-      addVp(state, owner, 'toll', K.SCORING.tollVp, 'R13.9');
-      tollBonus(state, owner);
-      emit({ type: 'toll', player: owner, by: player.id, city: arrival });
-    }
-    // R11.5.6 Transcontinental check, R19.1, R19.7: only the first line of the game counts (R19.2).
-    if (state.completion === null && hasTranscontinentalLine(state, player.id)) completeTranscontinental(state, player.id, route);
-    // R11.5.8 The route's slots join the running totals of this action (R11.10).
-    frame.totals.routes += 1;
-    for (const t of K.TERRAINS) frame.totals.slots[t] += route.cost[t];
-    // R11.5.7 Building: one, free, in the arrival city (R13.4). Pushed last, so it is asked first.
-    if (arrival !== null) offerArrivalBuilding(state, player.id, arrival, {}, 'arrival');
+    const layFrame = topFrame(state);
+    resolveClaim(state, layFrame, route, frame.from, frame.idx, chosen);
   },
 
   /** R12.2 to R12.4. The path and the tolls are worked out for the player. */

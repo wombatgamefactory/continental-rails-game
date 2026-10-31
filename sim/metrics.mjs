@@ -235,7 +235,15 @@ export function finalMetrics(state, tally, engine = getEngine()) {
     const r = routes[owner];
     r.n += 1;
     bump(r.byLength, route.length);
-    for (const terrain of route.terrains) r.slots[terrain] += 1;
+    route.terrains.forEach((terrain, i) => {
+      if (terrain !== 'wild') {
+        r.slots[terrain] += 1;
+        return;
+      }
+      // A wild slot is reported under the terrain of the tile laid on it (R11.12.5).
+      const fill = state.map.wildFill?.[route.id]?.find((f) => f.slot === i);
+      if (fill !== undefined) r.slots[fill.terrain] += 1;
+    });
   }
 
   const buildings = perSeat(P, () => ({ railway: 0, telegraph: 0 }));

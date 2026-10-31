@@ -152,7 +152,7 @@ state = {
 
   // --- fixed at createGame; frozen; shared by cloneState ----------------------
   config: { playerCount, players, seed, rngStart, shuffleSeats, mapId },   // how the game was created; play never reads it
-  variants: { ...all 25 resolved variants },            // section 10
+  variants: { ...all 26 resolved variants },            // section 10
   constantOverrides: null | { GROUP: { key: value } },  // section 10
   constantsKey: null | string,                          // JSON text of the overrides (cache key)
 
@@ -207,8 +207,9 @@ state = {
     centres: { D1: null | playerId, ... D9 }     // district centres (R5.5)
   },
   map: {
-    routeOwner:       { 'SEA-SPO': null | playerId, ... },  // 47 routes; a claimed route holds LAID tiles
-    railwayStation:   { SPO: null | playerId, ... },        // 17 inland cities (R13.1)
+    routeOwner:       { 'SEA-TDL': null | playerId, ... },  // 65 routes; a claimed route holds LAID tiles
+    wildFill:         { 'SPO-HEL': [{ slot: 2, terrain: 'tunnel' }], ... }, // only for LAID routes with a wild slot (R11.12.5)
+    railwayStation:   { SPO: null | playerId, ... },        // 27 inland cities (R13.1)
     telegraphStation: { SPO: null | playerId, ... }
   },
   supply: { specialists: { crew: 12, miner: 12, engineer: 12, financier: 12 } }, // R2.1, limited
@@ -221,6 +222,8 @@ state = {
   modules: {}                    // one key per module that is ON (section 11); { upgrades?, milestones?, goals?, legislative?, pony? }
 }
 ```
+
+**The map (route map v3).** `board.js` builds the tables from `data/route-map.json` (`buildMap`): a 600 x 350 mm board, 35 cities (8 start cities, 27 inland), 65 routes of 1 to 4 slots and 134 slots. The data letter of a slot is `G`, `T`, `B` or `W` (a **wild slot**: any one built tile fits it, R1.25); `TERRAIN_BY_LETTER.W` is `'wild'`. Per route the tables give `terrains` (one entry per slot from the first city `a`, `'wild'` included), `length` (all slots, wild ones too), `cost` (the FIXED slots by terrain: `{ ground, tunnel, bridge }` only, never a `wild` key, so a loop over its keys can be compared with a player's built tiles), `wild` (the number of wild slots), `wildSlots` (their indexes from `a`), and, for the screen only, `slots` (x, y, angle, terrain), `line` and `bow`. The map tables also carry `board`, `slotSize`, `cityStyle` and `labels` (where the art puts each city name) for the screen. `wild` is never a tile type, a resource, a storage item or a `scoringCard` value. Junction cities and regions are not stored: `junctionCities(mapRules)` and `cityRegion(city, mapRules)` work them out from the data and the constants `junctionMinRoutes` (5), `northRegionMaxY` (116.7 mm) and `southRegionMinY` (233.3 mm); `MAP_RULES.longHaulMinSlots` (4) is the length MS5 asks for. A saved game names its map (`config.mapId`, `route-map-v3`); a save from another map is refused.
 
 Build and lay are different fields on purpose. A train activation adds to `player.builtTiles`. A claim subtracts from `player.builtTiles` and sets `map.routeOwner`. Nothing else connects them.
 
@@ -328,7 +331,8 @@ Implemented (fields are not binding; `kind`, `player` and what each accepts are)
 | `chooseOption` | `options: [{ text, effects }]`, `cause`, `vpSource`, `rule` | `chooseOption` | R18.7 cards 8, 9, 23 |
 | `addCarriage` | `cause` | `addCarriage` (free) | R8.7, R10.1 C4 |
 | `placeBuildings` | `scope` ('city'), `city`, `cost`, `left`, `allow: { railwayStation, telegraphStation }`, `cause` | `placeRailwayStation`, `placeTelegraphStation`, `skipBuilding` | R13.4, R13.5 |
-| `layTracks` | `taken`, `totals: { routes, slots }`, and the steps left: `steps`, or `claimsLeft: [a, b]` with `movesLeft` | `claimRoute`, `moveTrain`, `stopLaying`; in network mode also `placeRailwayStation`, `placeTelegraphStation` (the station step) | R11.3, R12, R11.11 |
+| `wildSlot` | `route`, `slot` (index of the wild slot from the route's first city), `from`, `idx`, `cause` (`'claim'`), `chosen: [{ slot, terrain }]` (earlier wild slots of the same claim) | `fillWildSlot` | R11.12 |
+| `layTracks` | `taken`, `totals: { routes, slots, noTerrain }`, and the steps left: `steps`, or `claimsLeft: [a, b]` with `movesLeft` | `claimRoute`, `moveTrain`, `stopLaying`; in network mode also `placeRailwayStation`, `placeTelegraphStation` (the station step) | R11.3, R12, R11.11 |
 
 Module frames (the kinds and what they accept are binding; the fields are as built):
 
@@ -356,7 +360,7 @@ How the larger sequences unfold:
 - The window after the **last** step is the "last chance" of R9.4.4: R9.4.3 and R9.4.4 describe the same moment, so it is asked once, not twice. Then leftover lobby points are lost (`lobbyPointsLost`), `hookActivationEnd` runs (R9.4.5: the `vpPerBuilt` upgrade tiles read `frame.built`, what the Foreman and the specialists BUILT, not what a Congress entry or a tile gave) and the frame is popped.
 - A benefit that needs a choice pushes its own frame on top (`chooseBuiltTile` for C5, `addCarriage` and then a free, optional `hireSpecialist` for C4, `chooseResource` for C6, for a hat at the limit or for the `jan-2026` choices); storage overflow pushes `discard` above that. The activation frame resumes when they are done.
 
-**Lay Tracks / Move Train (R11.3).** `pushLayTracks` pushes one `layTracks` frame. Its allowance is `steps = M` with `layTrackClaims = per-step`; `claimsLeft = [M, M]` (one per railhead) and `movesLeft = M` with `per-railhead`; `steps = 2 x M` with `per-railhead` in network mode (claims and station steps share the pool). The frame asks `claimRoute { route, from }` for every legal claim, `moveTrain { from, to }` for every legal move, and, once `taken` is at least 1, `stopLaying`. `from` is the city the claim is made from: in railhead mode the city a railhead stands on (not a railhead index; if both stand on the same city the two moves would be the same), in network mode the end of the route that is in the player's network (the route's first end if both are). With `per-railhead` and both railheads on one city, the one with more claims left is used. A claim resolves R11.5 steps 1 to 6 and 8 by itself (`claimRoute` in actions.js, step by step, each commented with its rule), then pushes `placeBuildings` for step 7 **if the player could place a building** (`canPlaceAnyBuilding`); otherwise nothing is asked. A move works out its path and tolls by itself (R12.3) and offers the paid building the same way (R12.4). The frame closes by itself when its allowance is spent (`RESUME`) or by `stopLaying`; `hookLayTracksEnd` then sees `frame.totals` (R11.10).
+**Lay Tracks / Move Train (R11.3).** `pushLayTracks` pushes one `layTracks` frame. Its allowance is `steps = M` with `layTrackClaims = per-step`; `claimsLeft = [M, M]` (one per railhead) and `movesLeft = M` with `per-railhead`; `steps = 2 x M` with `per-railhead` in network mode (claims and station steps share the pool). The frame asks `claimRoute { route, from }` for every legal claim (a route with a wild slot is legal when `canAffordRoute`: each terrain covers its fixed slots and the tiles left over, over all three terrains, cover the wild slots, R11.12.2), `moveTrain { from, to }` for every legal move, and, once `taken` is at least 1, `stopLaying`. `from` is the city the claim is made from: in railhead mode the city a railhead stands on (not a railhead index; if both stand on the same city the two moves would be the same), in network mode the end of the route that is in the player's network (the route's first end if both are). With `per-railhead` and both railheads on one city, the one with more claims left is used. A claim resolves R11.5 steps 1 to 6 and 8 by itself (`resolveClaim` in actions.js, step by step, each commented with its rule). **A route with a wild slot** first spends the step (`claimRoute`) and pushes a `wildSlot` frame; nothing of R11.5 happens until each wild slot has its tile. `fillWildSlot { terrain }` records the choice; for a route with several wild slots (none on map v3) the next slot is asked in turn, in order from the first city; after the last, `resolveClaim` runs in full. The question reaches the player only when more than one terrain has a spare tile (the auto-advance rule fills it otherwise, with `auto: true`, between the `claimRoute` action event and the claim's own events). The engine records the fill in `state.map.wildFill[routeId]`. What a filled wild slot counts as for rules that read a laid slot's terrain (the scoring card, milestones MS2 to MS4, Legislative Agenda card 5, the running totals) is the variant `wildSlotTerrain`: `tile-terrain` (default, the terrain of its tile) or `no-terrain` (none); every rule that merely counts slots counts it as one. Read it through `laidSlotTerrains(state, route)`. A claim then pushes `placeBuildings` for step 7 **if the player could place a building** (`canPlaceAnyBuilding`); otherwise nothing is asked. A move works out its path and tolls by itself (R12.3) and offers the paid building the same way (R12.4). The frame closes by itself when its allowance is spent (`RESUME`) or by `stopLaying`; `hookLayTracksEnd` then sees `frame.totals` (R11.10).
 
 **Buildings (R13).** `placeRailwayStation { city, houseTrack }` and `placeTelegraphStation { city }` are legal in a `placeBuildings` frame (arrival by a claim: free, in the arrival city; arrival by a move: 2 Coins) and, in network mode, directly from the `layTracks` frame as a station step (2 Coins, one step of the action, any inland city of the network). Skipping is the explicit `skipBuilding`.
 
@@ -370,7 +374,7 @@ An action is `{ type, ...params }`, plain JSON. `player` is optional: if present
 
 Ids used in parameters: districts `D1` to `D9` (positions of the grid, R5.1); worker spaces `W1` to `W12` (R5.2); cities and routes as in the map data (`SPO`, `SEA-SPO`); resources `iron`, `wood`, `gunpowder`; tile types and terrains `ground`, `tunnel`, `bridge`; specialists `crew`, `miner`, `engineer`, `financier`; house tracks `wood`, `coins`, `iron`, `gunpowder`.
 
-### 5.1 Implemented (25)
+### 5.1 Implemented (26)
 
 | type | params | meaning | rule |
 |---|---|---|---|
@@ -400,7 +404,8 @@ The twelve core actions (parameters as built; a decision with several legal acti
 | `closeCongress` | | Take no (more) entries for now. | R9.4.3 |
 | `chooseBuiltTile` | `terrain` | Gain 1 built tile of that type. One per action. | R10.7 |
 | `chooseOption` | `option` | Pick option number `option` (from 0) of the choice on offer. | R18.7 cards 8, 9, 23 |
-| `claimRoute` | `route`, `from` | Claim a route with the railhead standing on `from` (network mode: the end of the route in the network), paying built tiles. | R11.4, R11.5 |
+| `claimRoute` | `route`, `from` | Claim a route with the railhead standing on `from` (network mode: the end of the route in the network), paying built tiles: one of the terrain of each fixed slot, and one more of any terrain for each wild slot. The parameters are the same for a route with a wild slot; see `fillWildSlot`. | R11.4, R11.5 |
+| `fillWildSlot` | `terrain` | Choose the built tile (`ground`, `tunnel` or `bridge`) that fills the wild slot being asked about. Legal for each terrain of which a tile is spare (held, less the route's fixed slots, less tiles already chosen for its earlier wild slots). No stop action: the claim cannot be abandoned. With exactly one legal answer the engine applies it (`auto: true`). | R11.12 |
 | `moveTrain` | `from`, `to` | Move the railhead on `from` to `to` along claimed routes; the path and tolls are worked out for the player. | R12.2, R12.3 |
 | `stopLaying` | | End the Lay Tracks / Move Train action. | R11.3 |
 | `placeRailwayStation` | `city`, `houseTrack` | Place a railway station, taking the leftmost house of that track. | R13.2 |
@@ -600,7 +605,7 @@ R20.5 step 4 always separates, so there is exactly one winner and no shared vict
 
 ## 10. Variants and constants
 
-**Variants** (`variants.js`). `VARIANTS` holds the 25 variants of R21.3 by their exact names, each `{ name, type, values | min, max, default, description, rule }` with `type` one of `enum`, `boolean`, `integer`, `enum-or-integer`. The setup screen builds its panel from this table and the simulator its flags.
+**Variants** (`variants.js`). `VARIANTS` holds the 26 variants of R21.3 by their exact names, each `{ name, type, values | min, max, default, description, rule }` with `type` one of `enum`, `boolean`, `integer`, `enum-or-integer`. The setup screen builds its panel from this table and the simulator its flags.
 
 | Function | |
 |---|---|
@@ -652,7 +657,7 @@ state.modules.legislative = { card: 'LA7', used: {} }            // `used`: LA10
 state.modules.pony        = {
   decks:   { A: [...], B: [...], C: [...] },   // HIDDEN ORDER (section 7); top of deck is the last element; cards removed by `removedWhen` are not in them
   market:  { A: ['PX3', null], B: [...], C: [...] },   // two places per rank; null when the deck ran out (R18.5.4)
-  tokens:  { SPO: true, ... },                 // 17 inland cities; true = the token is still on the city
+  tokens:  { SPO: true, ... },                 // 27 inland cities; true = the token is still on the city
   players: [{ tokensHeld: 0, tokensCollected: 0, ongoing: [], endgame: [] }],   // card ids; immediate cards are discarded
   turn:    { purchases: 0, usedCards: [], doubled: null },   // reset at the start of every turn (hookTurnStart); `doubled`: card 33's type
   roundUsed: []                                // abilities used this round (turnStructure = rounds); emptied by endRound
@@ -779,7 +784,7 @@ Core event types:
 | `lobbyPointsLost` | `player`, `amount` | R9.4.4 |
 | `congressEntry` | `player`, `entry`, `tier`, `coins`, `text` | R10.4 |
 | `senatorsReset` | `player`, `count` | R10.6 |
-| `routeClaimed` | `player`, `route`, `from`, `to` (null with no arrival city), `slots`, `cost` | R11.5 |
+| `routeClaimed` | `player`, `route`, `from`, `to` (null with no arrival city), `slots` (wild ones included), `cost` (the tiles actually PAID by terrain, wild fills included), `wild` (`[{ slot, terrain }]`; empty for a route without a wild slot) | R11.5, R11.12.5 |
 | `firstConnection` | `player`, `city` | R11.5.4 |
 | `toll` | `player` (the owner paid), `by`, `city` | R13.9 |
 | `railheadMoved` | `player`, `from`, `to`, `cities`, `routes` (the path) | R12 |
@@ -931,7 +936,7 @@ Plain Node scripts, `tests/<name>.test.mjs`, `node:assert` only, run by `npm tes
 | `smoke` | 600 random-bot games on default variants (all modules on, milestones; 200 at each of 2, 3, 4 players); 100 under each non-default `conversionRate` and under `rounds`; 30 under each non-default value of every other variant the engine acts on (including `endRoutesPerPlayer = 0` and the four `scoringCard` values); 72 scripted builder games. **Modules:** 400 games with every module on (goals and milestones both), 100 with each module individually off (no key, no VP source, no action, no event, no decision, no word in the state), small runs for `endGameScoring` = `goals`, `both`, `none`, `upgradeVpTiming = on-install`, `ponyOngoingCap = 0` and the module variants with `rounds`, `network` and `bothBuildingsSameOwner = false`, 6 games with each of the 20 Legislative Agenda cards fixed (120), 204 builder games that play the module decisions (84 of them with tokens handed out by hand, reported as constructed). Every game ends by itself, zero refusals, zero harness-cap hits, always a real choice, the list equal to the actions whose block reason is null, invariants (houses plus railway stations constant, VP add up by source, upgrade tiles, cards and tokens conserved), every action type and every district used, speed; usage counters (every Legislative Agenda card in force, every Pony Express card bought, every upgrade tile installed, every goal and milestone scored); a core game is identical with an add-on module on or off under the same core choices. Prints the split of end reasons. |
 | `determinism` | Same seed gives the same game; seeds differ; replay from the action list; bot RNG independent of game RNG; `hashState`; `determinise`. |
 | `purity` | State plain JSON and round-trips at every decision; resume after a round trip; `cloneState` equals the JSON clone and shares nothing mutable; no impure call in `src/engine` or `src/bots`; import direction; LF. |
-| `variants` | The 25 variants by name and default; rejection messages; variants and constant overrides in the state; the variants this build acts on. |
+| `variants` | The 26 variants by name and default; rejection messages; variants and constant overrides in the state; the variants this build acts on. |
 | `rules-data` | Shape, counts, unique ids and vocabulary of every table in `rules.js`; the map and Appendix A.3; the grid tables of R5.2; one check repeating the printed values of R21.4. |
 | `contract` | The promises of this file, and one or more behavioural checks per rule the skeleton implemented, including worked examples E1, E3, E4 and E9. |
 | `rules-core` | a behavioural check or more per core rule (R4.6, R4.8, R5.4.4, R8.8, R9, R10, R11, R11.11, R12, R13, R19, R20), with worked examples E5, E6, E7, E8 and E10 reproducing their numbers. The core suites build their games with every module off (`MODULES_OFF` in `tests/helpers/rig.mjs`). |
@@ -940,7 +945,7 @@ Plain Node scripts, `tests/<name>.test.mjs`, `node:assert` only, run by `npm tes
 
 Conventions: assert behaviour, not constants; read expected numbers from `rules.js`; build a state with `createGame` and adjust it by hand rather than inventing one, and never replace `state.turn` wholesale; assert termination and zero refusals rather than printing them. The suites were checked against deliberately broken copies of the engine; this was repeated for `rules-core` with 18 one-line mutations (a toll dropped, a first connection scored twice, the move-train tie-break reversed, a Congress entry that ignores its tier, a completion that can repeat, ...), all turning the suite red. the skeleton had been checked with 23 mutations (a dropped adjacency case, yield P + M, no overflow discard, auto-advance off, a list missing an action, `Math.random` in the engine, a game that never ends, and so on). 22 turned at least one suite red. The one that did not showed that the hat-spending rule was written in two places; the duplicate was removed.
 
-`rules-audit`: the independent conformance audit, 476 checks named by spec rule number (`R11.5.4`, `R18.7/26`, `E7`), written from the spec; permanently green, a red line is a regression. Its checks live in `tests/rules-audit/part-*.mjs`, the spec's data tables in `tests/rules-audit/spec-tables.mjs`. See `docs/rules-audit-report.md`.
+`rules-audit`: the independent conformance audit, 496 checks named by spec rule number (`R11.5.4`, `R18.7/26`, `E7`), written from the spec; permanently green, a red line is a regression. Its checks live in `tests/rules-audit/part-*.mjs`, the spec's data tables in `tests/rules-audit/spec-tables.mjs`. See `docs/rules-audit-report.md`.
 
 Later suites: `bots`, `sim`, `mcts`, `sim-report`, `bug-report`, `rulesets` (section 21).
 

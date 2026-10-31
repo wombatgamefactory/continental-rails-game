@@ -201,7 +201,9 @@ function whyNoLayStep(state, playerId) {
     claim = `every route at ${listWithOr(where)} is already claimed`;
   } else {
     const s = best.short;
-    claim = `the shortest unclaimed route there is ${routeName(best.route)}, which needs ${formatRouteCost(state, best.route)} in built tiles, and you hold ${s.have} of the ${s.need} built ${K.NAMES[s.terrain]} you need`;
+    claim = s.terrain === 'wild'
+      ? `the shortest unclaimed route there is ${routeName(best.route)}, which needs ${formatRouteCost(state, best.route)} in built tiles, and you have only ${plural(Math.max(s.have, 0), 'built tile', 'built tiles')} to spare for its wild ${s.need === 1 ? 'slot' : 'slots'}`
+      : `the shortest unclaimed route there is ${routeName(best.route)}, which needs ${formatRouteCost(state, best.route)} in built tiles, and you hold ${s.have} of the ${s.need} built ${K.NAMES[s.terrain]} you need`;
   }
   const move = network
     ? 'and there is no Move Train in network mode'
@@ -859,6 +861,33 @@ export function getChooseBuiltTileBlockReason(state, playerId, terrain) {
   );
 }
 
+/**
+ * R11.12.3. How many built tiles of each terrain are spare for the wild slot
+ * the `wildSlot` frame asks about: those held, less the route's fixed slots,
+ * less the tiles already chosen for its earlier wild slots.
+ */
+export function wildSlotSpare(state, frame) {
+  const route = MAP.routeById[frame.route];
+  const player = state.players[frame.player];
+  const spare = {};
+  for (const t of getConstants(state).TERRAINS) {
+    spare[t] = player.builtTiles[t] - route.cost[t] - frame.chosen.filter((c) => c.terrain === t).length;
+  }
+  return spare;
+}
+
+/** R11.12.3. Why this player cannot fill the wild slot being asked about with a built tile of `terrain`. */
+export function getFillWildSlotBlockReason(state, playerId, terrain) {
+  const K = getConstants(state);
+  if (!K.TERRAINS.includes(terrain)) return `"${terrain}" is not a kind of track tile: a wild slot takes a built Ground, Tunnel or Bridge tile.`;
+  const frame = ownFrame(state, playerId, 'wildSlot');
+  if (frame !== null && wildSlotSpare(state, frame)[terrain] < 1) {
+    const route = MAP.routeById[frame.route];
+    return `You have no built ${K.NAMES[terrain]} tile to spare for the wild slot of ${routeName(route)}: the rest are needed for its other slots.`;
+  }
+  return timingBlock(state, playerId, isKind('wildSlot'), 'You are not being asked which tile fills a wild slot at the moment.');
+}
+
 /** R18.7 cards 8, 9 and 23. Why this player cannot pick option number `option` (from 0) now. */
 export function getChooseOptionBlockReason(state, playerId, option) {
   if (!Number.isInteger(option) || option < 0) return `"${option}" is not an option number: options count from 0.`;
@@ -944,6 +973,11 @@ export function getClaimRouteBlockReason(state, playerId, routeId, from) {
   const short = routeShortfall(player, route);
   if (short !== null) {
     const K = getConstants(state);
+    if (short.terrain === 'wild') {
+      // R11.12.2 - the fixed slots are paid, but too few tiles are left over for the wild slot(s).
+      const more = short.need - short.have;
+      return `${routeName(route)} also needs ${plural(more, 'more built tile', 'more built tiles')} of any type for its wild ${short.need === 1 ? 'slot' : 'slots'}.`;
+    }
     return `${routeName(route)} needs ${formatRouteCost(state, route)} in built tiles, and you hold ${short.have} of the ${short.need} built ${K.NAMES[short.terrain]} you need.`;
   }
   const frame = ownFrame(state, playerId, 'layTracks');
@@ -1694,6 +1728,18 @@ export const ACTIONS = {
       return text === null ? `Choose option ${a.option}` : `Choose: ${text}`;
     },
   },
+  fillWildSlot: {
+    params: ['terrain'],
+    rule: 'R11.12',
+    block: (state, pid, a) => getFillWildSlotBlockReason(state, pid, a.terrain),
+    space: (state) => getConstants(state).TERRAINS.map((terrain) => ({ type: 'fillWildSlot', terrain })),
+    describe: (state, a) => {
+      const K = getConstants(state);
+      const frame = topFrame(state);
+      const where = frame !== null && frame.kind === 'wildSlot' && MAP.routeById[frame.route] ? ` of ${routeName(MAP.routeById[frame.route])}` : '';
+      return `Fill the wild slot${where} with a built ${K.NAMES[a.terrain] ?? a.terrain} tile`;
+    },
+  },
   claimRoute: {
     params: ['route', 'from'],
     rule: 'R11.4, R11.5',
@@ -2153,6 +2199,16 @@ export const FRAMES = {
       out.push({ type: 'skipBuilding' });
       return out;
     },
+  },
+  /**
+   * R11.12. Frame: { kind, player, route, slot, from, idx, cause, chosen }. The claim of `route`
+   * has been chosen; this asks which built tile fills its wild slot number `slot` (counted from
+   * the route's first city). `chosen` holds `{ slot, terrain }` for the earlier wild slots of the
+   * same claim. One action per terrain with a spare tile; with exactly one the engine applies it.
+   */
+  wildSlot: {
+    label: (state, frame) => `choose which built tile fills the wild slot of ${routeName(MAP.routeById[frame.route])}`,
+    list: (state, frame) => keepLegal(state, frame.player, ACTIONS.fillWildSlot.space(state)),
   },
   /**
    * R11.3. Frame: { kind, player, taken, totals: { routes, slots: { ground,

@@ -396,20 +396,53 @@ export function routeCost(routeId) {
 }
 
 /**
- * R11.4.3. The first terrain of a route for which the player holds too few
- * BUILT tiles, as `{ terrain, need, have }`, or null when the route can be paid.
+ * R11.4.3. Built tiles the player has left over after paying a route's fixed
+ * slots, summed over the three types: what is free to go on its wild slots.
+ * Only meaningful when the fixed slots can be paid.
+ */
+export function spareTiles(player, route) {
+  let n = 0;
+  for (const terrain of TERRAINS) n += player.builtTiles[terrain] - route.cost[terrain];
+  return n;
+}
+
+/**
+ * R11.4.3, R11.12.2. The first thing the player cannot pay for a route, or
+ * null when the route can be paid. A terrain the player holds too few built
+ * tiles of gives `{ terrain, need, have }`. When every fixed slot is paid but
+ * too few tiles are left for the wild slots, `terrain` is `'wild'`: `need` is the
+ * number of wild slots and `have` the spare tiles (`spareTiles`).
  */
 export function routeShortfall(player, route) {
   for (const terrain of TERRAINS) {
     const need = route.cost[terrain];
     if (need > 0 && player.builtTiles[terrain] < need) return { terrain, need, have: player.builtTiles[terrain] };
   }
+  if (route.wild > 0) {
+    const have = spareTiles(player, route);
+    if (have < route.wild) return { terrain: 'wild', need: route.wild, have };
+  }
   return null;
 }
 
-/** R11.4.3. Whether the player's built tiles pay for every slot of the route. */
+/** R11.4.3. Whether the player's built tiles pay for every slot of the route, wild slots included (R11.12.2). */
 export function canAffordRoute(player, route) {
   return routeShortfall(player, route) === null;
+}
+
+/**
+ * R11.12.5, R11.12.6. A laid route's slots by terrain as rules that read a
+ * slot's terrain see them: its fixed slots plus, with `wildSlotTerrain =
+ * tile-terrain`, each wild slot under the terrain of the tile on it. With
+ * `no-terrain` a wild slot is in no count. Returns `{ ground, tunnel, bridge }`.
+ */
+export function laidSlotTerrains(state, route) {
+  const out = { ground: route.cost.ground, tunnel: route.cost.tunnel, bridge: route.cost.bridge };
+  if (route.wild > 0 && state.variants.wildSlotTerrain === 'tile-terrain') {
+    const fill = state.map.wildFill[route.id];
+    if (fill !== undefined) for (const f of fill) out[f.terrain] += 1;
+  }
+  return out;
 }
 
 /** "Seattle - Spokane": a route by the names of its two end cities. */
@@ -424,6 +457,8 @@ export function formatRouteCost(state, route) {
   for (const terrain of TERRAINS) {
     if (route.cost[terrain] > 0) parts.push(`${route.cost[terrain]} ${K.NAMES[terrain]}`);
   }
+  // R11.4.3 - each wild slot takes one more built tile of any type.
+  if (route.wild > 0) parts.push(`${route.wild} ${K.NAMES.wild}`);
   return parts.join(' + ');
 }
 
@@ -502,7 +537,7 @@ export function moveTrainPath(state, playerId, from, to) {
   const INF = [Infinity, Infinity];
   const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
   // toTarget[v] = cheapest [tolls, routes] from v to `to`, counting the cities
-  // entered after v. A small graph (25 cities): relax until nothing changes.
+  // entered after v. A small graph (35 cities): relax until nothing changes.
   const toTarget = {};
   for (const c of MAP.cityIds) toTarget[c] = INF;
   toTarget[to] = [0, 0];
@@ -763,7 +798,8 @@ export function ownedSlotsOf(state, playerId, terrain) {
   const all = terrain === undefined || terrain === null;
   for (let i = 0; i < routes.length; i++) {
     const route = routes[i];
-    if (owner[route.id] === playerId) n += all ? route.length : route.cost[terrain];
+    if (owner[route.id] !== playerId) continue;
+    n += all ? route.length : laidSlotTerrains(state, route)[terrain];
   }
   return n;
 }

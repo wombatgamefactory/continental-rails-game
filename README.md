@@ -82,7 +82,7 @@ The variants (the engine's table in `src/engine/variants.js` is the one list; th
 | `claimFrom` | railhead* / network | Claim only where a railhead stands (with Move Train), or anywhere touching your network (no Move Train) |
 | `layTrackClaims` | per-step* / per-railhead | How many claims one Lay Tracks action gives |
 | `gameEndTrigger` | own-crossing* / any-crossing | Whether a transcontinental line must be one player's own routes |
-| `endRoutesPerPlayer` | 0 to 23 (default 8) | Game end is triggered when claimed routes reach this number x players (0 = off) |
+| `endRoutesPerPlayer` | 0 to 32 (default 10) | Game end is triggered when claimed routes reach this number x players (0 = off) |
 | `maxTurnsPerPlayer` | 0 to 500 (default 80) | Digital safety stop: the game end is triggered when a player has taken this many turns (0 = off) |
 | `bonusActionLimit` | once-per-turn* / once-per-game / multiplied | How often a bonus action may be taken |
 | `hireCostModel` | fee-plus-table / fee-only* / table-only | What the Hire Specialist bonus action costs |
