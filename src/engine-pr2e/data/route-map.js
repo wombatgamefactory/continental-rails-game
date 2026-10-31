@@ -1,5 +1,6 @@
 // GENERATED FILE - do not edit by hand.
 // Source: src/engine-pr2e/data/route-map.json (route map v3)
+// Regenerate with: node tools/build-route-map-module.mjs pr2e
 //
 // Cities: id, name, x, y (mm on the 600 x 350 board), role ("w" = west
 // start city, "e" = east start city, "" = inland city).

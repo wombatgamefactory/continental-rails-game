@@ -48,7 +48,7 @@ Conventions used throughout:
 | Field | Meaning |
 |---|---|
 | `name` | `test` or `baseline`. |
-| `variants` | All 25 variants, resolved (`resolveVariants`). |
+| `variants` | All 26 variants, resolved (`resolveVariants`). |
 | `variantsNonDefault` | Only the ones that differ from the default (`nonDefaultVariants`). |
 | `constants` | The `--const.*` overrides passed to `createGame` (`{}` for none; always `{}` in the baseline). |
 | `gamesKept` | Whether `games` holds the records. |

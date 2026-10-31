@@ -2,7 +2,7 @@
 
 Date: 11/10/2026. Build label: `prototype 2026-10-11` (`src/ui/config.js`). Machine: Windows 11, Node 24, the installed Chrome (154), 23 worker threads.
 
-**Status: published on 11/10/2026** at <https://www.wombatgamefactory.com/continental-rails-game/>. Sections 1 to 5 record the check made before publication; sections 6 to 8 were brought up to date afterwards. **Section 9 (31/10/2026) records the check of the second ruleset, Pacific Rails, second edition, added after publication and not yet published: its tests, simulations, browser checks, the bugs it found, the issues left open and the terminology debt of the Continental Rails screens.**
+**Status: published on 11/10/2026** at <https://www.wombatgamefactory.com/continental-rails-game/>. Sections 1 to 5 record the check made before publication; sections 6 to 8 were brought up to date afterwards. **Section 9 (31/10/2026) records the check of the second ruleset, Pacific Rails, second edition, added after publication and not yet published: its tests, simulations, browser checks, the bugs it found, the issues left open and the terminology debt of the Continental Rails screens.** **Section 10 (31/10/2026) records the check of route map v3, the wild slot and the new Continental Rails player-board art, in both rulesets. Sections 1 to 9 describe the earlier map (25 cities, 47 routes, the end trigger at 8 routes a player): their map facts and figures are history.**
 
 This is the record of the last full check before the repository was made public: every test suite, the simulator, the browser checklist, the art inventory and a sweep of every file that is published. Anything not checked is marked NOT VERIFIED. The scripts that produced the browser results are in `tests/qa/` (run by hand, not part of `npm test`); their output goes to `tests/tmp/qa/` (not tracked).
 
@@ -261,3 +261,88 @@ Text the Continental Rails engine produces, which the screens show (block reason
 - `src/engine/conditions.js:170` ("specialist in your train").
 
 Not debt: "Move Train", "your train" for the piece that moves on the map (`legality.js:984`, `:994`, `:2169`, `rules.js:168`), and the code identifiers (`railhead`, `trainActivation`, the `train` field of the state), which keep their old spelling by rule. The art ids `illustration-train-engine` and `train-storage-carriage` and the CSS classes `train`, `region--trains` are names, not text.
+
+## 10. Route map v3, the wild slot and the new player-board art (31/10/2026)
+
+What changed since section 9: both rulesets play on route map v3 (35 cities, 65 routes, 134 slots, 3 of them wild slots; engines, bots and the on-screen map redrawn on the designer's watercolour backdrop), Continental Rails' route end trigger is 10 routes a player, and Continental Rails has its new player-board, carriage, specialist and resource art. This is the check of all of it together, on the working tree at commit 4f9ae20 plus the small fixes of 10.6. Windows 11, Node 24, the installed Chrome 156, 24 logical processors. The hand-run script `tests/qa/human-game-map3.mjs` is new.
+
+**Another project's job shared this machine.** A bot-ladder run of a different game used 16 worker processes from 17:52 to 18:11 and again from 18:34 for about 20 minutes. Every timed check below says whether it ran while the machine was quiet; a check that fails only under load is recorded as such, not hidden.
+
+### 10.1 Tests
+
+| Check | Result |
+|---|---|
+| `npm test` (24 suites), run 1, **machine busy** with the other job | 23 passed, 1 failed: `smoke`, only its check "random playouts run at a usable speed" (16,566 decisions a second at 2 players against the 20,000 it asks for); every game and every other check of the suite passed. Not a fault of the game |
+| `npm test`, runs 2 and 3, **quiet** | 24 suites, 0 failed, both times (run 3: 218 s). The speed check read 108,000 decisions a second at 2 players. Counts: rules audit 496/496 (6 skipped), second-edition audit 386/386 (18 skipped), smoke 3,027/3,027 (2,933 random games, 2,486,923 decisions, 0 refusals, 0 cap hits), rules-data 23/23 (one new check, 10.6) |
+| `npm run test:ui` (71 sections), run 1, **quiet** | 71/71, 0 console, page or request problems, 165 s |
+| `npm run test:ui`, run 2, **busy again** (the other job's second run) | 70/71 in 449 s: section 17a (carriage upgrades, Continental Rails) hit a 3 s click timeout ("target space:W1 is not clickable"), the kind of failure a loaded machine causes; the same section passed in run 1 and in run 3 below |
+| `npm run test:ui`, run 3, **quiet** (the other job had ended) | 71/71, 0 console, page or request problems, 242 s |
+| `node tests/qa/sweep.mjs` | clean every time: 446 files, 9.95 MB (the backdrop is 247 KB, inside its exemption), every category at 0 (three runs, the last after every document edit of this round) |
+
+### 10.2 One clicked game in each ruleset, with wild-slot decisions
+
+`tests/qa/human-game-map3.mjs --rules=continental|pr2e` (adapted from the second edition's human-game script): one human seat against a Medium and an Easy bot, 3 players, 1440 x 900, played to the end screen by clicking the page's own controls (board targets, prompt-panel buttons and the choice dialog). A random clicker almost never builds two kinds of tile, and the engine asks about a wild slot only when more than one kind could fill it, so the script makes two **assisted** moves, recorded in its output: at the human's 15th and about 45th decision it saves the game through `window.__cr.saveGame()`, gives the human 2 built tiles of each kind and a train on the first city of an unlaid wild route (Spokane for Spokane - Helena, Billings for Billings - Denver), and reloads it through `loadState`; from then on it heads for that route. Every other click is its seeded random rule.
+
+| | Continental Rails | Second edition |
+|---|---|---|
+| Game | 98 human decisions, 105 turns, ended by the transcontinental line, 271 / 225 / 95 VP (the human last), 38 s | 61 human decisions, 60 turns, ended by the line (and the last round), 151 / 150 / 39 VP (the human last), 16 s |
+| Wild-slot decisions taken by the human | 2: Spokane - Helena slot 3 (Ground, Tunnel and Bridge offered; chose Ground), Billings - Denver slot 2 (all three offered; chose Tunnel) | the same 2, same offers and choices (the second edition asks when the lay ends) |
+| What the page showed | the prompt named the slot and route, three buttons "Ground tile / Tunnel tile / Bridge tile" with "You hold 2", exactly one slot lit on the map; the choice was in `map.wildFill` at the end | the same text and lit slot; `remaining: 0` in the frame |
+| Console, page or request problems; bot-driver incidents | 0; 0 | 0; 0 |
+| Clicks that fell back from a board target to a prompt-panel button | 6, all "discard" while the Pony Express dock tab was open (the discard targets are on the player board, in the Train tab, which was not showing; the prompt panel's buttons worked and the prompt says "click an item here or in your storage") | 0 |
+
+The set-up screen's house-track target (`house:coins`) is a transparent wrapper over the whole track by design (its own house spaces and production badge take the click, as the second edition's fix of 9.5 does), so the script clicks the badge. Looked at (screenshots of the prompt, the position after the choice, the assist, early play and the end screen, both rulesets): the map, backdrop, slots, icons and labels agree with the printed board at 1440 x 900, the wild-slot prompt and the lit slot are right, and both end screens are right; the one oddity is cosmetic (10.7 item 7). The two older hand-run games were re-run on the new map and pass: `tests/qa/human-game-pr2e.mjs` (all checks, including "Replay this seed" and "New game" keeping the ruleset) and `tests/qa/human-game.mjs --preset=full` (112 human decisions, 0 console problems, 64 turns; 31 of its clicks now go to the prompt panel's buttons because the player board's house-track and storage targets are only clickable on their own spaces or when the Train tab is showing, which is by design).
+
+### 10.3 Bot timing in the browser
+
+`node tests/mcts-browser.mjs --level=<level> --rules=<rules> --seed=<n>`, speed "instant", against a Medium bot, quiet machine; time-budgeted bots are not reproducible, so each combination was played twice (seeds 7 and 11) and the second edition's Hard seed 7 three times. Per turn of the search bot: mean (95th percentile, maximum); then the longest gap between two animation frames while the bot thinks.
+
+| | Continental Rails Hard | Second edition Hard | Continental Rails Expert | Second edition Expert |
+|---|---|---|---|---|
+| seed 7 | 1.40 s (1.87, 1.88); 117 ms | 1.60 s (2.53, 2.63); **317 ms**; repeats 1.34 s (1.98, 2.33); 50 ms and 1.34 s (2.03, 2.32); 50 ms | 4.61 s (7.33, 7.50); 117 ms | 4.95 s (8.63, 9.25); 83 ms |
+| seed 11 | 1.41 s (2.48, 2.48); 50 ms | 1.35 s (2.08, 2.08); 183 ms | 6.01 s (9.07, 9.07); 117 ms | 5.02 s (7.85, 8.37); 217 ms |
+| Both games together | 1.40 s over 43 turns | 1.41 s over 92 turns (4 games) | 5.23 s over 41 turns | 4.99 s over 46 turns |
+| Whole game | 36 s and 31 s | 41, 34, 34 and 30 s | 115 s and 119 s | 120 s and 120 s |
+
+The figures of `docs/bots.md` (seed 7, old map) were second-edition Expert 4.98 s and Continental Rails Expert 4.50 s; on the new map and the same seed they are 4.95 s and 4.61 s, so the larger map has not made a search turn slower (the budget is a clock; what changes is the playouts a turn buys). Every check of the harness passed in all runs except **one**: the second edition's Hard game of seed 7, first run, had a 317 ms gap between two frames (the limit is 250 ms); its two repeats had 50 ms and the other second-edition games 183 ms and 217 ms, which fits the earlier record (217 ms), so it reads as a one-off hitch of the machine, not a regression. Clicks while the bot thinks were handled in 8 to 12 ms on average (16 ms at most), and the thinking indicator was on screen in every frame.
+
+### 10.4 Simulation health
+
+500 games each, `--jitter=0.05`, default variants, seed 1, 6 worker threads (the results do not depend on the thread count). Every run had 0 failed games, 0 refused bot actions, 0 decision-cap hits, 0 crashes and 0 bookkeeping mismatches. Mixed table: Medium, Easy, Random with rotated seats.
+
+| Ruleset, table | Turn-limit games | End reasons | Turns a player: mean (range) | Seat win rates | Routes claimed a game |
+|---|---|---|---|---|---|
+| Continental Rails, 2 players, Medium | 0 | routes claimed 381 (76.2%), transcontinental 119 | 22.9 (15 to 30) | 55.1 / 44.9% | 19.8 of 65 |
+| Continental Rails, 3 players, Medium | 0 | routes claimed 156 (31.2%), transcontinental 344 | 23.5 (14 to 32) | 66.7 / 21.2 / 12.1% | 27.0 |
+| Continental Rails, 4 players, Medium | 0 | routes claimed 82 (16.4%), transcontinental 418 | 23.2 (11 to 33) | 29.7 / 18.5 / 25.5 / 26.4% | 34.0 |
+| Continental Rails, 3 players, Medium + Easy + Random | 0 | routes claimed 29 (5.8%), transcontinental 471 | 26.9 (13 to 45) | by seat 34.5 / 33.6 / 31.9%; by bot Medium 94.3%, Easy 5.7%, Random 0% | 21.2 |
+| Second edition, 2 players, Medium | 0 | transcontinental 500 | 23.4 (14 to 34) | 46.9 / 53.1% | 17.7 |
+| Second edition, 3 players, Medium | **2 (0.4%)** | transcontinental 498 | 23.7 (14 to 70) | 39.4 / 30.2 / 30.4% | 23.1 |
+| Second edition, 4 players, Medium | **12 (2.4%)** | transcontinental 488 | 25.3 (13 to 77) | 30.1 / 23.5 / 24.5 / 21.9% | 27.2 |
+| Second edition, 3 players, Medium + Easy + Random | 0 | transcontinental 500 | 25.3 (15 to 37) | by seat 34.3 / 30.7 / 35.0%; by bot Medium 89.2%, Easy 10.8%, Random 0% | 18.7 |
+
+Means exclude turn-limit games. **The second edition's turn-limit games are confirmed**: 0.4% at 3 players and 2.4% at 4, exactly the figures the engine port found. The port's diagnosis is that the Medium bot has a full storage of tiles of the wrong terrain, its line stops one or two slots short, and it does not build what it lacks; a horizon floor in the planner was tried and reverted. Not fixed here (bot work). Seat win rates are bot evidence: the Continental Rails 3-player table gives seat 1 two thirds of the wins and its 4-player table gives seat 2 only 18.5%; with the end trigger at 10 routes a player, 76% of its 2-player games end by the route limit and not by a transcontinental line.
+
+### 10.5 Fixed-seed baselines on route map v3, and determinism
+
+`node sim/sim.mjs --games=40 --players=3 --bots=medium,easy,random --seed=4242` (the second edition with `--rules=pr2e`), run twice per ruleset with different thread counts (4 and 2). **All 40 games of each pair are identical** (every field of every game and of the arm's aggregates, ignoring only the per-game `timing.ms`): the engines are deterministic on the new map. The first run of each is the new baseline, kept outside the repository; the old Continental Rails identity check of 9.3 is retired by design, because the map changed the game. Both ended 40 of 40 with 0 refusals.
+
+### 10.6 Small repository fixes made in this round
+
+- `tools/build-route-map-module.mjs` now builds both engines' `route-map.js` (`continental`, `pr2e`, or both with no argument). The Continental Rails module regenerates byte for byte; the second edition's differs from the committed one in one header line (`Regenerate with: node tools/build-route-map-module.mjs pr2e`).
+- `tests/rules-data.test.mjs`: a check that the two engines' `route-map.json` files are identical, that the second edition's `route-map.js` equals its JSON, and that both modules hold the same map.
+- `tests/rules-audit-pr2e/part-6.mjs` (check `P21.2/telegraph-and-carriage3`): it laid `SEA-SPO`, a route of the old map, which the helper skipped silently (the check passed on the telegraph VP for another reason); it now lays `SEA-YAK` with a Tunnel, so the check does what it says. Audit still 386/386.
+- Stale text: `SEA-SPO` in comments and the engine contract (now `SEA-TDL`), `DEN-KCY` in the bug-report example (`GRI-KCY`), "serves all 17" Pony Express tokens in the art manifest (27), "8 routes per player" in `tests/smoke.test.mjs` and `docs/rules-audit-report.md` (the default is 10), the variant counts (26 and 8) in the README, `docs/engine-todo.md` and `sim/SCHEMA.md`, and an old-map note in `docs/rules-audit-report-pr2e.md`. A search for "25 cities", "47 routes", "136", "17 inland", "500 x 400", Cheyenne, Sioux Falls and every route id that no longer exists found nothing else outside git history and the ignored `tests/tmp/` scratch folder (old-map files from earlier work).
+
+### 10.7 Known issues and behaviours left open
+
+1. **The second edition's Medium bot ends 0.4% (3 players) and 2.4% (4 players) of its games by the turn limit** (10.4): a bot weakness, not a rules fault. `maxTurnsPerPlayer` (80) is what stops them.
+2. **The map is small at 1280 x 800.** The drawn map is 600 px wide there (681 px at 1440 x 900, 994 at 1920 x 1080), under half the page, with an empty strip of its frame below it, and the slot icons are small. An **"enlarge map" toggle** (the map across the centre and the dock folded away while it is on) is the idea; not built. At phone width the map is 780 px wide inside its own frame and the page does not scroll sideways.
+3. **Art and engine storage disagree (Continental Rails).** The printed board and carriage are the one-kind-of-carriage design of spec v5 (6 spaces on the board, 3 on each carriage); the engine plays spec v4's storage (a specialist carriage stores nothing; a storage carriage holds 9). The board draws the stored items on the printed spaces in order, puts a lid on spaces the capacity does not allow, and shows capacity beyond the printed spaces as a "More storage" row. When the engine moves to v5 the lids and the extra row never appear (`src/ui/cr-player-board.js`).
+4. **Continental Rails' discard prompt says "click an item here or in your storage"**, but the storage is in the Train tab, which is not opened for the decision when another dock tab (here Pony Express) is showing; the prompt's own buttons always work. A small change if wanted.
+5. **Seat bias with identical Medium bots on the new map** (10.4): Continental Rails 3 players 66.7 / 21.2 / 12.1%; the second edition's old bias has mostly gone (4 players 40 / 38 / 12 / 10% before, 30 / 24 / 25 / 22% now). Bot evidence only.
+6. **The route end trigger is now the usual end of a two-player game** (76% of Continental Rails games at 2 players end by the 10-route limit; 31% at 3 players, 16% at 4).
+7. **Cosmetic, not investigated:** on the second edition's end screen the game log's "Scoring" popover shows at full brightness at the right edge, beside the dimmed end dialog.
+8. **A timed check can fail on a busy machine** (the smoke suite's decisions-a-second check, the UI test's 3 s click timeouts, the browser harness's 250 ms frame gap). They need a quiet machine, as their headers say.
+9. **The rulebook, the sell sheet and the map diagrams lag the new map** (the rulebook is written from spec v8 and shows route map v2); section 9.8's line numbers for the terminology debt are those of the earlier date. Not touched here.
+10. Still not verified (as in section 2): browsers other than Chrome, real phones and tablets, screen readers.

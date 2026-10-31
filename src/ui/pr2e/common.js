@@ -121,7 +121,7 @@ export function flashDelay(ctx) {
 /**
  * The identity attributes of one target (click key, tooltip key, and while the
  * player is deciding its state), like the Continental Rails screens: `kind` is
- * the kind of target ("route"), `key` the full key ("route:SEA-SPO").
+ * the kind of target ("route"), `key` the full key ("route:SEA-TDL").
  */
 export function tgt(ctx, kind, key) {
   let attrs = ` data-target="${esc(key)}" data-tip="${esc(key)}"`;

@@ -1846,7 +1846,7 @@
     "name": "Pony Express token",
     "width": 160,
     "height": 160,
-    "shows": "A round token with a horse and rider in motion. The same picture serves all 17; the UI writes the city name.",
+    "shows": "A round token with a horse and rider in motion. The same picture serves all 27; the UI writes the city name.",
     "usedFor": "Pony Express tokens on inland cities, in player hands and as a spendable resource (R18).",
     "source": null,
     "notes": "Art list: \"Pony Express\" icon, not complete."

@@ -142,7 +142,7 @@ Rule: **a function that takes only the state and returns only data lives in the 
 
 ## 3. State shape
 
-Plain JSON throughout: objects, arrays, strings, finite numbers, booleans, `null`. Never `undefined`, functions, Dates, Maps, Sets or class instances. Collections over board elements are objects keyed by the element's id (`spaces.W4`, `routeOwner['SEA-SPO']`), so an action's id indexes the state directly.
+Plain JSON throughout: objects, arrays, strings, finite numbers, booleans, `null`. Never `undefined`, functions, Dates, Maps, Sets or class instances. Collections over board elements are objects keyed by the element's id (`spaces.W4`, `routeOwner['SEA-TDL']`), so an action's id indexes the state directly.
 
 No derived data is stored. Everything that can be computed from the fields below is computed by a query. (There are no caches at present; if one is ever added it must be documented here, be plain JSON, and be covered by the clone and hash tests.)
 
@@ -372,7 +372,7 @@ How the larger sequences unfold:
 
 An action is `{ type, ...params }`, plain JSON. `player` is optional: if present it must equal `state.toAct` (and `getBlockReason` answers for that player). `getValidActions` does not add it.
 
-Ids used in parameters: districts `D1` to `D9` (positions of the grid, R5.1); worker spaces `W1` to `W12` (R5.2); cities and routes as in the map data (`SPO`, `SEA-SPO`); resources `iron`, `wood`, `gunpowder`; tile types and terrains `ground`, `tunnel`, `bridge`; specialists `crew`, `miner`, `engineer`, `financier`; house tracks `wood`, `coins`, `iron`, `gunpowder`.
+Ids used in parameters: districts `D1` to `D9` (positions of the grid, R5.1); worker spaces `W1` to `W12` (R5.2); cities and routes as in the map data (`SPO`, `SEA-TDL`); resources `iron`, `wood`, `gunpowder`; tile types and terrains `ground`, `tunnel`, `bridge`; specialists `crew`, `miner`, `engineer`, `financier`; house tracks `wood`, `coins`, `iron`, `gunpowder`.
 
 ### 5.1 Implemented (26)
 

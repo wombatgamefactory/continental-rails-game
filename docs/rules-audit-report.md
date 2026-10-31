@@ -16,7 +16,7 @@ The map is now route map v3 (35 cities, 27 of them inland, 65 routes of 1 to 4 s
 
 Result: `rules-audit: 496/496 checks passed (6 skipped)`. The counts in sections 1 and 2 are those of the audit of 11/10/2026.
 
-**Found while porting (not changed, for the designer).** At the engine's default `gameEndTrigger` (`own-crossing`) a crossing needs 6 or more routes of one player (12 slots at the least), and the second end trigger (8 routes a player) now comes first in almost every game (in the simulator the 8-routes trigger ends 96%, 73% and 64% of Medium games at 2, 3 and 4 players, against 28%, 34% and 15% on the old map); the spec's v7 default `any-crossing` is not in the engine yet.
+**Found while porting (not changed, for the designer).** At the engine's default `gameEndTrigger` (`own-crossing`) a crossing needs 6 or more routes of one player (12 slots at the least), and the second end trigger (the route limit) comes first in many games (written when the limit was 8 routes a player: it ended 96%, 73% and 64% of Medium games at 2, 3 and 4 players, against 28%, 34% and 15% on the old map; Dean then raised the default to 10 on 31/10/2026, see docs/qa-report.md for the current figures); the spec's v7 default `any-crossing` is not in the engine yet.
 
 ## Update of 20/10/2026: rules spec v8, the Congress table
 

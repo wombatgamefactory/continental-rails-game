@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import * as engine from '../src/engine/index.js';
 import { ROUTE_MAP } from '../src/engine/data/route-map.js';
+import { ROUTE_MAP as ROUTE_MAP_PR2E } from '../src/engine-pr2e/data/route-map.js';
 import { makeSuite } from './helpers/play.mjs';
 
 const {
@@ -482,6 +483,14 @@ suite.check('route-map.js and route-map.json hold the same data', () => {
   const normalised = JSON.parse(JSON.stringify(json));
   assert.deepEqual(ROUTE_MAP, normalised, 'regenerate with: node tools/build-route-map-module.mjs');
   assert.equal(JSON.stringify(ROUTE_MAP), JSON.stringify(json));
+});
+
+suite.check('the second edition keeps its own copy of the map, identical to Continental Rails\' (JSON and generated module)', () => {
+  const read = (engineDir) => readFileSync(join(here, '..', 'src', engineDir, 'data', 'route-map.json'), 'utf8');
+  assert.equal(read('engine-pr2e'), read('engine'), 'the two route-map.json files differ: replace both, then run node tools/build-route-map-module.mjs');
+  const pr2eJson = JSON.parse(read('engine-pr2e'));
+  assert.equal(JSON.stringify(ROUTE_MAP_PR2E), JSON.stringify(pr2eJson), 'src/engine-pr2e/data/route-map.js is out of date: node tools/build-route-map-module.mjs pr2e');
+  assert.equal(JSON.stringify(ROUTE_MAP_PR2E), JSON.stringify(ROUTE_MAP));
 });
 
 suite.check('the map: 35 cities, 65 routes, 134 slots, and the facts of Appendix A.3', () => {

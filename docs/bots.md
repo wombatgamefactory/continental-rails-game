@@ -105,6 +105,8 @@ Measured with `tests/mcts-browser.mjs`, speed "instant", against a Medium bot:
 | "is thinking..." indicator on screen while the bot is to act | every frame | every frame |
 | Whole game | 39 s | 112 s |
 
+**On route map v3 (31/10/2026)**, two games each (seeds 7 and 11), quiet machine: Hard 1.40 s a turn on average over 43 turns (95th percentile 1.9 to 2.5 s, maximum 2.5 s; longest frame gap 117 ms), Expert 5.23 s over 41 turns (4.61 s and 6.01 s in the two games; 95th percentile 7.3 and 9.1 s, maximum 9.1 s; longest frame gap 117 ms); whole games 31 to 36 s and 115 to 119 s. Clicks were handled in 9 to 12 ms on average. Seed 7 alone gives Expert 4.61 s against the 4.50 s measured on the old map: the larger map has not slowed a turn, and the two-game spread (4.6 to 6.0 s) is wider than any difference between maps.
+
 The search runs in the Web Worker (`src/bots/bot-worker.js`), so the page never blocks. The page's bot driver allows each *decision* at least 15 seconds (32 seconds for Expert) before it gives up on the worker; the longest single decision of an Expert turn is about 3 seconds. Pacing at the "normal" speed setting: the page waits 0.85 seconds before each decision of a bot that answers at once (Random, Easy, Medium) so that its moves can be followed, but only 0.25 seconds before each decision of Hard and Expert, whose own thinking time is already the pause (`pacingFor` in `src/ui/bot-driver.js`; "fast" waits 0.22 and 0.08 seconds, "instant" none).
 
 ## Adding a level
@@ -180,6 +182,8 @@ It works out the same short plan from the state at every decision and scores eac
 | Medium v Medium, 3 players | 600 games: 0% by the turn limit; 20.8 turns; seat wins 52.2%, 34.3%, 13.6% |
 | Medium v Medium, 4 players | 600 games: 0% by the turn limit; 21.7 turns; seat wins 39.4%, 37.5%, 12.7%, 10.4% |
 
+(Every row of this table, and the figures below it, were measured on the old route map. On route map v3 (31/10/2026; 500 games, `--jitter=0.05`, seed 1) Medium v Medium gives: **2 players** 23.4 turns a player, 0 turn-limit games, all by the line, seat wins 46.9% and 53.1%; **3 players** 23.7 turns, 2 turn-limit games (0.4%), seat wins 39.4%, 30.2%, 30.4%; **4 players** 25.3 turns, 12 turn-limit games (2.4%), seat wins 30.1%, 23.5%, 24.5%, 21.9%. The old seat bias has largely gone. The turn-limit games are a Medium weakness, not a rules fault: a bot with a full storage of the wrong tiles, one or two slots short of the line, that does not build the tiles it lacks; a horizon floor in the planner was tried and reverted while the map was being ported (`docs/qa-report.md`, section 10). At a table of Medium, Easy and Random (rotated seats, 500 games) Medium wins 89.2%, Easy 10.8%, Random 0%, and nothing ends by the turn limit.)
+
 Later seats lose heavily at 3 and 4 players, with identical bots: a game is a race to the line and the first two seats choose their worker spaces and Congress columns first. That is a property of the rules as played by this bot, not a bot defect that was found, but it deserves a look before the figures are quoted as balance evidence.
 
 **Where Medium's points come from** (2 players, 1000 games, per player, VP: share): track 27.0 (20.8%), completion 7.0 (5.4%), telegraph 18.1 (14.0%), toll 2.9 (2.3%), district houses 2.1 (1.6%), upgrades 1.7 (1.3%), Congress 15.2 (11.7%), carriage 3 4.9 (3.8%), buildings at the end 42.1 (32.4%), built tiles at the end 2.2 (1.7%), goals 6.6 (5.1%); about 130 VP a player. It uses Congress heavily (35.6 columns and Resets a game; 16 Coins collected a player against 1 to 2 of each other resource: it plays a Coin economy, takes 2.4 upgrade tokens a player, and takes about 1.3 of the 4 goals in play). It rarely collects iron, wood or gunpowder: the Foreman and Congress rewards (columns K1 to K3 and K6) supply them. Tolls are small (2.9 VP a player): it avoids paying them and places buildings in junction cities, but a 2-player map gives few chances.
@@ -208,6 +212,18 @@ A pr2e playout costs about twice a Continental Rails one, and a decision cannot 
 | Whole game | 37 s, 37 turns | 137 s, 51 turns | 94 s, 36 turns |
 
 Every check of the harness passed in all three runs (the game reaches the end screen, no console or page error, no driver incident, the frame counter keeps ticking, no frame gap over 250 ms, clicks handled within 100 ms, the indicator visible, a turn takes about its budget). The second-edition Expert turn is about a half second longer than the Continental Rails one on average (a playout costs about twice as much and a decision cannot stop in the middle of one), within the limit the harness sets (2.4 to 10.2 s a turn, 95% under 13.2 s) and under the page's driver timeout. The harness's click control was a stale selector (it clicked a control that no longer exists, so no click was measured); it now clicks a player card, and `--rules=` was added.
+
+**On route map v3 (31/10/2026)**, `node tests/mcts-browser.mjs --level=<level> --rules=pr2e --seed=<7 or 11>`, quiet machine, wild slots in the lays; the Continental Rails figures from the same session are beside them:
+
+| | pr2e Hard | pr2e Expert | Continental Rails Hard | Continental Rails Expert |
+|---|---|---|---|---|
+| Turns of the search bot (seed 7 + seed 11) | 92 (four games) | 46 | 43 | 41 |
+| Mean wall time per turn | 1.41 s | 4.99 s (4.95 s and 5.02 s) | 1.40 s | 5.23 s (4.61 s and 6.01 s) |
+| 95th percentile / maximum of a game | 2.0 to 2.5 s / 2.6 s | 7.9 and 8.6 s / 9.3 s | 1.9 to 2.5 s / 2.5 s | 7.3 and 9.1 s / 9.1 s |
+| Longest frame gap while the bot thinks | 50 to 317 ms | 83 and 217 ms | 50 and 117 ms | 117 ms |
+| Whole game | 30 to 41 s | 120 s | 31 and 36 s | 115 and 119 s |
+
+Seed 7, the seed of the table above: second-edition Expert 4.95 s (4.98 s on the old map), Continental Rails Expert 4.61 s (4.50 s). Every harness check passed in every game except one: the second edition's first Hard game of seed 7 had a 317 ms gap between two frames (the limit is 250 ms) and two repeats had 50 ms, so it was a one-off hitch of the machine. The turn-limit games of the Medium policy on this map (0.4% of 3-player and 2.4% of 4-player games) are described under "Results" above; they come from a full storage of the wrong tiles with the line one or two slots short, not from the search.
 
 Where to look: `describePlan(state)` of the policies prints the two targets; `scoreValidActions(state)` gives the scores the search starts from.
 

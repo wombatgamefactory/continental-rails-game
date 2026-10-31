@@ -586,7 +586,7 @@ report.push(
 
 const builderRuns = {};
 // On the 65-route map a crossing takes at least 6 routes of one player's own (12 slots at the least), and at the default of
-// 8 routes per player the map-filling end always comes first. So the 'line' builder plays with the route limit raised to
+// 10 routes per player (the default since 31/10/2026) the route-limit end usually comes first. So the 'line' builder plays with the route limit raised to
 // 16 per player, which lets it finish a crossing in most games (the end by the turn limit or by the map filling up is
 // still possible); the 'sprawl' builder keeps the default and is what ends games by the map filling up.
 const BUILDER_VARIANTS = { line: { endRoutesPerPlayer: 16 }, sprawl: {} };

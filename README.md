@@ -32,6 +32,18 @@ Two to four seats, each a human (pass the device between turns) or a bot. A game
 
 How each works, how strong each is, what was tried and how to add a level: [docs/bots.md](docs/bots.md).
 
+## The map
+
+Both rulesets play on the same map, **route map v3**, drawn by the game on the designer's watercolour backdrop (`assets/ui/map-backdrop-v3.webp`) with the cities, routes, slots, icons and labels placed where the printed board has them (`src/ui/map-draw.js`, `map-icons.js`, `map-labels.js`; the data is `src/engine/data/route-map.json`, and a copy in `src/engine-pr2e/data/`).
+
+- A 600 x 350 mm board with **35 cities**: 8 start cities on the edges (4 west, 4 east) and **27 inland cities**.
+- **65 routes** of 1 to 4 slots (16 of one slot, 31 of two, 16 of three, 2 of four) with **134 slots**: 46 Ground, 44 Tunnel, 41 Bridge and **3 wild slots**.
+- A **wild slot** (tan, with a "?"; "any tile" on screen) takes one built tile of any kind. When more than one kind could go there the player is asked which (the engine's `wildSlot` decision and `fillWildSlot` action); when only one could, the engine fills it. What a filled wild slot counts as where a rule reads a laid slot's terrain (the scoring card, milestones) is the variant `wildSlotTerrain` (`tile-terrain` by default; the second edition has no such rule, so both values play the same game there).
+- Continental Rails' junction cities (5 or more printed routes) are 12, its North region (the top third of the board) has 8 inland cities and its South region 11; Long Haul needs a route of 4 slots.
+- The route end trigger of Continental Rails is 10 claimed routes a player by default (`endRoutesPerPlayer`).
+
+The map's data file is regenerated into each engine's `route-map.js` by `node tools/build-route-map-module.mjs` (both, or `pr2e` or `continental` alone); `tests/rules-data.test.mjs` checks that the two engines' copies are identical.
+
 ## Two rulesets
 
 The set-up page offers two sets of rules at the top of its panel, so a publisher can play and compare them on the same map:
@@ -41,7 +53,7 @@ The set-up page offers two sets of rules at the top of its panel, so a publisher
 | **Continental Rails** (the default) | `continental` | `src/engine/` | `src/bots/` | the page's own (`src/ui/`) |
 | **Pacific Rails, second edition**, the published 2020 rules of the game Continental Rails grew from | `pr2e` | `src/engine-pr2e/` | `src/bots/pr2e/` | `src/ui/pr2e/`, wired in by `src/ui/ruleset-views.js` |
 
-Each is a separate engine behind the same engine contract, with its own bots (Random to Expert, through the registry in `src/rulesets/`), its own variants (25 for Continental Rails, 7 for the second edition: Tycoon Mode and the rulings on how a lay works) and its own presets. The second edition plays the whole core rulebook of 2020 (the Financier and its eight-column Congress, carriage upgrades, cowboy hats and the goal tiles included), and its screens show a player board with a telegraph row and earned carriages, the Congress panel, the goals with their live leaders and route-by-route path lays.
+Each is a separate engine behind the same engine contract, with its own bots (Random to Expert, through the registry in `src/rulesets/`), its own variants (26 for Continental Rails, 8 for the second edition: Tycoon Mode, the rulings on how a lay works and the wild slot) and its own presets. The second edition plays the whole core rulebook of 2020 (the Financier and its eight-column Congress, carriage upgrades, cowboy hats and the goal tiles included), and its screens show a player board with a telegraph row and earned carriages, the Congress panel, the goals with their live leaders and route-by-route path lays.
 
 - **Choosing.** On the set-up page, or by address: `?rules=pr2e` (no `rules` means Continental Rails). The choice is kept in the address, shown in the game header, repeated on the end screen, recorded in saved games (a saved game of either ruleset loads into its own), in bug reports (`tools/replay-bug-report.mjs` picks the engine from the report) and in simulator output. "Play again" and "Replay this seed" keep the ruleset.
 - **Simulator.** `--rules=pr2e` (the default is `--rules=continental`); see "Simulate games" below.
@@ -51,9 +63,9 @@ How it fits together: [docs/engine-contract.md](docs/engine-contract.md), sectio
 
 ## Rule variants
 
-This section is about Continental Rails; the second edition's seven variants (`tycoonMode`, `layShape`, `newConnectionRule`, `arrivalBuilding`, `upgradePlacement`, `hatOverflow`, `maxTurnsPerPlayer`) are listed in [docs/engine-contract-pr2e.md](docs/engine-contract-pr2e.md), section 10, and on its set-up page, with four presets of their own.
+This section is about Continental Rails; the second edition's eight variants (`tycoonMode`, `layShape`, `newConnectionRule`, `arrivalBuilding`, `upgradePlacement`, `hatOverflow`, `maxTurnsPerPlayer`, `wildSlotTerrain`) are listed in [docs/engine-contract-pr2e.md](docs/engine-contract-pr2e.md), section 10, and on its set-up page, with four presets of their own.
 
-Every rule that was not settled is a switchable **variant**. On the set-up page, "Rules variants" lists all 25 with their choices (and three presets: Full game, Base game, Core only). A variant that differs from the default shows in the game header, on the end screen and in bug reports.
+Every rule that was not settled is a switchable **variant**. On the set-up page, "Rules variants" lists all 26 with their choices (and three presets: Full game, Base game, Core only). A variant that differs from the default shows in the game header, on the end screen and in bug reports.
 
 A configuration is shared by address: the set-up page keeps `?variants=name=value,name=value` in step with your choices, so copying the address copies the rules. For example:
 
@@ -92,6 +104,7 @@ The variants (the engine's table in `src/engine/variants.js` is the one list; th
 | `upgradeVpTiming` | per-activation* / on-install | Whether the three VP upgrade tiles score every activation or once |
 | `specialistActivations` | by-level / once* | Whether level 2 and 3 specialists act 2 and 3 times |
 | `gridLayout` | fixed* / shuffle-resources | Whether three Gather districts are shuffled at setup |
+| `wildSlotTerrain` | tile-terrain* / no-terrain | What a filled wild slot counts as where a rule reads a laid slot's terrain: the terrain of the tile on it, or none |
 
 ## Tests
 
@@ -100,7 +113,7 @@ npm test            # 24 suites in Node: the rules of both rulesets, data, deter
 npm run test:ui     # drives the real page in your installed Chrome or Edge with playwright-core (nothing is downloaded)
 ```
 
-`npm test` takes about three minutes and must always be green. `npm run test:ui` needs Chrome or Edge installed; it plays whole games through the page and fails on any console error, page error or failed request. Temporary files go to the operating system's temp folder, so two runs can overlap. A record of the last full quality check is in [docs/qa-report.md](docs/qa-report.md).
+`npm test` takes about four minutes on a quiet machine and must always be green (one of its checks, the speed of random playouts, can fail while other heavy jobs are running). `npm run test:ui` (71 sections, 3 to 4 minutes) needs Chrome or Edge installed; it plays whole games through the page and fails on any console error, page error or failed request. Temporary files go to the operating system's temp folder, so two runs can overlap. A record of the last full quality check is in [docs/qa-report.md](docs/qa-report.md). Hand-run scripts in `tests/qa/` (not part of either command) play whole games through the page, for example `node tests/qa/human-game-map3.mjs --rules=continental|pr2e`, which clicks one game to the end screen including wild-slot decisions, and `node tests/mcts-browser.mjs --level=expert --rules=pr2e`, which times a search bot in the page.
 
 ## Simulate games
 

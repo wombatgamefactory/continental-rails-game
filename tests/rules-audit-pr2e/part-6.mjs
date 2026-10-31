@@ -589,9 +589,9 @@ export default function part6() {
   });
 
   check('P21.2/telegraph-and-carriage3', 'PLAYER_BOARD.telegraphRowVp and carriage3SpaceVp are data', () => {
-    const s = scene({ trains: ['SEA', 'MIN'], tiles: { ground: 2 }, constants: { PLAYER_BOARD: { telegraphRowVp: [10, 20, 30, 40, 50, 60, 90] } } });
+    const s = scene({ trains: ['SEA', 'MIN'], tiles: { tunnel: 2 }, constants: { PLAYER_BOARD: { telegraphRowVp: [10, 20, 30, 40, 50, 60, 90] } } });
     setHouses(s, 0, 0);
-    layNow(s, ['SEA-SPO']);
+    layNow(s, ['SEA-YAK']);
     assert.equal(vp(s, 0, 'telegraph'), 10);
     const t = start(2, { constants: { PLAYER_BOARD: { carriage3SpaceVp: [4, 8] } } });
     giveCarriages(t, 0, [['crew', 'miner'], ['engineer', 'financier'], [null, null]]);

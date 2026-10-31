@@ -67,7 +67,7 @@ node tools/replay-bug-report.mjs bug-reports/<file>.json
 
 It checks the schema, rebuilds the state **both ways** (deserialise the stored state; replay config + actions) and compares them by `hashState` (a disagreement is itself a finding, exit code 3). Then it prints the reporter's words, the pending decision, the legal actions, and the block reasons **recomputed now** by the current engine, with a comparison against the reasons stored in the report: a difference means the engine has changed since the report was made. It also flags a control that the UI showed as disabled while the engine said the action was legal.
 
-Options: `--action='<json>'` asks the block reason for one specific action (for example `--action='{"type":"claimRoute","route":"DEN-KCY","from":"DEN"}'`); `--type=claimRoute` shows only that type; `--all` lists every blocked action. A truncated, wrong-schema or damaged file exits 2 with a plain sentence.
+Options: `--action='<json>'` asks the block reason for one specific action (for example `--action='{"type":"claimRoute","route":"GRI-KCY","from":"GRI"}'`); `--type=claimRoute` shows only that type; `--all` lists every blocked action. A truncated, wrong-schema or damaged file exits 2 with a plain sentence.
 
 To get the position into the browser, use the test hook: with `?test=1` the page exposes `window.__cr.loadState(text, seatKinds)`; `JSON.stringify(report.gameState)` is the text.
 

@@ -11,7 +11,7 @@
 // labelled with describeAction. The generic layer is therefore always complete,
 // and a new action type added to the engine works in the UI the day it exists.
 //
-// Targets are keyed "kind:id" (space:W4, district:D5, route:SEA-SPO, city:SPO,
+// Targets are keyed "kind:id" (space:W4, district:D5, route:SEA-TDL, city:SPO,
 // congress:C3, store:iron, house:wood). The DOM carries that key and nothing
 // else; main.js looks it up here when something is clicked.
 
@@ -428,7 +428,7 @@ export function stationEffect(state, playerId, action) {
  * not lit. (A lit target already has its legal actions; this is for the rest.)
  *
  * @param {object} state
- * @param {string} key a target key such as "route:SEA-SPO"
+ * @param {string} key a target key such as "route:SEA-TDL"
  * @param {{ hat?: boolean }} [opts]
  * @returns {object[]} probes, best guess first (empty when the key is unknown)
  */

@@ -6,7 +6,7 @@
 //
 // Nothing here decides what is legal. A thing is drawn as clickable only
 // because action-targets.js found a legal action for it. The DOM carries
-// identifiers (data-target="route:SEA-SPO") and nothing else.
+// identifiers (data-target="route:SEA-TDL") and nothing else.
 //
 // Every target carries one of three states (data-state):
 //   legal    the engine lists an action for it: lit.
@@ -68,7 +68,7 @@ function flashDelay(ctx) {
 /**
  * The identity attributes of one target: its key for clicks, its tooltip key,
  * and (while the player is deciding) its state. `kind` is the kind of target
- * ("route"), `key` the full target key ("route:SEA-SPO").
+ * ("route"), `key` the full target key ("route:SEA-TDL").
  */
 function tgt(ctx, kind, key) {
   let attrs = ` data-target="${esc(key)}" data-tip="${esc(key)}"`;
