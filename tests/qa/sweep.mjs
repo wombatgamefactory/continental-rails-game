@@ -13,7 +13,7 @@
 //                        of the second ruleset (the title followed by ", second edition"), ruled 31/10/2026
 //   terminology          "Steel" anywhere; "house" outside the player-board sense
 //   structure            file names starting with an underscore, CRLF line endings, files over 1 MB,
-//                        art over 200 KB, ignored folders really untracked
+//                        art over 200 KB (the map backdrop up to 300 KB), ignored folders really untracked
 //   page and config      lang, title, description, absolute og:url / og:image, empty config values, BUILD
 //   licence              LICENSE is all rights reserved; README says so in one line
 // Exit code 1 if any category has a hit.
@@ -81,7 +81,9 @@ const sizes = files.map((f) => ({ f, n: fs.statSync(path.join(ROOT, f)).size }))
 const total = sizes.reduce((a, s) => a + s.n, 0);
 for (const s of sizes) {
   if (s.n > 1024 * 1024 && s.f !== 'package-lock.json') add('structure', `${s.f}: ${(s.n / 1048576).toFixed(2)} MB (over 1 MB)`);
-  if (s.f.startsWith('assets/') && !/art-manifest\.(json|md)$/.test(s.f) && s.n > 200 * 1024) add('structure', `${s.f}: ${(s.n / 1024).toFixed(0)} KB (art over 200 KB)`);
+  // The route map's watercolour is the one picture allowed more (tools/build-art-manifest.py BIG_FILES says the same).
+  const artLimit = s.f === 'assets/ui/map-backdrop-v3.webp' ? 300 * 1024 : 200 * 1024;
+  if (s.f.startsWith('assets/') && !/art-manifest\.(json|md)$/.test(s.f) && s.n > artLimit) add('structure', `${s.f}: ${(s.n / 1024).toFixed(0)} KB (art over ${artLimit / 1024} KB)`);
 }
 // Ignored folders are really untracked.
 const tracked = new Set(git('ls-files').split('\n').filter(Boolean));

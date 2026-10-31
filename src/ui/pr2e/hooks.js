@@ -279,6 +279,15 @@ export function buildTargets(state, actions, opts) {
       case 'chooseBuiltTile':
         addPanel('built-tile', 'Take a built track tile of your choice', 'It goes to your storage on your player board, not onto the map.', action, { art: ITEM_ART[action.terrain], item: action.terrain });
         break;
+      case 'fillWildSlot':
+        // P14.9: asked only when more than one kind of built tile could fill the slot. The slot is lit on the map.
+        addPanel('wild-slot', 'Which tile fills the "any tile" slot?', null, action, {
+          art: ITEM_ART[action.terrain],
+          item: action.terrain,
+          shortLabel: `${K.NAMES[action.terrain]} tile`,
+          sub: `You hold ${state.players[state.toAct].builtTiles[action.terrain]}`,
+        });
+        break;
       case 'hireSpecialist':
         addPanel('hire', 'Hire a specialist', 'It goes into the leftmost empty space of your carriages.', action, { art: ITEM_ART[action.specialist], item: action.specialist, sub: hireText(state, action) });
         break;

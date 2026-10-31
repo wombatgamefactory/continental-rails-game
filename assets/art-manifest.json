@@ -1696,12 +1696,24 @@
     "name": "Map backdrop",
     "width": 1500,
     "height": 1200,
-    "shows": "A 1869 style map of the western and central United States, 5:4 landscape, with terrain washes (plains, forest, rivers, mountains) but no cities, routes or labels. The UI draws the 25 cities and 47 routes from the route-map JSON.",
-    "usedFor": "Behind the route map (R11). The printed map is 500 x 400 mm.",
+    "shows": "A 1869 style map of the western and central United States, 5:4 landscape, with terrain washes (plains, forest, rivers, mountains) but no cities, routes or labels. The page draws the cities and routes from the route-map data.",
+    "usedFor": "Behind the route map (R11). Superseded by map-backdrop-v3.",
     "source": null,
     "notes": "Checked Gameboard-v1.psd: its 'map' group is 260 plain grey 260 px squares and the background layer is blank white, so there is no map art.",
     "unused": true,
-    "unusedNote": "Not wired in yet: the map is drawn as SVG on plain parchment. When the picture exists the map renderer needs one line to show it behind the routes."
+    "unusedNote": "Replaced by map-backdrop-v3, the designer's finished watercolour. This placeholder is kept, not deleted."
+  },
+  {
+    "id": "map-backdrop-v3",
+    "file": "ui/map-backdrop-v3.webp",
+    "status": "real",
+    "name": "Map backdrop (route map v3)",
+    "width": 3600,
+    "height": 2100,
+    "shows": "The designer's watercolour background of the 600 x 350 mm route map: pale blue mountains in the north-west, tan desert in the south-west, green plains in the east, rivers as thin pale lines. No cities, routes, slots or labels.",
+    "usedFor": "Behind the route map of both rulesets (R11, P14): the page draws the black lines, slots, cities and names over it at the exact positions of the printed map.",
+    "source": "Pieces/Game-Map-v2.psd, layer bg",
+    "notes": "WebP, 3600 x 2100 (the board's 600:350), quality 77, about 247 KB. The only picture allowed over 200 KB (limit 300 KB for this file), because the map is the largest area of the game screen."
   },
   {
     "id": "track-ground",

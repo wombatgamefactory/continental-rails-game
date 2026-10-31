@@ -241,6 +241,15 @@ export function buildTargets(state, actions, opts) {
       case 'chooseBuiltTile':
         addPanel('built-tile', 'Take a built track tile of your choice', 'It goes to your storage on the train, not onto the map.', action, { art: ITEM_ART[action.terrain], item: action.terrain });
         break;
+      case 'fillWildSlot':
+        // R11.12: asked only when more than one kind of built tile could fill the slot. The slot is lit on the map.
+        addPanel('wild-slot', 'Which tile fills the "any tile" slot?', null, action, {
+          art: ITEM_ART[action.terrain],
+          item: action.terrain,
+          shortLabel: `${NAMES[action.terrain]} tile`,
+          sub: `You hold ${state.players[state.toAct].builtTiles[action.terrain]}`,
+        });
+        break;
 
       // ---- bonus actions and train building ----
       case 'buyHat':
@@ -325,6 +334,15 @@ export function buildTargets(state, actions, opts) {
   // Everything not covered goes to the generic layer.
   targets.generic = actions.filter((a) => !targets.covered.has(actionKey(a)));
   return targets;
+}
+
+/** Which slot a `wildSlot` frame is asking about, in a sentence ("The tan slot of Spokane - Helena, slot 3 of 3 ..."). */
+export function wildSlotHint(state) {
+  const frame = topFrame(state);
+  const route = frame && frame.kind === 'wildSlot' ? MAP.routeById[frame.route] : null;
+  if (!route) return null;
+  const where = `${MAP.cityById[route.a].name} - ${MAP.cityById[route.b].name}`;
+  return `The tan "?" slot (slot ${frame.slot + 1} of ${route.length}) of ${where} takes one built tile of any kind, and it is lit on the map. The kind you choose is spent from your storage.`;
 }
 
 /** What a hire costs, from the engine's own read (the mode depends on what offered the hire). */

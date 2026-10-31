@@ -98,7 +98,8 @@
   /* layout of the game screen (overridden in the media queries below) */
   --pad: 10px;
   --gap: 10px;
-  --col-left: clamp(400px, 34vw, 580px);
+  /* the map is 600 x 350 mm, wide and low: the side columns give it width, and the rows under it give height back */
+  --col-left: clamp(390px, 32vw, 560px);
   --col-side: clamp(232px, 17.5vw, 320px);
   --row-bottom: 300px;
   --ws-track: 34px;   /* the lane between two districts that holds a worker space */
@@ -377,7 +378,7 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .region--prompt { border-top-color: var(--accent-prompt); border-top-width: 6px; max-height: 40vh; padding: var(--s2) var(--s3) var(--s3); }
 .region--grid { border-top-color: var(--accent-grid); overflow: visible; }
 .region--congress { border-top-color: var(--accent-congress); }
-.region--map { grid-area: map; border-top-color: var(--accent-map); display: flex; align-items: center; justify-content: center; padding: 6px; background: var(--parchment-2); overflow: hidden; }
+.region--map { grid-area: map; border-top-color: var(--accent-map); display: flex; align-items: center; justify-content: center; padding: 3px; background: var(--parchment-2); overflow: hidden; }
 .region--scores { border-top-color: var(--accent-train); }
 .region--log { border-top-color: var(--accent-log); }
 .region--trains { border-top-color: var(--accent-train); flex: 1 1 0; }
@@ -430,7 +431,6 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .is-out { filter: saturate(.7) brightness(.93); }
 .route.is-out { filter: none; opacity: .8; }
 .route--claimed.is-out, .city.is-out { opacity: 1; filter: none; }
-.city.is-out .city__name { opacity: .85; }
 .cong.is-out { filter: saturate(.6); opacity: .85; }
 .stock.is-out { opacity: 1; filter: none; }
 .centre.is-out { pointer-events: none; opacity: 1; filter: none; }
@@ -520,17 +520,36 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .is-active-step, .cslot.is-acting { outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge); }
 
 /* ---------- the map ---------- */
+/* The look of the printed 600 x 350 mm board: the watercolour behind, a black line only where the print has one, slots in
+   the printed green, grey, blue and tan with a cream badge and a black icon, cities as cream discs (red ring in the west,
+   navy in the east) and the city names lettered where the print puts them. */
+:root {
+  --map-ink: #2a2a2a;
+  --map-cream: #fffaf0;
+  --map-slot-ground: #6f9f3f;
+  --map-slot-tunnel: #6d645c;
+  --map-slot-bridge: #3a7fb6;
+  --map-slot-wild: #b9a98a;
+  --map-west: #c0302a;
+  --map-east: #1f4e9a;
+}
 .map { width: 100%; height: 100%; max-height: 100%; display: block; }
-.map__bg { fill: var(--map-bg); stroke: var(--wood-600); stroke-width: 2.4; }
-.map__rule { fill: none; stroke: var(--line); stroke-width: .8; }
-.slot__socket { stroke-width: .9; }
-.slot--ground .slot__socket { fill: color-mix(in srgb, var(--ground) 82%, var(--map-bg)); stroke: color-mix(in srgb, var(--ground) 60%, #000); }
-.slot--tunnel .slot__socket { fill: color-mix(in srgb, var(--tunnel) 82%, var(--map-bg)); stroke: color-mix(in srgb, var(--tunnel) 60%, #000); }
-.slot--bridge .slot__socket { fill: color-mix(in srgb, var(--bridge) 82%, var(--map-bg)); stroke: color-mix(in srgb, var(--bridge) 60%, #000); }
-.slot__t { font: 700 6.2px var(--font); fill: #fff; paint-order: stroke; stroke: rgba(20, 12, 6, .7); stroke-width: 1.2px; stroke-linejoin: round; pointer-events: none; }
+.map__bg { fill: var(--map-bg); }
+.map__frame { fill: none; stroke: var(--wood-600); stroke-width: 1.6; }
+.map__line { fill: none; stroke: #222; stroke-width: 1.55; }
+.slot__socket { stroke: var(--map-ink); stroke-width: .68; }
+.slot--ground .slot__socket { fill: var(--map-slot-ground); }
+.slot--tunnel .slot__socket { fill: var(--map-slot-tunnel); }
+.slot--bridge .slot__socket { fill: var(--map-slot-bridge); }
+.slot--wild .slot__socket { fill: var(--map-slot-wild); }
+.slot__badge { fill: var(--map-cream); stroke: var(--map-ink); }
+.slot__icon { fill: #000; pointer-events: none; }
+.slot__icon--wild { fill: #fff; }
+.slot__badge { pointer-events: none; }
 .slot--favoured .slot__socket { stroke: var(--brass-light); stroke-width: 1.6; }
-.slot--favoured .slot__t { fill: var(--brass-light); }
-.slot__bed { stroke: var(--tok-ink); stroke-width: 1; }
+.slot--asking .slot__socket { stroke: var(--hl); stroke-width: 2.6; filter: drop-shadow(0 0 1.2px var(--hl-edge)) drop-shadow(0 0 3px var(--hl)); }
+.slot__bed { stroke: var(--map-ink); stroke-width: .8; }
+.slot__bed--wild { stroke: var(--map-slot-wild); stroke-width: 1.3; }
 .route.is-legal { cursor: pointer; }
 .route.is-legal .slot__socket { stroke: var(--hl); stroke-width: 2.4; filter: drop-shadow(0 0 1.2px var(--hl-edge)) drop-shadow(0 0 3px var(--hl)); }
 .route.is-illegal:hover .slot__socket { stroke: var(--refuse); stroke-width: 1.9; }
@@ -540,16 +559,22 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .routecost--short rect { fill: #5a1410; stroke: #ff8a7a; }
 .routecost--short text { fill: #ffd5cc; }
 .routecost:not(.routecost--legal) rect { stroke: var(--line); }
-.city__disc { fill: var(--card); stroke: var(--tok-ink); stroke-width: 1.7; }
-.city__ring--west, .city__ring--east { fill: var(--brass-light); stroke: var(--brass-dark); stroke-width: 1.4; }
-.city__name { font: 700 8.2px var(--font-display); fill: var(--tok-ink); paint-order: stroke; stroke: var(--map-bg); stroke-width: 2.8px; stroke-linejoin: round; pointer-events: none; }
+.city__disc { fill: var(--map-cream); stroke: var(--map-ink); }
+.city__disc--start { stroke: none; }
+.city__ring { fill: none; }
+.city__ring--west { stroke: var(--map-west); }
+.city__ring--east { stroke: var(--map-east); }
+.map__label { font-family: "Segoe UI", "Open Sans", "Noto Sans", "Helvetica Neue", Arial, sans-serif; font-weight: 600; fill: var(--map-ink); paint-order: stroke; stroke: rgba(255, 250, 240, .8); stroke-width: 1.5px; stroke-linejoin: round; }
+.map__label--red { fill: var(--map-west); }
+.map__label--blue { fill: var(--map-east); }
 .city__halo { fill: color-mix(in srgb, var(--hl) 40%, transparent); stroke: var(--hl-edge); stroke-width: 1.4; stroke-dasharray: 4 2; }
 .city.is-legal { cursor: pointer; }
-.city.is-legal .city__disc { stroke: var(--hl-edge); fill: var(--hl); }
+.city.is-legal .city__disc { fill: var(--hl); }
+.city--inland.is-legal .city__disc { stroke: var(--hl-edge); }
 .city.is-build .city__halo { fill: color-mix(in srgb, var(--hl) 65%, transparent); stroke-dasharray: none; }
-.city.is-illegal:hover .city__disc { stroke: var(--refuse); stroke-width: 2.4; }
-.city.is-flash .city__disc { fill: #fff; stroke-width: 3; }
-.city__toll { font: 700 5px var(--font); fill: var(--burgundy); paint-order: stroke; stroke: var(--map-bg); stroke-width: 2px; }
+.city.is-illegal:hover .city__disc:not(.city__disc--start), .city.is-illegal:hover .city__ring { stroke: var(--refuse); }
+.city.is-flash .city__disc { fill: #fff; }
+.city__toll { font: 700 5px var(--font); fill: var(--burgundy); paint-order: stroke; stroke: var(--map-cream); stroke-width: 2px; }
 .glyph { stroke: var(--tok-ink); stroke-width: .9; }
 /* pieces standing on the map never take the pointer: the city or the route under them stays the target (the city's tooltip names them) */
 .railhead, .building { pointer-events: none; }
@@ -783,7 +808,7 @@ body[data-screen="setup"] { --bug-space: 44px; }
 
 /* a short or narrow desktop: tighter columns and train strip */
 @media (max-width: 1340px), (max-height: 820px) {
-  :root { --col-left: clamp(380px, 32vw, 450px); --col-side: 250px; --row-bottom: 286px; --ws-track: 30px; --wspace: 28px; }
+  :root { --col-left: clamp(380px, 30vw, 430px); --col-side: 250px; --row-bottom: 286px; --ws-track: 30px; --wspace: 28px; }
   .hdr__label { display: none; }
 }
 
@@ -793,9 +818,9 @@ body[data-screen="setup"] { --bug-space: 44px; }
   body[data-screen="game"] { overflow-y: auto; height: auto; }
   .game {
     height: auto; min-height: 100vh; padding-bottom: calc(var(--pad) + var(--bug-space));
-    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); grid-template-rows: none;
-    grid-template-areas: "hdr hdr" "prompt prompt" "map scores" "map log" "grid congress" "bottom bottom";
-    grid-template-rows: auto auto auto 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: none;
+    grid-template-areas: "hdr hdr" "prompt prompt" "map map" "scores log" "grid congress" "bottom bottom";
+    grid-template-rows: auto auto auto auto auto auto;
   }
   .col-left, .col-side { display: contents; }
   .hdr { padding-right: 0; flex-wrap: wrap; }
@@ -806,10 +831,10 @@ body[data-screen="setup"] { --bug-space: 44px; }
   .region--grid { grid-area: grid; }
   .region--congress { grid-area: congress; }
   .region--scores { grid-area: scores; }
-  /* the log takes whatever height the map leaves beside the players, and scrolls inside it */
-  .region--log { grid-area: log; min-height: 80px; contain: size; }
+  /* the log sits beside the players under the map and scrolls inside its own frame */
+  .region--log { grid-area: log; min-height: 80px; max-height: 300px; }
   .region--scores { align-self: start; }
-  .region--map { aspect-ratio: 5 / 4; align-self: start; }
+  .region--map { aspect-ratio: 600 / 350; align-self: start; }
   .col-bottom { gap: 0; }
   #app[data-dock="open"] .region--dock { flex: 0 0 auto; }
   .dock__body { max-height: 70vh; margin-bottom: var(--gap); }
@@ -836,8 +861,8 @@ body[data-screen="setup"] { --bug-space: 44px; }
   .allmoves summary, .setup__bots summary, .bug-pastbox summary { min-height: var(--tap); display: flex; align-items: center; }
   /* the map keeps a readable size and pans sideways inside its own frame */
   .region--map { aspect-ratio: auto; display: block; overflow-x: auto; padding: 4px; }
-  .mapwrap { display: block; width: 640px; height: auto; }
-  .map { width: 640px; height: 512px; }
+  .mapwrap { display: block; width: 780px; height: auto; }
+  .map { width: 780px; height: 455px; }
     .dock__cols, .pmarket { grid-template-columns: minmax(0, 1fr); }
   .dock { grid-template-columns: minmax(0, 1fr); }
   .dock__agenda { padding-left: 4px; flex-wrap: wrap; }

@@ -525,22 +525,22 @@ async function congressSegment(browser) {
 async function layTracksTelegraph(browser, takeShots) {
   const page = await newPage(browser);
   const state = baseState();
-  setHeads(state, 0, 'SEA', 'OMA');
+  setHeads(state, 0, 'TDL', 'OMA');
   give(state, 0, { tiles: { ground: 4, tunnel: 2, bridge: 2 }, hats: 0 });
   await loadPrepared(page, state);
   await clickTarget(page, 'space:W6'); // Ground Tracks / Lay Tracks
   await waitKind(page, 'chooseDistrict');
   await clickTarget(page, 'district:D5');
   await waitKind(page, 'layTracks');
-  assert(await hasTarget(page, 'route:SEA-SPO'), 'a claimable route is lit on the map');
+  assert(await hasTarget(page, 'route:SPO-TDL'), 'a claimable route is lit on the map');
   assert((await page.locator('g.route.is-legal .routecost').count()) >= 1, 'a lit route shows its tile cost');
   if (takeShots) await takeShots('lay-tracks');
   const tilesBefore = (await player(page, 0)).builtTiles.ground;
-  await clickTarget(page, 'route:SEA-SPO'); // CLAIM a route (2 Ground)
+  await clickTarget(page, 'route:SPO-TDL'); // CLAIM a route (2 Ground)
   await waitKind(page, 'placeBuildings');
   const afterClaim = await player(page, 0);
   assert(afterClaim.builtTiles.ground === tilesBefore - 2, 'the claim spent 2 built Ground tiles');
-  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SEA-SPO'])) === 0, 'Anna owns Seattle - Spokane');
+  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SPO-TDL'])) === 0, 'Anna owns Spokane - The Dalles');
   assert(await hasAkey(page, 'placeRailwayStation:SPO:wood'), 'the railway station choice names the house track');
   assert((await page.locator('[data-panel="buildings:SPO"] .btn__sub').count()) >= 2, 'the building choice explains its effect');
   const vp = (await player(page, 0)).vp.telegraph;
@@ -554,13 +554,13 @@ async function layTracksTelegraph(browser, takeShots) {
 async function layTracksRailway(browser) {
   const page = await newPage(browser);
   const state = baseState();
-  setHeads(state, 0, 'SEA', 'OMA');
+  setHeads(state, 0, 'TDL', 'OMA');
   give(state, 0, { tiles: { ground: 4, tunnel: 2, bridge: 2 }, hats: 0 });
   await loadPrepared(page, state);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
   await waitKind(page, 'layTracks');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   await waitKind(page, 'placeBuildings');
   const prodBefore = await page.evaluate(() => window.__cr.getState().players[0].houses.wood);
   await clickAkey(page, 'placeRailwayStation:SPO:wood'); // RAILWAY STATION, taking a house from the Wood track
@@ -573,8 +573,8 @@ async function layTracksRailway(browser) {
 async function moveTrain(browser, takeShots) {
   const page = await newPage(browser);
   const state = baseState();
-  setHeads(state, 0, 'SEA', 'OMA');
-  claim(state, 1, 'SEA-SPO');
+  setHeads(state, 0, 'TDL', 'OMA');
+  claim(state, 1, 'SPO-TDL');
   put(state, 0, 'W4'); // an adjacent worker makes M = 2 for Lay Tracks
   give(state, 0, { tiles: { ground: 2, tunnel: 2, bridge: 2 }, hats: 0, coins: 5 }); // several legal steps, so none is made for her
   await loadPrepared(page, state);
@@ -821,7 +821,7 @@ async function screenshots(browser, w, h) {
   const act = baseState();
   setTrain(act, 0, [['crew', 'miner'], ['engineer', 'financier']]);
   give(act, 0, { resources: { iron: 4, wood: 2, gunpowder: 2 }, tiles: { ground: 1, tunnel: 0, bridge: 0 }, coins: 3, hats: 0 });
-  claim(act, 1, 'SEA-SPO', 'POR-SPO');
+  claim(act, 1, 'SPO-TDL', 'TDL-POR');
   setHeads(act, 0, 'LAX', 'KCY');
   await loadPrepared(page, act);
   await clickTarget(page, 'space:W3');
@@ -833,9 +833,9 @@ async function screenshots(browser, w, h) {
 
   // A Lay Tracks choice.
   const lay = baseState();
-  setHeads(lay, 0, 'SEA', 'OMA');
+  setHeads(lay, 0, 'TDL', 'OMA');
   give(lay, 0, { resources: { iron: 1, wood: 1, gunpowder: 1 }, tiles: { ground: 4, tunnel: 2, bridge: 1 }, hats: 0 });
-  claim(lay, 1, 'POR-SPO');
+  claim(lay, 1, 'TDL-POR');
   await loadPrepared(page, lay);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
@@ -852,12 +852,12 @@ async function screenshots(browser, w, h) {
 
   // The building choice after a claim.
   const bld = baseState();
-  setHeads(bld, 0, 'SEA', 'OMA');
+  setHeads(bld, 0, 'TDL', 'OMA');
   give(bld, 0, { resources: { iron: 1, wood: 1, gunpowder: 1 }, tiles: { ground: 3, tunnel: 1, bridge: 1 }, hats: 0 });
   await loadPrepared(page, bld);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   await waitKind(page, 'placeBuildings');
   await shot(page, 'building-choice', w, h);
 
@@ -893,7 +893,7 @@ function modState(variants, mutate) {
 /** Anna at the Lay Tracks choice with two claimable routes and one that she cannot pay for. */
 function layState() {
   const s = baseState({ give: { hats: 0 } });
-  setHeads(s, 0, 'SEA', 'OMA');
+  setHeads(s, 0, 'TDL', 'OMA');
   give(s, 0, { tiles: { ground: 3, tunnel: 0, bridge: 1 }, hats: 0 });
   return s;
 }
@@ -1141,18 +1141,18 @@ async function refusedClicks(browser, takeShots) {
   await waitKind(page, 'chooseDistrict');
   await clickTarget(page, 'district:D5');
   await waitKind(page, 'layTracks');
-  assert((await page.getAttribute('g[data-route="SEA-SPO"]', 'data-state')) === 'legal', 'a claimable route is legal');
-  assert((await page.getAttribute('g[data-route="SEA-HEL"]', 'data-state')) === 'illegal', 'a route she cannot pay for is illegal but clickable');
+  assert((await page.getAttribute('g[data-route="SPO-TDL"]', 'data-state')) === 'legal', 'a claimable route is legal');
+  assert((await page.getAttribute('g[data-route="TDL-BOI"]', 'data-state')) === 'illegal', 'a route she cannot pay for is illegal but clickable');
   assert((await page.getAttribute('.district[data-district="D1"]', 'data-state')) === 'out', 'the action grid is out of scope while laying tracks');
   assert((await page.locator('g.routecost--short').count()) >= 1, 'a route she cannot pay for carries a short badge');
   const badge = await page.textContent('g.routecost--short');
   assert(/have/.test(badge), `the badge says what she has (${badge})`);
-  const tip = await tipOf(page, 'g[data-route="SEA-HEL"]');
-  assert(/Seattle - Helena/.test(tip) && /needs 4 Tunnel/.test(tip), `the tooltip gives the cost against the holding (${tip.slice(0, 160)})`);
-  await clickSelector(page, 'g[data-route="SEA-HEL"]');
+  const tip = await tipOf(page, 'g[data-route="TDL-BOI"]');
+  assert(/The Dalles - Boise/.test(tip) && /needs 1 Tunnel/.test(tip), `the tooltip gives the cost against the holding (${tip.slice(0, 160)})`);
+  await clickSelector(page, 'g[data-route="TDL-BOI"]');
   const a = await noticeText(page);
-  assert(/\d/.test(a) && /(Tunnel|Seattle|Helena)/.test(a), `a refused route click says why with numbers (${a})`);
-  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SEA-HEL'])) === null, 'nothing was claimed');
+  assert(/\d/.test(a) && /(Tunnel|The Dalles|Boise)/.test(a), `a refused route click says why with numbers (${a})`);
+  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['TDL-BOI'])) === null, 'nothing was claimed');
   if (takeShots) await takeShots('refused-click');
   await assertDisabledReasons(page, 'the Lay Tracks decision');
   await page.keyboard.press('Escape');
@@ -1187,7 +1187,7 @@ async function refusedClicks(browser, takeShots) {
 async function tooltipsAndBadges(browser) {
   const page = await newPage(browser);
   const prepared = layState();
-  claim(prepared, 1, 'POR-SPO'); // one route already owned, for the tooltip of a claimed route
+  claim(prepared, 1, 'TDL-POR'); // one route already owned, for the tooltip of a claimed route
   await loadPrepared(page, prepared);
   let tip = await tipOf(page, '[data-space="W6"]');
   assert(/Worker space W6/.test(tip) && /You can do this now/.test(tip), `a worker space tooltip gives its facts and that it is open (${tip.slice(0, 120)})`);
@@ -1199,16 +1199,16 @@ async function tooltipsAndBadges(browser) {
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
   await waitKind(page, 'layTracks');
-  tip = await tipOf(page, 'g[data-route="SEA-SPO"]');
-  assert(/Seattle - Spokane/.test(tip) && /2 Ground/.test(tip) && /You hold 3 Ground/.test(tip), `an affordable route says what is held (${tip.slice(0, 160)})`);
-  tip = await tipOf(page, 'g[data-route="SEA-HEL"]');
-  assert(/Seattle - Helena/.test(tip) && /needs \d+ Tunnel; you have 0/.test(tip), `a route she cannot pay for says what is missing (${tip.slice(0, 220)})`);
-  tip = await tipOf(page, 'g[data-route="POR-SPO"]');
-  assert(/Portland - Spokane/.test(tip) && /Owned by/.test(tip) && !/Claiming it costs/.test(tip), `a claimed route names its owner (${tip.slice(0, 160)})`);
+  tip = await tipOf(page, 'g[data-route="SPO-TDL"]');
+  assert(/Spokane - The Dalles/.test(tip) && /2 Ground/.test(tip) && /You hold 3 Ground/.test(tip), `an affordable route says what is held (${tip.slice(0, 160)})`);
+  tip = await tipOf(page, 'g[data-route="TDL-BOI"]');
+  assert(/The Dalles - Boise/.test(tip) && /needs \d+ Tunnel; you have 0/.test(tip), `a route she cannot pay for says what is missing (${tip.slice(0, 220)})`);
+  tip = await tipOf(page, 'g[data-route="TDL-POR"]');
+  assert(/The Dalles - Portland/.test(tip) && /Owned by/.test(tip) && !/Claiming it costs/.test(tip), `a claimed route names its owner (${tip.slice(0, 160)})`);
   tip = await tipOf(page, 'g[data-city="SPO"]');
   assert(/Spokane/.test(tip), 'a city tooltip names the city');
-  tip = await tipOf(page, 'g[data-city="SEA"]');
-  assert(/Seattle/.test(tip) && /Railhead/.test(tip), `a city with a railhead on it still answers, and names the railhead (${tip.slice(0, 120)})`);
+  tip = await tipOf(page, 'g[data-city="TDL"]');
+  assert(/The Dalles/.test(tip) && /Railhead/.test(tip), `a city with a railhead on it still answers, and names the railhead (${tip.slice(0, 120)})`);
   // Pieces drawn on top of the map (railheads, stations) never take the pointer from what is under them:
   // the city and the route ends beside them stay the targets, for a hover and for a click.
   const stolen = await page.evaluate(() => {
@@ -1246,10 +1246,10 @@ async function tooltipsAndBadges(browser) {
     return { routes: lit.length, out };
   });
   assert(hits.routes >= 2 && hits.out.length === 0, `end slots belong to their route and city discs to their city (${hits.out.join('; ')})`);
-  // Real clicks, with no force: the slot beside Seattle and its railhead claims the route; the lit city is taken as the city.
-  await page.locator('g[data-target="route:SEA-SPO"][data-legal="1"] .slot__socket').first().click({ timeout: 3000 });
+  // Real clicks, with no force: the slot beside The Dalles and its railhead claims the route; the lit city is taken as the city.
+  await page.locator('g[data-target="route:SPO-TDL"][data-legal="1"] .slot__socket').first().click({ timeout: 3000 });
   await waitKind(page, 'placeBuildings');
-  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SEA-SPO'])) === 0, 'a real click on the slot beside the railhead claims the route');
+  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SPO-TDL'])) === 0, 'a real click on the slot beside the railhead claims the route');
   const before = await page.evaluate(() => window.__cr.getState().seq);
   await page.locator('g[data-target="city:SPO"][data-legal="1"] .city__disc').click({ timeout: 3000 });
   const after = await page.evaluate(() => ({ seq: window.__cr.getState().seq, mode: window.__cr.pendingUi().mode }));
@@ -1262,29 +1262,29 @@ async function tooltipsAndBadges(browser) {
 async function forcedFollowUp(browser) {
   const page = await newPage(browser);
   const s = baseState({ give: { hats: 0 } });
-  setHeads(s, 0, 'SEA', 'OMA');
+  setHeads(s, 0, 'TDL', 'OMA');
   give(s, 0, { tiles: { ground: 2, tunnel: 0, bridge: 0 }, hats: 0 });
   await loadPrepared(page, s);
   await clickTarget(page, 'space:W6');
   await waitKind(page, 'chooseDistrict');
   const text = (await page.textContent('[data-field="consequences"]')) ?? '';
-  assert(/your only option is to claim Seattle - Spokane/.test(text) && /at once/.test(text), `the district choice says what will happen by itself (${text.trim()})`);
+  assert(/your only option is to claim Spokane - The Dalles/.test(text) && /at once/.test(text), `the district choice says what will happen by itself (${text.trim()})`);
   assert((await page.locator('[data-consequence="D5"]').count()) === 1 && (await page.locator('[data-consequence="D4"]').count()) === 0, 'only the choice that has a forced follow-up is listed');
   assert((await page.locator('.district[data-district="D5"] .district__forced').count()) === 1, 'and the district carries a "then automatic" mark');
   const tip = await tipOf(page, '.district[data-district="D5"]');
   assert(/only option/.test(tip), `the district tooltip says it too (${tip.slice(0, 160)})`);
-  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SEA-SPO'])) === null, 'nothing has happened yet: it is a preview');
+  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SPO-TDL'])) === null, 'nothing has happened yet: it is a preview');
   await clickTarget(page, 'district:D5');
-  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SEA-SPO'])) === 0, 'the claim happened at once');
+  assert((await page.evaluate(() => window.__cr.getState().map.routeOwner['SPO-TDL'])) === 0, 'the claim happened at once');
   assert((await page.locator('.log__entry[data-auto="1"] .log__auto').count()) >= 1, 'the automatic step is marked in the log');
   assert(/automatic/i.test((await page.locator('.log__auto').first().textContent()) ?? ''), 'with the word "automatic"');
-  assert((await page.locator('g.route.is-flash[data-route="SEA-SPO"]').count()) === 1, 'the route it touched is highlighted');
+  assert((await page.locator('g.route.is-flash[data-route="SPO-TDL"]').count()) === 1, 'the route it touched is highlighted');
   // A re-render inside the highlight continues the animation; it does not start it again.
   await page.waitForTimeout(450);
   await page.setViewportSize({ width: 1436, height: 900 });
   await page.waitForTimeout(420);
   const resumed = await page.evaluate(() => {
-    const el = document.querySelector('g.route.is-flash[data-route="SEA-SPO"]');
+    const el = document.querySelector('g.route.is-flash[data-route="SPO-TDL"]');
     if (!el) return { gone: true };
     const anim = el.getAnimations().find((x) => x.animationName === 'flash');
     return { gone: false, time: anim ? anim.currentTime - anim.effect.getComputedTiming().delay : -1, style: el.getAttribute('style') };
@@ -1332,24 +1332,24 @@ async function cancelAndEscape(browser) {
 
   // A route that can be claimed from either end: a choice, then Cancel, Escape, and a second click that switches.
   const s = baseState({ give: { hats: 0 } });
-  setHeads(s, 0, 'SEA', 'SPO');
+  setHeads(s, 0, 'TDL', 'SPO');
   give(s, 0, { tiles: { ground: 5, tunnel: 2, bridge: 1 }, hats: 0 });
   await loadPrepared(page, s);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
   await waitKind(page, 'layTracks');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   assert((await pend()).mode === 'choose' && (await page.locator('[data-field="choice"]').count()) === 1, 'a route claimable from two ends opens a choice');
   assert((await page.locator('[data-field="choice"] [data-akey]').count()) === 2, 'with one button per end');
   await page.click('[data-ui="cancel"]');
   assert((await pend()).mode === 'idle' && (await page.locator('[data-field="choice"]').count()) === 0, 'Cancel closes the choice');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   await page.keyboard.press('Escape');
   assert((await pend()).mode === 'idle', 'Escape closes the choice');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   assert((await pend()).mode === 'choose', 'the choice opens again');
-  await clickTarget(page, 'route:BOI-SPO'); // another target: switches, never stacks
-  const after = await page.evaluate(() => ({ owners: [window.__cr.getState().map.routeOwner['SEA-SPO'], window.__cr.getState().map.routeOwner['BOI-SPO']], mode: window.__cr.pendingUi().mode }));
+  await clickTarget(page, 'route:SPO-BOI'); // another target: switches, never stacks
+  const after = await page.evaluate(() => ({ owners: [window.__cr.getState().map.routeOwner['SPO-TDL'], window.__cr.getState().map.routeOwner['SPO-BOI']], mode: window.__cr.pendingUi().mode }));
   assert(after.owners[1] === 0 && after.owners[0] === null, `the second click took the second route and left the first alone (${after.owners})`);
   assert(after.mode === 'idle' && (await page.locator('[data-field="choice"]').count()) === 0, 'and the first choice is gone');
   await page.close();
@@ -1360,13 +1360,13 @@ async function cancelAndEscape(browser) {
 async function scoringPopup(browser, takeShots) {
   const page = await newPage(browser);
   const s = baseState({ give: { hats: 0 } });
-  setHeads(s, 0, 'SEA', 'OMA');
+  setHeads(s, 0, 'TDL', 'OMA');
   give(s, 0, { tiles: { ground: 4, tunnel: 2, bridge: 2 }, hats: 0 });
   await loadPrepared(page, s);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
   await waitKind(page, 'layTracks');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   await waitKind(page, 'placeBuildings');
   const lines = await page.$$eval('[data-field="scoring-popup"] li', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
   assert(lines.length >= 2, `the pop-up shows a line per source (${lines.join(' | ')})`);
@@ -1487,8 +1487,8 @@ async function ponyAbility(browser) {
   const page = await newPage(browser);
   const s = modState(PONY_V, (st) => {
     ownCard(st, 0, 'PX14');
-    claim(st, 1, 'SEA-SPO', 'POR-SPO');
-    setHeads(st, 0, 'SEA', 'MIN');
+    claim(st, 1, 'SPO-TDL', 'TDL-POR');
+    setHeads(st, 0, 'TDL', 'MIN');
     giveTokens(st, 0, 1);
     gatherCoinsTurn(st);
   });
@@ -1608,17 +1608,17 @@ async function refusedShots(page, snap) {
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
   await waitKind(page, 'layTracks');
-  await clickSelector(page, 'g[data-route="SEA-HEL"]');
+  await clickSelector(page, 'g[data-route="TDL-BOI"]');
   await page.mouse.move(700, 8);
   await page.waitForTimeout(450);
   await snap('refused-click');
   const s = baseState({ give: { hats: 0 } });
-  setHeads(s, 0, 'SEA', 'OMA');
+  setHeads(s, 0, 'TDL', 'OMA');
   give(s, 0, { tiles: { ground: 4, tunnel: 2, bridge: 2 }, hats: 0 });
   await loadPrepared(page, s);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   await waitKind(page, 'placeBuildings');
   await page.mouse.move(700, 8);
   await page.waitForTimeout(450);
@@ -2337,12 +2337,12 @@ async function oneScreenAt1440(browser) {
 
   // A tall prompt (five building buttons): Reset is still reachable by scrolling the Congress strip, never lost.
   const s = baseState({ give: { hats: 0 } });
-  setHeads(s, 0, 'SEA', 'OMA');
+  setHeads(s, 0, 'TDL', 'OMA');
   give(s, 0, { tiles: { ground: 4, tunnel: 2, bridge: 2 }, hats: 0 });
   await loadPrepared(page, s);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
-  await clickTarget(page, 'route:SEA-SPO');
+  await clickTarget(page, 'route:SPO-TDL');
   await waitKind(page, 'placeBuildings');
   await page.locator('.cong.is-reset').scrollIntoViewIfNeeded();
   const tall = await rectsOf(page, { reset: '.cong.is-reset', grid: '#region-grid .grid3', prompt: '#region-prompt' });
@@ -2351,9 +2351,9 @@ async function oneScreenAt1440(browser) {
 
   // Built tiles on the train and laid tiles on the map are the same drawing.
   const same = await page.evaluate(() => {
-    const laid = document.querySelector('g.route[data-route="SEA-SPO"] .tile__bed');
+    const laid = document.querySelector('g.route[data-route="SPO-TDL"] .tile__bed');
     const built = document.querySelector('.cb__u--tile[data-item="ground"] .tile__bed');
-    return laid && built ? { laid: getComputedStyle(laid).fill, built: getComputedStyle(built).fill, rails: document.querySelectorAll('g.route[data-route="SEA-SPO"] .tile__rail').length } : null;
+    return laid && built ? { laid: getComputedStyle(laid).fill, built: getComputedStyle(built).fill, rails: document.querySelectorAll('g.route[data-route="SPO-TDL"] .tile__rail').length } : null;
   });
   assert(same && same.laid === same.built && same.rails >= 2, `a laid Ground tile and a built Ground tile share one shape and colour (${JSON.stringify(same)})`);
   // Player colours are clear of the three terrain colours.
@@ -2390,15 +2390,15 @@ async function floatingThings(browser) {
   for (const [w, h] of [[1440, 900], [1024, 768], [390, 844]]) {
     const page = await newPage(browser, w, h);
     const s = baseState({ give: { hats: 0 } });
-    setHeads(s, 0, 'SEA', 'OMA');
+    setHeads(s, 0, 'TDL', 'OMA');
     give(s, 0, { tiles: { ground: 4, tunnel: 2, bridge: 2 }, hats: 0 });
     await loadPrepared(page, s);
     await clickTarget(page, 'space:W6');
     await clickTarget(page, 'district:D5');
     await waitKind(page, 'layTracks');
-    await clickTarget(page, 'route:SEA-SPO');
+    await clickTarget(page, 'route:SPO-TDL');
     await waitKind(page, 'placeBuildings');
-    await clickSelector(page, 'g[data-route="SEA-HEL"]'); // a refused click: the widest message there is
+    await clickSelector(page, 'g[data-route="TDL-BOI"]'); // a refused click: the widest message there is
     await page.waitForSelector('[data-field="notice"]');
     await page.waitForSelector('[data-field="scoring-popup"]');
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -2424,7 +2424,7 @@ async function reducedMotion(browser) {
   assert(list.length === 0, `landing page: nothing is animating (${list.join(', ')})`);
   // In play, with lit targets (they pulse otherwise), a message and the scoring pop-up up.
   const s = baseState({ give: { hats: 0 } });
-  setHeads(s, 0, 'SEA', 'OMA');
+  setHeads(s, 0, 'TDL', 'OMA');
   give(s, 0, { tiles: { ground: 4, tunnel: 2, bridge: 2 }, hats: 0 });
   await loadPrepared(page, s);
   await waitKind(page, 'workerStep');
@@ -2433,8 +2433,8 @@ async function reducedMotion(browser) {
   assert(list.length === 0, `lit targets: nothing is animating (${list.join(', ')})`);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
-  await clickTarget(page, 'route:SEA-SPO');
-  await clickSelector(page, 'g[data-route="SEA-HEL"]');
+  await clickTarget(page, 'route:SPO-TDL');
+  await clickSelector(page, 'g[data-route="TDL-BOI"]');
   await page.waitForSelector('[data-field="notice"]');
   list = await running();
   assert(list.length === 0, `a flash, a message and a pop-up: nothing is animating (${list.join(', ')})`);
@@ -2556,7 +2556,7 @@ async function finalScreenshots(browser) {
     const act = baseState();
     setTrain(act, 0, [['crew', 'miner'], ['engineer', 'financier']]);
     give(act, 0, { resources: { iron: 4, wood: 2, gunpowder: 2 }, tiles: { ground: 1, tunnel: 0, bridge: 0 }, coins: 3, hats: 0 });
-    claim(act, 1, 'SEA-SPO', 'POR-SPO');
+    claim(act, 1, 'SPO-TDL', 'TDL-POR');
     setHeads(act, 0, 'LAX', 'KCY');
     await loadPrepared(page, act);
     await clickTarget(page, 'space:W3');
@@ -2566,9 +2566,9 @@ async function finalScreenshots(browser) {
     await waitKind(page, 'trainActivation');
     await snap('train-activation', w < 1101);
     const lay = baseState();
-    setHeads(lay, 0, 'SEA', 'OMA');
+    setHeads(lay, 0, 'TDL', 'OMA');
     give(lay, 0, { resources: { iron: 1, wood: 1, gunpowder: 1 }, tiles: { ground: 4, tunnel: 2, bridge: 1 }, hats: 0 });
-    claim(lay, 1, 'POR-SPO');
+    claim(lay, 1, 'TDL-POR');
     await loadPrepared(page, lay);
     await clickTarget(page, 'space:W6');
     await clickTarget(page, 'district:D5');
@@ -2605,15 +2605,15 @@ function reached(kindName, how) {
 /** Words that must never appear on a second-edition screen: Continental Rails vocabulary and the banned spellings. */
 const WRONG_WORDS = /\bsteel\b|railhead|train activation|lobby point|pony express|legislative|milestone|lay tracks|move train|first connection/i;
 
-function pr2eState(trains = [['SEA', 'OMA'], ['POR', 'KCY'], ['LAX', 'MSP']], players = 3) {
+function pr2eState(trains = [['SEA', 'OMA'], ['POR', 'KCY'], ['LAX', 'MIN']], players = 3) {
   return paint(R.start(players, { trains: trains.slice(0, players) }));
 }
 
 /** A mid-game position for Anna: 2 carriages (Crew, Financier / Miner), a token, hats, houses gone, buildings and laid track about. */
 function pr2eMid() {
   const s = pr2eState();
-  R.layRoutes(s, ['SEA-SPO'], 1);
-  R.build(s, 'railwayStation', 'SPO', 1, 'iron');
+  R.layRoutes(s, ['SEA-TDL'], 1);
+  R.build(s, 'railwayStation', 'TDL', 1, 'iron');
   R.build(s, 'telegraphStation', 'HEL', 2);
   R.setStorage(s, 0, { iron: 1, wood: 1, gunpowder: 1, coins: 3, ground: 3, tunnel: 3, bridge: 2 });
   R.giveCarriages(s, 0, [['crew', 'financier'], ['miner', null]]);
@@ -2831,26 +2831,30 @@ async function pr2ePathLay(browser, takeShots) {
   await waitKind(page, 'lay');
   // No Move Train in this ruleset: no move controls anywhere.
   assert((await page.locator('[data-akey^="moveTrain"]').count()) === 0, 'there is no Move Train');
-  // Pick the train: both of Anna's trains are lit on the map; starting from Seattle the one way on (over laid track) is taken for her.
+  // Pick the train: both of Anna's trains are lit on the map. Seattle has two ways on (the laid route to The Dalles and the unlaid one to Yakima), so nothing is taken for her.
   assert((await page.locator('g.railhead[data-target="train:0"][data-legal="1"]').count()) === 1 && (await page.locator('g.railhead[data-target="train:1"][data-legal="1"]').count()) === 1, 'both trains are lit to start a lay');
   assert((await page.locator('[data-panel="lay-start"] [data-akey]').count()) === 2, 'and offered as buttons');
   await tap(page, 'train:0');
+  await page.waitForSelector('[data-field="lay-plan"]');
+  await tap(page, 'route:SEA-TDL');
   await page.waitForSelector('[data-field="lay-plan"] [data-route]');
   let plan = (await page.textContent('[data-field="lay-plan"]')).replace(/\s+/g, ' ');
-  assert(/Seattle to Spokane: travel/.test(plan), `the laid route is travelled over: ${plan}`);
-  // Lay a new route from Spokane by clicking it on the map.
-  await tap(page, 'route:BOI-SPO');
+  assert(/Seattle to The Dalles: travel/.test(plan), `the laid route is travelled over: ${plan}`);
+  // Lay a new route from The Dalles by clicking it on the map.
+  await tap(page, 'route:TDL-BOI');
   await page.waitForFunction(() => document.querySelectorAll('[data-field="lay-plan"] li[data-route]').length === 2);
   plan = (await page.textContent('[data-field="lay-plan"]')).replace(/\s+/g, ' ');
-  assert(/Spokane to Boise: lay 1G 2T, 2 VP a slot/.test(plan), `the unlaid route is laid at 2 VP a slot: ${plan}`);
-  assert(/Tiles used: 1 Ground, 2 Tunnel/.test(plan) && /you hold 3 Ground, 3 Tunnel, 2 Bridge/.test(plan), `tiles used against tiles held: ${plan}`);
-  assert(/Track VP if you end here: 6 \(3 slots\)/.test(plan), `the VP preview: ${plan}`);
-  assert(/Tolls: Ben scores 3 VP \(railway station in Spokane\)/.test(plan), `the toll it will pay: ${plan}`);
+  assert(/The Dalles to Boise: lay 1T 1B, \d VP a slot/.test(plan), `the unlaid route is laid: ${plan}`);
+  assert(/Tiles used: 1 Tunnel, 1 Bridge/.test(plan) && /you hold 3 Ground, 3 Tunnel, 2 Bridge/.test(plan), `tiles used against tiles held: ${plan}`);
+  assert(/Track VP if you end here: \d+ \(2 slots\)/.test(plan), `the VP preview: ${plan}`);
+  assert(/Tolls: Ben scores 3 VP \(railway station in The Dalles\)/.test(plan), `the toll it will pay: ${plan}`);
   assert(/At Boise you must place one building/.test(plan), `the compulsory building at the destination: ${plan}`);
   assert((await page.locator('.routestep').count()) === 2 && (await page.locator('g.route--inpath').count()) === 2, 'the running path is drawn on the map, numbered');
   assert((await page.locator('g.city--pathend[data-city="BOI"]').count()) === 1, 'the destination is marked');
-  const expected = P.evaluateLay(await page.evaluate(() => window.__cr.getState()), 0, ['SEA', 'SPO', 'BOI'], ['SEA-SPO', 'BOI-SPO']);
-  assert(expected.trackVp === 6 && expected.tollVp === 3, 'the engine agrees with the preview');
+  const expected = P.evaluateLay(await page.evaluate(() => window.__cr.getState()), 0, ['SEA', 'TDL', 'BOI'], ['SEA-TDL', 'TDL-BOI']);
+  const trackVp = expected.trackVp;
+  assert(trackVp >= 2 && expected.tollVp === 3, 'the engine agrees with the preview');
+  assert(new RegExp(`Track VP if you end here: ${trackVp} `).test(plan), `the preview shows the engine's track VP (${trackVp}): ${plan}`);
   if (takeShots) {
     await page.mouse.move(5, 5);
     await shot(page, 'pr2e-path-lay', 1440, 900);
@@ -2860,15 +2864,15 @@ async function pr2ePathLay(browser, takeShots) {
   await waitKind(page, 'placeBuildings');
   await page.waitForSelector('[data-field="scoring-popup"]');
   const popup = (await page.textContent('[data-field="scoring-popup"]')).replace(/\s+/g, ' ');
-  assert(/Track laid/.test(popup) && /3 slots x 2 VP = 6/.test(popup) && /Spokane - Boise|Boise - Spokane/.test(popup), `the scoring pop-up shows the arithmetic: ${popup}`);
+  assert(/Track laid/.test(popup) && new RegExp(`2 slots x \\d VP = ${trackVp}`).test(popup) && /The Dalles - Boise|Boise - The Dalles/.test(popup), `the scoring pop-up shows the arithmetic: ${popup}`);
   assert((await page.locator('[data-panel="building"] [data-akey^="placeRailwayStation"]').count()) >= 1 && (await page.locator('[data-akey="placeTelegraphStation:BOI"]').count()) === 1, 'a railway station (by house track) or a telegraph station is offered');
   assert((await page.locator('[data-akey="skipBuilding"]').count()) === 0, 'there is no way to decline it');
   await press(page, 'placeTelegraphStation:BOI');
   const after = await stateOf(page);
-  assert(after.players[0].vp.track === 6 && after.players[0].vp.telegraph === 2 && after.players[1].vp.toll === 3, `track 6, telegraph 2, Ben's toll 3 (${JSON.stringify(after.players.map((p) => p.vp))})`);
-  assert(after.map.routeOwner['BOI-SPO'] === 0 && after.map.telegraphStation.BOI === 0 && after.players[0].railheads[0] === 'BOI', 'the route is laid, the building placed, the train moved');
+  assert(after.players[0].vp.track === trackVp && after.players[0].vp.telegraph === 2 && after.players[1].vp.toll === 3, `track ${trackVp}, telegraph 2, Ben's toll 3 (${JSON.stringify(after.players.map((p) => p.vp))})`);
+  assert(after.map.routeOwner['TDL-BOI'] === 0 && after.map.telegraphStation.BOI === 0 && after.players[0].railheads[0] === 'BOI', 'the route is laid, the building placed, the train moved');
   const log = (await page.locator('[data-field="log"]').textContent()).replace(/\s+/g, ' ');
-  assert(/Lay from Seattle to Boise: 1 route laid, 1 laid route travelled/.test(log) && /Toll at Spokane: Ben's railway station scores 3 VP/.test(log), `the log tells the lay: ${log.slice(0, 300)}`);
+  assert(/Lay from Seattle to Boise: 1 route laid, 1 laid route travelled/.test(log) && /Toll at The Dalles: Ben's railway station scores 3 VP/.test(log), `the log tells the lay: ${log.slice(0, 300)}`);
   assert(!WRONG_WORDS.test(await bodyText(page)), 'no Continental Rails vocabulary on screen after a lay');
   await page.close();
 }
@@ -2877,7 +2881,7 @@ async function pr2ePathLay(browser, takeShots) {
 
 function financierState() {
   const s = pr2eState();
-  R.layRoutes(s, ['SEA-SPO'], 1);
+  R.layRoutes(s, ['SPO-TDL'], 1);
   R.build(s, 'railwayStation', 'BOI', 1, 'iron');
   R.build(s, 'telegraphStation', 'HEL', 2);
   R.setStorage(s, 0, { coins: 9 });
@@ -3023,15 +3027,16 @@ async function pr2eOtherDecisions(browser) {
   await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'discard');
 
   // A lay that places the first railway station: the free specialist.
-  const free = pr2eState();
-  R.setStorage(free, 0, { ground: 2 });
+  // One train (Portland) has one affordable way on, a single Bridge route to The Dalles; the other (Kansas City) has none.
+  const free = pr2eState([['POR', 'KCY'], ['SEA', 'OMA'], ['LAX', 'MIN']]);
+  R.setStorage(free, 0, { bridge: 1 });
   await loadPr2e(page, free);
   await tap(page, 'space:W6');
   await waitKind(page, 'chooseDistrict');
   await press(page, 'chooseDistrict:D5:0:mode=lay');
   // one train, one affordable route, one way to end: the engine takes the whole lay by itself and asks for the building
   await waitKind(page, 'placeBuildings');
-  await press(page, 'placeRailwayStation:SPO:wood');
+  await press(page, 'placeRailwayStation:TDL:wood');
   await waitKind(page, 'chooseFreeSpecialist');
   assert(/carriage 1/.test(await page.textContent('.prompt__hint')), 'the free specialist comes with carriage 1');
   await press(page, 'chooseFreeSpecialist:crew');
@@ -3041,7 +3046,7 @@ async function pr2eOtherDecisions(browser) {
 
   // The four special actions after a Collect.
   const special = pr2eState();
-  R.layRoutes(special, ['SEA-SPO'], 1);
+  R.layRoutes(special, ['SPO-TDL'], 1);
   R.build(special, 'railwayStation', 'SPO', 1, 'iron');
   R.build(special, 'telegraphStation', 'HEL', 2);
   R.setStorage(special, 0, { coins: 2, iron: 1, wood: 2, gunpowder: 2 });
@@ -3129,13 +3134,17 @@ async function pr2eWords(browser) {
   assert(/Column K5/.test(congress) && /costs 2 Coins/.test(congress) && /senator is down/.test(congress), `the column tooltip: ${congress}`);
   const districtTip = await tipOfSel('.district[data-district="D3"] .pd__name b');
   assert(/Collect Iron/.test(districtTip) && /pay 1 Wood for a district house/.test(districtTip) && /2 of 3 hold a district house/.test(districtTip.replace('Building sites: 2 of 3', '2 of 3')), `the district tooltip: ${districtTip}`);
-  const cityTip = await tipOfSel('g.city[data-city="SPO"] .city__disc');
+  const cityTip = await tipOfSel('g.city[data-city="TDL"] .city__disc');
   assert(/Railway station: Ben/.test(cityTip) && /Connected/.test(cityTip) && /3 VP/.test(cityTip), `the city tooltip: ${cityTip}`);
   const emptyCity = await tipOfSel('g.city[data-city="BOI"] .city__disc');
   assert(/Not connected/.test(emptyCity) && /2 VP a slot/.test(emptyCity), `an empty city scores 2 VP a slot: ${emptyCity}`);
   const goalTip = await tipOfSel('.pgoal');
   assert(/5 VP/.test(goalTip) && /tie/.test(goalTip), `the goal tooltip: ${goalTip}`);
-  const routeTip = await tipOfSel('g.route[data-route="SEA-HEL"] .slot__socket');
+  // A route she cannot pay for: the same position with no Bridge tile in storage.
+  const poor = pr2eMid();
+  R.setStorage(poor, 0, { iron: 1, wood: 1, gunpowder: 1, coins: 3, ground: 3, tunnel: 3, bridge: 0 });
+  await loadPr2e(page, poor);
+  const routeTip = await tipOfSel('g.route[data-route="TDL-BOI"] .slot__socket');
   assert(/Laying it takes/.test(routeTip) && /lack/.test(routeTip), `the route tooltip says what is lacking: ${routeTip}`);
   const tokenTip = await tipOfSel('.pbk');
   assert(/Upgrade token U1-iron/.test(tokenTip), `the token tooltip: ${tokenTip}`);
@@ -3154,7 +3163,7 @@ async function pr2eWords(browser) {
   await waitKind(page, 'chooseDistrict');
   await press(page, 'chooseDistrict:D5:0:mode=lay');
   await waitKind(page, 'lay');
-  await page.locator('g[data-route="SEA-HEL"] rect').first().click({ force: true });
+  await page.locator('g[data-route="TDL-BOI"] rect').first().click({ force: true });
   const lay = await toastText(page);
   assert(lay.length > 10 && !WRONG_WORDS.test(lay), `an unaffordable route refuses: ${lay}`);
   // Vocabulary: the whole screen, in a hot-seat game's worth of states.
@@ -3202,7 +3211,7 @@ async function pr2eBoardClicks(browser) {
 async function pr2eLayoutFit(browser) {
   const full = [['crew', 'financier'], ['miner', 'engineer'], ['crew', 'miner']];
   for (const [w, h, players] of [[1280, 800, 3], [1440, 900, 3], [1440, 900, 4]]) {
-    const s = pr2eState([['SEA', 'OMA'], ['POR', 'KCY'], ['LAX', 'MSP'], ['SFO', 'CHI']], players);
+    const s = pr2eState([['SEA', 'OMA'], ['POR', 'KCY'], ['LAX', 'MIN'], ['SAC', 'FTW']], players);
     R.giveCarriages(s, 0, full);
     const page = await newPage(browser, w, h);
     await loadPr2e(page, s, ['human', ...Array(players - 1).fill('random')]);
@@ -3403,9 +3412,9 @@ async function crComparisonShots(browser) {
   writeEvidence(path.join(SHOTS, 'cr-train-1440x900.png'), await page.locator('.region--trains').screenshot());
   writeEvidence(path.join(SHOTS, 'cr-congress-1440x900.png'), await page.locator('.region--congress').screenshot());
   const lay = baseState();
-  setHeads(lay, 0, 'SEA', 'OMA');
+  setHeads(lay, 0, 'TDL', 'OMA');
   give(lay, 0, { resources: { iron: 1, wood: 1, gunpowder: 1 }, tiles: { ground: 4, tunnel: 2, bridge: 1 }, hats: 0 });
-  claim(lay, 1, 'POR-SPO');
+  claim(lay, 1, 'TDL-POR');
   await loadPrepared(page, lay);
   await clickTarget(page, 'space:W6');
   await clickTarget(page, 'district:D5');
@@ -3422,6 +3431,167 @@ async function crComparisonShots(browser) {
 }
 
 /** After every 21 section: which kinds of pending decision were reached by clicking, and how. */
+// ---- 22 - route map v3 drawn like the print; the wild slot decision ----------------------------------
+
+/** What the map on the page is made of, counted from the DOM. */
+async function mapFacts(page) {
+  return page.evaluate(async () => {
+    const svg = document.querySelector('#region-map svg.map');
+    const q = (sel) => svg.querySelectorAll(sel).length;
+    const back = svg.querySelector('image.map__backdrop');
+    let backdropOk = false;
+    if (back) backdropOk = (await fetch(back.getAttribute('href'))).ok;
+    return {
+      viewBox: svg.getAttribute('viewBox'),
+      cities: q('g.city'),
+      routes: q('g.route'),
+      slots: q('.slot'),
+      ground: q('.slot--ground'),
+      tunnel: q('.slot--tunnel'),
+      bridge: q('.slot--bridge'),
+      wild: q('.slot--wild'),
+      wildIcons: q('.slot__icon--wild'),
+      badges: q('.slot__badge'),
+      lines: q('.map__lines .map__line'),
+      labels: q('.map__label'),
+      west: q('.city__ring--west'),
+      east: q('.city__ring--east'),
+      backdrop: back ? back.getAttribute('data-art-id') : null,
+      backdropOk,
+      labelFont: getComputedStyle(svg.querySelector('.map__label')).fontFamily,
+      glyphs: [...svg.querySelectorAll('.slot__icon')].every((p) => (p.getAttribute('d') || '').length > 100),
+    };
+  });
+}
+
+/** The map is route map v3 in both rulesets: the print's backdrop, lines only where the print has them, 134 slots in four kinds, 35 cities, every name. */
+async function mapDrawing(browser) {
+  const checks = [
+    ['Continental Rails', async (page) => loadPrepared(page, baseState())],
+    ['second edition', async (page) => loadPr2e(page, pr2eState())],
+  ];
+  for (const [name, load] of checks) {
+    const page = await newPage(browser, 1440, 900);
+    await load(page);
+    await page.waitForSelector('#region-map svg.map .slot');
+    const f = await mapFacts(page);
+    const linePrinted = E.MAP.routes.filter((r) => r.line).length;
+    assert(f.viewBox === '0 0 600 350', `${name}: the map is the 600 x 350 mm board (${f.viewBox})`);
+    assert(f.cities === 35 && f.west === 4 && f.east === 4, `${name}: 35 cities, four start cities on each side (${f.cities}, ${f.west}, ${f.east})`);
+    assert(f.routes === 65 && f.slots === 134, `${name}: 65 routes, 134 slots (${f.routes}, ${f.slots})`);
+    assert(f.ground === 46 && f.tunnel === 44 && f.bridge === 41 && f.wild === 3, `${name}: Ground 46, Tunnel 44, Bridge 41, wild 3 (${f.ground}, ${f.tunnel}, ${f.bridge}, ${f.wild})`);
+    assert(f.wildIcons === 3 && f.badges === 131 && f.glyphs, `${name}: a question mark on each wild slot, a badged icon on the other 131 (${f.wildIcons}, ${f.badges})`);
+    assert(f.lines === linePrinted && linePrinted === 35, `${name}: a black line only where the print draws one (${f.lines} of 65 routes, the data says ${linePrinted})`);
+    assert(f.labels === 35, `${name}: every city has its name on the map (${f.labels})`);
+    assert(f.backdrop === 'map-backdrop-v3' && f.backdropOk, `${name}: the print's watercolour is the backdrop and loads (${f.backdrop})`);
+    assert(/Segoe UI|Open Sans|Noto Sans|Arial/.test(f.labelFont), `${name}: names are lettered in a humanist sans (${f.labelFont})`);
+    // Every name is inside the board.
+    const out = await page.evaluate(() => {
+      const svg = document.querySelector('#region-map svg.map');
+      const box = svg.getBoundingClientRect();
+      return [...svg.querySelectorAll('.map__label')]
+        .filter((t) => {
+          const b = t.getBoundingClientRect();
+          return b.left < box.left - 1 || b.right > box.right + 1 || b.top < box.top - 1 || b.bottom > box.bottom + 1;
+        })
+        .map((t) => t.textContent);
+    });
+    assert(out.length === 0, `${name}: no city name runs off the board (${out.join(', ')})`);
+    await page.close();
+  }
+}
+
+/** A Continental Rails lay of Spokane - Helena (Tunnel, Bridge and one wild slot) with the tiles in `tiles`; stops when the claim is made. */
+async function claimWildRoute(page, tiles) {
+  const state = baseState();
+  setHeads(state, 0, 'SPO', 'OMA');
+  give(state, 0, { tiles, hats: 0 });
+  await loadPrepared(page, state);
+  await clickTarget(page, 'space:W6');
+  await waitKind(page, 'chooseDistrict');
+  await clickTarget(page, 'district:D5');
+  await waitKind(page, 'layTracks');
+  await clickTarget(page, 'route:SPO-HEL');
+}
+
+/** R11.12: the player is asked which tile fills the wild slot only when more than one kind could go there; the question names the slot, lights it, and has its own buttons. */
+async function wildSlotDecision(browser, takeShots) {
+  const page = await newPage(browser);
+  await claimWildRoute(page, { ground: 2, tunnel: 2, bridge: 2 });
+  await waitKind(page, 'wildSlot');
+  assert((await page.locator('[data-panel="wild-slot"] [data-akey^="fillWildSlot:"][data-legal="1"]').count()) === 3, 'a button for each of the three kinds she could use');
+  assert((await page.locator('[data-panel="wild-slot"] img[data-art-id^="terrain-"]').count()) === 3, 'each button carries its terrain icon');
+  const labels = (await page.locator('[data-panel="wild-slot"] .btn__label').allTextContents()).join('|');
+  assert(labels === 'Ground tile|Tunnel tile|Bridge tile', `the buttons name the kinds (${labels})`);
+  assert(/You hold 2/.test(await page.textContent('[data-panel="wild-slot"] [data-akey="fillWildSlot:tunnel"]')), 'and what she holds of each');
+  assert((await page.locator('[data-field="generic"]').count()) === 0, 'the generic fallback does not appear for it');
+  const hint = (await page.textContent('.prompt__hint')).replace(/\s+/g, ' ');
+  assert(/Spokane - Helena/.test(hint) && /slot 3 of 3/.test(hint) && /any kind/.test(hint), `the hint names the slot being filled (${hint})`);
+  assert((await page.locator('g.route[data-route="SPO-HEL"] .slot--asking.slot--wild').count()) === 1 && (await page.locator('.slot--asking').count()) === 1, 'the slot being filled is lit on the map, and only that one');
+  assert((await page.locator('g.route[data-legal="1"]').count()) === 0, 'no route is offered while the tile is being chosen');
+  assert(/wild slot/.test(await page.textContent('[data-field="prompt"]')), "the engine's own question is the prompt");
+  if (takeShots) {
+    await page.mouse.move(5, 5);
+    await shot(page, 'wild-slot', 1440, 900);
+  }
+  await clickAkey(page, 'fillWildSlot:tunnel');
+  await waitKind(page, 'placeBuildings');
+  const after = await page.evaluate(() => {
+    const st = window.__cr.getState();
+    return { fill: st.map.wildFill['SPO-HEL'], tiles: st.players[0].builtTiles, owner: st.map.routeOwner['SPO-HEL'] };
+  });
+  assert(after.owner === 0 && JSON.stringify(after.fill) === JSON.stringify([{ slot: 2, terrain: 'tunnel' }]), `the chosen kind is recorded (${JSON.stringify(after.fill)})`);
+  assert(after.tiles.tunnel === 0 && after.tiles.bridge === 1 && after.tiles.ground === 2, `a Tunnel for the printed slot and one for the wild slot, a Bridge for the printed one (${JSON.stringify(after.tiles)})`);
+  assert((await page.locator('g.route[data-route="SPO-HEL"] .slot--wildfill[data-tile="tunnel"]').count()) === 1, 'the laid route shows a Tunnel tile on the wild slot');
+  assert((await page.locator('.slot--asking').count()) === 0, 'and nothing is lit any more');
+  await page.close();
+
+  // One kind only could go there: the engine fills the slot itself and nothing is asked.
+  const one = await newPage(browser);
+  await claimWildRoute(one, { ground: 0, tunnel: 2, bridge: 1 });
+  await waitKind(one, 'placeBuildings');
+  const filled = await one.evaluate(() => window.__cr.getState().map.wildFill['SPO-HEL']);
+  assert(JSON.stringify(filled) === JSON.stringify([{ slot: 2, terrain: 'tunnel' }]), `the only possible tile went in (${JSON.stringify(filled)})`);
+  assert((await one.locator('[data-panel="wild-slot"]').count()) === 0, 'and no question was shown');
+  await one.close();
+}
+
+/** P14.9: the second edition asks when the lay ends, one question per wild slot of the path, with its own buttons. */
+async function pr2eWildSlotDecision(browser, takeShots) {
+  const page = await newPage(browser);
+  const state = pr2eState([['POR', 'OMA'], ['SEA', 'KCY'], ['LAX', 'MIN']]);
+  R.setStorage(state, 0, { ground: 3, tunnel: 2, bridge: 3 });
+  await loadPr2e(page, state);
+  await waitKind(page, 'workerStep');
+  await tap(page, 'space:W6');
+  await waitKind(page, 'chooseDistrict');
+  await press(page, 'chooseDistrict:D5:0:mode=lay');
+  await waitKind(page, 'lay');
+  await tap(page, 'train:0');
+  await tap(page, 'route:TDL-POR');
+  await tap(page, 'route:SPO-TDL');
+  await tap(page, 'route:SPO-HEL');
+  await press(page, 'endLay');
+  await waitKind(page, 'wildSlot');
+  assert((await page.locator('[data-panel="wild-slot"] [data-akey^="fillWildSlot:"][data-legal="1"]').count()) === 3, 'a button for each kind she could use');
+  assert((await page.locator('[data-panel="wild-slot"] img[data-art-id^="terrain-"]').count()) === 3, 'each carries its terrain icon');
+  assert((await page.locator('[data-field="generic"]').count()) === 0, 'the generic fallback does not appear for it');
+  const hint = (await page.textContent('.prompt__hint')).replace(/\s+/g, ' ');
+  assert(/Spokane - Helena/.test(hint) && /slot 3 of 3/.test(hint), `the hint names the slot (${hint})`);
+  assert((await page.locator('g.route[data-route="SPO-HEL"] .slot--asking.slot--wild').count()) === 1, 'the slot being filled is lit on the map');
+  assert(!WRONG_WORDS.test(await bodyText(page)), 'no Continental Rails vocabulary on the question');
+  if (takeShots) {
+    await page.mouse.move(5, 5);
+    await shot(page, 'pr2e-wild-slot', 1440, 900);
+  }
+  await press(page, 'fillWildSlot:bridge');
+  await page.waitForFunction(() => document.getElementById('app').dataset.kind !== 'wildSlot');
+  const after = await stateOf(page);
+  assert(JSON.stringify(after.map.wildFill['SPO-HEL']) === JSON.stringify([{ slot: 2, terrain: 'bridge' }]), `the chosen kind is recorded (${JSON.stringify(after.map.wildFill)})`);
+  assert((await page.locator('g.route[data-route="SPO-HEL"] .slot--wildfill[data-tile="bridge"]').count()) === 1, 'the laid route shows a Bridge tile on the wild slot');
+  await page.close();
+}
+
 function reportReach() {
   const kinds = Object.keys(P.FRAMES);
   const missing = kinds.filter((k) => !REACHED.has(k));
@@ -3463,6 +3633,8 @@ async function main() {
     await test('11a the variants panel is generated from the engine table; highlights, messages, reset, presets', () => variantsPanel(browser));
     await test('11b a variant set through the panel reaches the header chip, the engine state, the address, a reload and the end screen', () => variantsThroughPanel(browser));
     await test('12a refused clicks: an unaffordable route, an occupied space, a used Congress entry; the three highlight states', () => refusedClicks(browser, null));
+    await test('12c wild slot: the claim asks which tile fills the "any tile" slot only when two kinds could go there; the slot is lit; no generic fallback', () => wildSlotDecision(browser, true));
+    await test('12d the map is route map v3 in both rulesets: backdrop, lines, 134 slots, 35 cities, every name', () => mapDrawing(browser));
     await test('12b tooltips and badges: worker space, Congress entry, district, route, city', () => tooltipsAndBadges(browser));
     await test('13a a forced follow-up is previewed before the click, marked automatic after it, and its highlight survives a re-render', () => forcedFollowUp(browser));
     await test('13b the acting slot is highlighted in a train activation', () => activationHighlight(browser));
@@ -3501,6 +3673,7 @@ async function main() {
     await test('21g a whole pr2e hot-seat game played by clicking, to the end screen', () => pr2eHotSeatGame(browser, true));
     await test('21h a whole pr2e bot game: the end screen', () => pr2eBotGameScreens(browser, true));
     await test('21i a shared victory shows several winners', () => pr2eSharedVictory(browser, true));
+    await test('21i2 pr2e wild slot: the lay asks which tile fills the "any tile" slot, names it, lights it and offers the kinds as buttons', () => pr2eWildSlotDecision(browser, true));
     await test('21j every kind of pr2e decision is reachable by clicking, through a bespoke control', () => reportReach());
     await test('21k the same main screens under Continental Rails, for comparison', () => crComparisonShots(browser));
     for (const [w, h] of [[1440, 900], [1024, 768]]) {

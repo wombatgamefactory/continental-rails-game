@@ -173,3 +173,16 @@ export function specialSentence(engine, state, special) {
 export function hasSpecialText(special) {
   return SPECIAL_TEXT[special] !== undefined;
 }
+
+/**
+ * Which slot a `wildSlot` frame is asking about, in a sentence: the tan "?" slot of a route in the lay, and how many more
+ * the same lay will ask about. Null when the top frame is not that decision.
+ */
+export function wildSlotHint(engine, state) {
+  const frame = engine.topFrame(state);
+  const route = frame && frame.kind === 'wildSlot' ? engine.MAP.routeById[frame.route] : null;
+  if (!route) return null;
+  const where = `${engine.MAP.cityById[route.a].name} - ${engine.MAP.cityById[route.b].name}`;
+  const more = frame.remaining > 0 ? ` ${frame.remaining === 1 ? 'One more wild slot' : `${frame.remaining} more wild slots`} in this lay will ask next.` : '';
+  return `The tan "?" slot (slot ${frame.slot + 1} of ${route.length}) of ${where} takes one built tile of any kind, and it is lit on the map. The kind you choose is spent from your storage.${more}`;
+}

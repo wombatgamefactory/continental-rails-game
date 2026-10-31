@@ -5,7 +5,7 @@
    ===================================================================== */
 
 @media (min-width: 1341px) and (min-height: 821px) {
-  #app[data-rules="pr2e"] { --col-left: clamp(470px, 37vw, 620px); }
+  #app[data-rules="pr2e"] { --col-left: clamp(440px, 34vw, 580px); }
 }
 #app[data-rules="pr2e"] .region--trains { overflow: auto; container-type: inline-size; }
 #app[data-rules="pr2e"] .score { flex-shrink: 0; padding: 3px 8px; gap: 1px; }

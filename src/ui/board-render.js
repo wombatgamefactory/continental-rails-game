@@ -36,12 +36,13 @@ import {
   nextTelegraphVp,
   scoreGame,
 } from './active-ruleset.js';
-import { art, hasArt, piece, isRealArt, svgArt, trackTile, ponyToken, svgPiece, svgPonyToken, svgTrackTile } from './art.js';
-import { ITEM_ART, moveTolls, stationEffect, targetState } from './action-targets.js';
+import { art, hasArt, piece, isRealArt, svgArt, trackTile, ponyToken, svgPiece, svgPonyToken } from './art.js';
+import { ITEM_ART, moveTolls, stationEffect, targetState, wildSlotHint } from './action-targets.js';
 import { entryHtml } from './log-html.js';
 import { variantChips } from './variants-panel.js';
 import { reasonPairForKey, availability } from './explain.js';
 import { renderPlayerBoard } from './cr-player-board.js';
+import { mapOpen, mapFrame, routeLine, slotOpen, slotLaid, laidTerrain, cityShapes, cityOuterR, cityLabels, pieceSpots } from './map-draw.js';
 
 function esc(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -295,6 +296,8 @@ function hintFor(ctx) {
       return ctx.frame && ctx.frame.congress
         ? 'Click a lit Congress entry to spend lobby points and Coins, or carry on.'
         : 'This builds track tiles into your storage. Nothing goes onto the map until you take Lay Tracks.';
+    case 'wildSlot':
+      return wildSlotHint(ctx.state) ?? 'Choose which kind of built tile goes in the "any tile" slot.';
     case 'layTracks':
       return 'Lay tracks: click a lit route to claim it, spending built tiles from storage. Lit cities are places a railhead can move to.';
     case 'placeBuildings':
@@ -323,7 +326,7 @@ function renderPanel(ctx, panel) {
         const vp = nextTelegraphVp(state, state.toAct);
         sub = vp === null ? '' : `Scores ${vp} VP.`;
       }
-      const label = item.building === 'railwayStation' ? `Railway station: ${NAMES[a.houseTrack]} track` : item.building === 'telegraphStation' ? 'Telegraph station' : item.label;
+      const label = item.building === 'railwayStation' ? `Railway station: ${NAMES[a.houseTrack]} track` : item.building === 'telegraphStation' ? 'Telegraph station' : item.shortLabel ?? item.label;
       return `<button type="button" class="btn btn--panel" data-akey="${esc(item.key)}" data-legal="1" title="${esc(item.label)}">
         ${item.art ? art(item.art, { cls: item.art.startsWith('bonus-') ? 'icon icon--bonus' : 'icon icon--panel', label: label }) : ''}
         <span class="btn__text"><span class="btn__label">${esc(label)}</span>${sub ? `<span class="btn__sub">${esc(sub)}</span>` : ''}</span>
@@ -442,13 +445,6 @@ export function renderTrains(ctx) {
 // The route map (SVG, 1 unit = 1 mm, drawn from the engine's map data)
 // ---------------------------------------------------------------------------
 
-function cityLabelPos(city) {
-  // Start cities sit on the board edge: label on the inside. Inland cities: below.
-  if (city.kind === 'west') return { x: city.x + 12, y: city.y + 2.5, anchor: 'start' };
-  if (city.kind === 'east') return { x: city.x - 12, y: city.y + 2.5, anchor: 'end' };
-  return { x: city.x, y: city.y + 17, anchor: 'middle' };
-}
-
 const TERRAIN_LETTER = { ground: 'G', tunnel: 'T', bridge: 'B' };
 
 /** The cost badge of a route: "2G 1T", with what is missing ("short 1T") when the player cannot pay. */
@@ -465,33 +461,28 @@ function routeBadge(ctx, r, mid, legal) {
 export function renderMap(ctx) {
   const { state, targets } = ctx;
   const flash = ctx.view.flash;
-  const W = MAP.board.w;
-  const H = MAP.board.h;
-  const sl = MAP.slotSize.l;
-  const sw = MAP.slotSize.w;
   const out = [];
-  out.push(`<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Route map" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">`);
-  out.push(`<rect class="map__bg" x="0" y="0" width="${W}" height="${H}" rx="6"/><rect class="map__rule" x="5" y="5" width="${W - 10}" height="${H - 10}" rx="3"/>`);
+  out.push(mapOpen(MAP));
+  // The black lines the printed map draws between cities, beneath every slot.
+  out.push(`<g class="map__lines" pointer-events="none">${MAP.routes.map((r) => routeLine(MAP, r)).join('')}</g>`);
 
   // Routes
   const player = state.players[state.toAct ?? 0];
   const mapInScope = ctx.interactive && targets.scope.has('map');
+  // The wild slot being filled (R11.12): its route is still unlaid, its slot is lit.
+  const asking = ctx.frame && ctx.frame.kind === 'wildSlot' ? ctx.frame : null;
   for (const r of MAP.routes) {
     const owner = state.map.routeOwner[r.id];
     const rt = tgt(ctx, 'route', `route:${r.id}`);
     const cls = ['route', owner !== null ? 'route--claimed' : '', rt.cls.trim(), flashCls(ctx, flash.routes, r.id).trim()].filter(Boolean).join(' ');
     const colour = owner !== null ? colourOf(ctx, owner) : null;
     const slots = r.slots
-      .map((s) => {
-        const letter = TERRAIN_LETTER[s.terrain];
-        const t = `translate(${s.x} ${s.y}) rotate(${s.angle})`;
-        // A laid tile is the same drawing as a built tile in a train's storage, sitting on a bed of its owner's colour.
-        if (colour) {
-          return `<g class="slot slot--laid" transform="${t}"><rect class="slot__bed" x="${-sl / 2}" y="${-sw / 2}" width="${sl}" height="${sw}" rx="1.8" style="fill:${colour}"/>${svgTrackTile(s.terrain, 1.25)}</g>`;
-        }
-        // An unclaimed slot is an empty socket in its terrain colour, waiting for a tile of that kind;
+      .map((s, i) => {
+        // A laid tile is the same drawing as a built tile in a player board's storage, sitting on a bed of its owner's colour.
+        if (colour) return slotLaid(MAP, s, laidTerrain(state.map.wildFill, r, i), colour);
+        // An unclaimed slot is an empty socket in its printed colour, waiting for a tile of that kind (a wild slot, for any);
         // the scoring card's terrain (R11.9) is outlined in brass.
-        return `<g class="slot slot--open slot--${s.terrain}${s.terrain === state.scoringCard ? ' slot--favoured' : ''}" transform="${t}"><rect class="slot__socket" x="${-sl / 2}" y="${-sw / 2}" width="${sl}" height="${sw}" rx="1.8"/><text class="slot__t" x="0" y="2.4" text-anchor="middle" transform="rotate(${-s.angle})">${letter}</text></g>`;
+        return slotOpen(MAP, s, s.terrain === state.scoringCard, !!asking && asking.route === r.id && asking.slot === i);
       })
       .join('');
     // A cost badge on a claimable route, and on any unclaimed route that starts at one of the player's railheads.
@@ -503,7 +494,6 @@ export function renderMap(ctx) {
   }
 
   // Cities
-  const railheadCount = {};
   for (const c of MAP.cities) {
     const ct = tgt(ctx, 'city', `city:${c.id}`);
     const entry = ct.legal ? targets.byTarget.get(`city:${c.id}`) : undefined;
@@ -511,26 +501,27 @@ export function renderMap(ctx) {
     const build = entry && entry.actions.some((a) => a.type === 'placeRailwayStation' || a.type === 'placeTelegraphStation');
     const setup = entry && entry.actions.some((a) => a.type === 'placeRailhead');
     const cls = ['city', `city--${c.kind}`, ct.cls.trim(), move ? 'is-move' : '', build ? 'is-build' : '', setup ? 'is-setup' : '', flashCls(ctx, flash.cities, c.id).trim()].filter(Boolean).join(' ');
-    const lab = cityLabelPos(c);
+    const outer = cityOuterR(MAP, c);
     let tollBadge = '';
     if (move) {
       const t = moveTolls(state, state.toAct, entry.actions.find((a) => a.type === 'moveTrain').from, c.id);
-      if (t.length) tollBadge = `<text class="city__toll" x="${c.x}" y="${c.y - 12}" text-anchor="middle">toll</text>`;
+      if (t.length) tollBadge = `<text class="city__toll" x="${c.x}" y="${c.y - outer - 3}" text-anchor="middle">toll</text>`;
     }
-    out.push(`<g class="${cls}" data-city="${c.id}" ${ct.attrs} style="${flashDelay(ctx)}">
-      ${ct.legal ? `<circle class="city__halo" cx="${c.x}" cy="${c.y}" r="${MAP.cityRadius + 4}"/>` : ''}
-      <circle class="city__disc" cx="${c.x}" cy="${c.y}" r="${MAP.cityRadius}"/>
-      ${c.kind !== 'inland' ? `<circle class="city__ring city__ring--${c.kind}" cx="${c.x}" cy="${c.y}" r="${MAP.cityRadius - 3}"/>` : ''}
-      <text class="city__name" x="${lab.x}" y="${lab.y}" text-anchor="${lab.anchor}">${esc(c.name)}</text>${tollBadge}</g>`);
-    railheadCount[c.id] = 0;
+    out.push(`<g class="${cls}" data-city="${c.id}" ${ct.attrs} style="${flashDelay(ctx)}">${ct.legal ? `<circle class="city__halo" cx="${c.x}" cy="${c.y}" r="${outer + 4}"/>` : ''}${cityShapes(MAP, c)}${tollBadge}</g>`);
   }
+
+  // The city names, as the printed map letters them, over the routes and cities.
+  out.push(cityLabels(MAP));
+
+  // Pieces beside a city (buildings, Pony Express tokens, trains) take the free spots around it, clear of the names and slots.
+  const spots = pieceSpots(MAP);
 
   // Pony Express tokens still lying on inland cities (taken tokens are gone from the map)
   if (state.modules.pony) {
     for (const id of MAP.inlandCities) {
       if (state.modules.pony.tokens[id] !== true) continue;
-      const c = MAP.cityById[id];
-      out.push(`<g class="ptoken" data-ptoken="${id}" data-tip="ptoken:${id}" transform="translate(${c.x + 9.5} ${c.y + 8.5})">${svgPonyToken()}</g>`);
+      const at = spots.take(id, 5);
+      out.push(`<g class="ptoken" data-ptoken="${id}" data-tip="ptoken:${id}" transform="translate(${at.x} ${at.y})">${svgPonyToken()}</g>`);
     }
   }
 
@@ -538,11 +529,13 @@ export function renderMap(ctx) {
   for (const c of MAP.inlandCities.map((id) => MAP.cityById[id])) {
     const rs = state.map.railwayStation[c.id];
     const ts = state.map.telegraphStation[c.id];
+    const railwayAt = rs !== null && rs !== undefined ? spots.take(c.id, 6.5) : null;
+    const telegraphAt = ts !== null && ts !== undefined ? spots.take(c.id, 6.5) : null;
     if (ts !== null && ts !== undefined) {
-      out.push(`<g class="building building--telegraph" data-city="${c.id}" data-building="telegraph" transform="translate(${c.x + 7} ${c.y - 14})"><title>${esc(nameOf(ctx, ts))}'s telegraph station in ${esc(c.name)}</title>${buildingGlyph('telegraph', colourOf(ctx, ts))}</g>`);
+      out.push(`<g class="building building--telegraph" data-city="${c.id}" data-building="telegraph" transform="translate(${telegraphAt.x - 6} ${telegraphAt.y - 5.5})"><title>${esc(nameOf(ctx, ts))}'s telegraph station in ${esc(c.name)}</title>${buildingGlyph('telegraph', colourOf(ctx, ts))}</g>`);
     }
     if (rs !== null && rs !== undefined) {
-      out.push(`<g class="building building--railway" data-city="${c.id}" data-building="railway" transform="translate(${c.x - 15} ${c.y - 14})"><title>${esc(nameOf(ctx, rs))}'s railway station in ${esc(c.name)}</title>${buildingGlyph('railway', colourOf(ctx, rs))}</g>`);
+      out.push(`<g class="building building--railway" data-city="${c.id}" data-building="railway" transform="translate(${railwayAt.x - 6} ${railwayAt.y - 5.5})"><title>${esc(nameOf(ctx, rs))}'s railway station in ${esc(c.name)}</title>${buildingGlyph('railway', colourOf(ctx, rs))}</g>`);
     }
   }
 
@@ -551,13 +544,12 @@ export function renderMap(ctx) {
     p.railheads.forEach((city, idx) => {
       if (!city) return;
       const c = MAP.cityById[city];
-      const k = railheadCount[city]++;
-      const x = c.x - 10 + k * 11;
-      const y = c.y + 11;
+      const { x, y } = spots.take(city, 7.2);
       out.push(`<g class="railhead" data-railhead="${p.id}:${idx}" transform="translate(${x} ${y})"><title>${esc(nameOf(ctx, p.id))}'s railhead in ${esc(c.name)}</title>
         <circle class="railhead__plate" r="7.6" style="fill:${colourOf(ctx, p.id)}"/>${svgPiece('railhead', '#fbf5e6', 0, -0.5, 12.5)}</g>`);
     });
   }
+  out.push(mapFrame(MAP));
   out.push('</svg>');
   return out.join('');
 }
