@@ -141,3 +141,67 @@ All A/B duels: the changed search against the search as it then stood, 2 players
 - A proper evaluation at a cut-off (the plan value Medium already computes, per player), so that playouts can be a third as long.
 - Playouts by a better policy than Medium for the bot's own seat, and an opponent model that is not Medium when the opponent is not Medium.
 - Engine-minded playouts (biased weights), so that the search can see a long plan pay off.
+
+## Pacific Rails, second edition (`pr2e`)
+
+Written 31/10/2026. The five levels exist for the second ruleset too, built over its engine by `src/rulesets/pr2e.js`. The search levels are the shared tree search of `src/bots/mctsBot.js`, unchanged; what is specific to these rules is the heuristic policy in `src/bots/pr2e/` (`heuristicBot-pr2e.js`, its tuning constants in `weights-pr2e.js`). It imports no engine: `createPr2eHeuristicPolicies(engine)` builds it over the engine the ruleset hands it, and returns the same shape as `createHeuristicPolicies` (heuristic bot, Easy bot, heuristic and rollout policies, `scoreValidActions`, a no-op `repeatGuard`, `decisionShare`, `pipelineValue`). Every figure below was measured on a shared development machine with `node sim/sim.mjs --rules=pr2e ... --jitter=0.05 --rotate` unless it says otherwise; Medium was tuned by the A/B method of the Continental Rails bot (`--weights-seat=1 --weights.<name>=<n>`).
+
+| Level | How it decides | Strength |
+|---|---|---|
+| Random | Any legal action. | - |
+| Easy | Medium's scores with noise (1.0), a pick among the top three 20% of the time, no look at tolls and no second target. | beats Random 1000 of 1000 (2 players) |
+| Medium | The policy below, one action at a time. | beats Easy 90.1% of 800 (SE 1.1%) at 2 players; wins 87.5% of 600 at a table of Medium, Easy and Random. A 2-player game takes it about 26 ms: about 100 microseconds a decision, twice a Continental Rails decision (47 microseconds, 11 ms a game). |
+| Hard | Tree search, Medium in every seat of the playouts, 1.5 s a turn (`--iterations=100` in the figures). | beats Medium 45 of 46 = 97.8% (SE 2.2%) at 2 players at 100 iterations a turn, by 160 VP to 113 |
+| Expert | The same with four times the allowance. | Not measured for strength (a long run). Speed below. |
+
+### What the Medium policy values
+
+It works out the same short plan from the state at every decision and scores each legal action by what it adds to it, in VP-equivalents.
+
+- **Lays.** A depth-first search over printed routes from each train finds every lay (a path may travel over laid track and lay up to two routes, three routes long). A path is worth its track VP (2 a slot to a city with no building, 1 to a connected city or a start city, 3 a slot if it completes the line), minus the tolls it pays (weighted above their face value because a rival gains them), plus the building the lay forces on arrival (P14.6: the table VP at the end, the next telegraph row VP, or a railway station's production and, for the first three, its carriage), plus its share of the cheapest crossing of the map (rising with the turn number, so games end by the line). A lay that completes the line gets a bonus if the player would be ahead when the game ends and a penalty if behind: it races to end the game when ahead and does not hand a rival the win.
+- **Targets.** The best path (value over the turns still needed: Collects for missing resources, board activations for missing tiles, then the lay) is target 1, the best disjoint one target 2. Every unit gained is scored by how much of the way to the targets it saves; units beyond them are worth a little (a built tile is 1 VP at the end, a Coin buys Congress).
+- **Districts.** Each district is scored by simulating its action at the multiplier the grid gives: production, district houses and action bonuses for a Collect (plus the special action it pays for: telegraph station, district house, upgrade or railway station); every step of a board activation, with each Financier step choosing a Congress column (priced against its Coins) or a Reset (1 VP a senator down); the best lays, or the best hires, for the centre district. The worker step is scored by the best district a placement, removal or displacement opens, at the multiplier it gives, hats included, plus a small share of what one more worker beside it would add next turn.
+- **Everything else.** Specialists by the activations left and the tile types the targets want (carriage 3's printed VP in full); upgrade tokens by their yield; district houses, buildings (where rivals' trains are likely to pass: junction cities), goals (the 4 in play, by how likely a +1 is to make the player the sole leader), storage limits (what to discard), and the arrival building (compulsory when able).
+
+### Results
+
+**Ladder** (2 players, `--jitter=0.05 --rotate`, default variants):
+
+| Match | Result |
+|---|---|
+| Easy v Random | Easy 1000 of 1000 |
+| Medium v Easy | Medium 90.1% of 800 (SE 1.1%) |
+| Hard v Medium | Hard 97.8% of 46 (SE 2.2%), `--iterations=100` |
+| Medium v Medium, 2 players | 1000 games: 0% ended by the turn limit, all by the line; 22.3 turns a player (13 to 35); seat 1 won 57.5% (SE 1.6%) |
+| Medium v Medium, 3 players | 600 games: 0% by the turn limit; 20.8 turns; seat wins 52.2%, 34.3%, 13.6% |
+| Medium v Medium, 4 players | 600 games: 0% by the turn limit; 21.7 turns; seat wins 39.4%, 37.5%, 12.7%, 10.4% |
+
+Later seats lose heavily at 3 and 4 players, with identical bots: a game is a race to the line and the first two seats choose their worker spaces and Congress columns first. That is a property of the rules as played by this bot, not a bot defect that was found, but it deserves a look before the figures are quoted as balance evidence.
+
+**Where Medium's points come from** (2 players, 1000 games, per player, VP: share): track 27.0 (20.8%), completion 7.0 (5.4%), telegraph 18.1 (14.0%), toll 2.9 (2.3%), district houses 2.1 (1.6%), upgrades 1.7 (1.3%), Congress 15.2 (11.7%), carriage 3 4.9 (3.8%), buildings at the end 42.1 (32.4%), built tiles at the end 2.2 (1.7%), goals 6.6 (5.1%); about 130 VP a player. It uses Congress heavily (35.6 columns and Resets a game; 16 Coins collected a player against 1 to 2 of each other resource: it plays a Coin economy, takes 2.4 upgrade tokens a player, and takes about 1.3 of the 4 goals in play). It rarely collects iron, wood or gunpowder: the Foreman and Congress rewards (columns K1 to K3 and K6) supply them. Tolls are small (2.9 VP a player): it avoids paying them and places buildings in junction cities, but a 2-player map gives few chances.
+
+A caution for the designer: the bot found Congress by itself, and the Reset (1 Coin, 1 VP for every senator that is down) is probably the reason: it is cheap VP for anyone with Coins and a Financier. A Coin weight of 1.0 in place of 2.2 made it a Coin-light player that Medium beat 71% to 29%.
+
+**Speed** (Node, one shared machine, interleaved with the Continental Rails figures; the browser adds only page work): wall time per turn of the search bot on the real clock, against a Medium bot.
+
+| | pr2e mean / 95th percentile / maximum | Continental Rails, same harness |
+|---|---|---|
+| Hard, 1.5 s (3 games) | 1.88 s / 3.46 s / 4.13 s | 2.24 s / 3.66 s / 5.13 s |
+| Expert, 6 s (2 games) | 4.94 s / 7.51 s / 9.02 s | 4.91 s / 7.45 s / 8.45 s |
+
+A pr2e playout costs about twice a Continental Rails one, and a decision cannot stop in the middle of a playout, so with the Continental Rails shares an Expert turn ran 5.76 s on average, 8.77 s at the 95th percentile. `PR2E_SEARCH_SETTINGS.shareScale` (0.8, in `weights-pr2e.js`) multiplies every share of the turn's allowance; that brought it level. The page's own test of the real browser (`tests/mcts-browser.mjs`) was not run for pr2e (see the report: it needs the pr2e page).
+
+Where to look: `describePlan(state)` of the policies prints the two targets; `scoreValidActions(state)` gives the scores the search starts from.
+
+### What was tried and not kept
+
+Medium against Medium, 1500 games, 2 players, one setting changed in seat 1 (standard error about 1.3 points). Medium meeting itself favours any change a little (the two bots stop contending for the same targets), so only the large effects were kept.
+
+| Change | Result | Decision |
+|---|---|---|
+| `coin` 0.6 / 1.5 / 2 / 2.5 / 3.5 in place of 1.0 | 45% / 61% / 71% / 71% / 48% | 2.2 |
+| `maxRoutes` 3 and `maxUnlaid` 2 in place of 4 and 3 | 49% (600 games), a third of the lay candidates | Kept: faster, no weaker |
+| `slotsPerTurn` 0.6, `secondDiscount` 0.2, `upgradeUses` 0.5, `avgM` 2.2, `specialShare` 0.5 together | 56% | Kept. Singly each gave 56 to 61%, not additive. |
+| `tollPaid` 0.8 / 2.6, `hat` 0.6 / 2, `crossBase`, `crossPerTurn`, `raceBonus` 0 / 10, `keepResource` | 47 to 50% | Left as they were |
+| `activationShare` 0.15, `financierUse` 0.8, `upgradeUses` 0.1, `avgForeman` 2.2, `houseCost` 1.5, `districtHouseUses` 0.25 | 35% to 44% | Left as they were |
+| Easy noise 0.5 / 1 / 1.8 / 3 / 5 / 7 | Medium wins 87.5% / 89.5% / 94% / 97% / 98.5% / 100% | 1.0: a weaker player, not a hopeless one |
