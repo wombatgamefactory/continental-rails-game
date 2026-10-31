@@ -25,7 +25,8 @@
 //
 // It only ever returns an action from the list it is given.
 
-import {
+import { ENGINE } from './engine.mjs';
+const {
   topFrame,
   getConstants,
   hasLegalClaim,
@@ -35,7 +36,7 @@ import {
   SPACE_DISTRICTS,
   districtInfo,
   isDistrictId,
-} from '../../src/engine/index.js';
+} = ENGINE;
 
 const TERRAIN_OF = { crew: 'ground', miner: 'tunnel', engineer: 'bridge' };
 

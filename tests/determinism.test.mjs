@@ -3,7 +3,8 @@
 // Semantics: permanently green; exits 1 on any failure.
 
 import assert from 'node:assert/strict';
-import {
+import { ENGINE, RULESET, RULES_ID, RULES_TAG } from './helpers/engine.mjs';
+const {
   createGame,
   replayGame,
   getGameConfig,
@@ -18,10 +19,10 @@ import {
   getValidActions,
   applyAction,
   isGameOver,
-} from '../src/engine/index.js';
+} = ENGINE;
 import { playGame, makeSuite } from './helpers/play.mjs';
 
-const suite = makeSuite('determinism');
+const suite = makeSuite(`determinism${RULES_TAG}`);
 
 for (const players of [2, 3, 4]) {
   suite.check(`${players}p: the same seed gives the same game, hash for hash`, () => {

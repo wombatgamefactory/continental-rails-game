@@ -9,6 +9,7 @@ One file, `continental-rails-bug-<id>-<slug-of-title>.json`, with the id `crbug-
 | key | what it holds |
 |---|---|
 | `schemaVersion`, `id`, `timestamp`, `build` | format version, the id, the time, and `CONFIG.BUILD` |
+| `rules` | the ruleset of the game (or of the set-up form): `{ id, name }`, for example `{ "id": "pr2e", "name": "Pacific Rails, second edition" }`. The replay tool rebuilds the game with that ruleset's engine. A report without it is Continental Rails. |
 | `environment` | URL with query string, user agent, viewport, device pixel ratio, language, reduced-motion preference |
 | `screen` | `setup`, `game`, `cover` (the hand-over cover) or `end` |
 | `words` | the player's title, category (verbatim label), what they expected, what happened |

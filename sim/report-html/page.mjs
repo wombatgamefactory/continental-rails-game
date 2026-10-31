@@ -23,8 +23,15 @@ function botsText(run) {
   return text + rot;
 }
 
+/** The ruleset of a run: files made before rulesets existed name none, and were all Continental Rails. */
+export function rulesText(run) {
+  if (!run || !run.rules) return 'Continental Rails';
+  return run.rulesName ? `${run.rulesName}` : String(run.rules);
+}
+
 function runFields(run, arm) {
   const f = [];
+  f.push(['Rules', rulesText(run)]);
   f.push(['Run date', run.dateUk ? `${run.dateUk} (London time)` : ukDate(run.date)]);
   f.push(['Games', `${count(run.gamesPerArm)} per arm`]);
   f.push(['Players', isNum(run.players) ? String(run.players) : DASH]);
@@ -40,8 +47,9 @@ function runFields(run, arm) {
 
 function header(M) {
   const A = M.arms[0];
-  const title = multi(M) ? 'Continental Rails: simulation comparison' : 'Continental Rails: simulation report';
   const run = A.run;
+  const rulesNames = [...new Set(M.arms.map((a) => rulesText(a.run)))].join(' against ');
+  const title = multi(M) ? `${rulesNames}: simulation comparison` : `${rulesNames}: simulation report`;
   const labelBits = M.kind === 'files' ? M.arms.map((a) => a.run.label ?? a.file).join(' against ') : run.label ?? '';
   let meta;
   if (M.kind === 'files') {

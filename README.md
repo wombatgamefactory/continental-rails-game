@@ -32,6 +32,10 @@ Two to four seats, each a human (pass the device between turns) or a bot. A game
 
 How each works, how strong each is, what was tried and how to add a level: [docs/bots.md](docs/bots.md).
 
+## Two rulesets
+
+The set-up page offers two sets of rules at the top of its panel: **Continental Rails** (the default) and **Pacific Rails, second edition**, the published 2020 rules of the game Continental Rails grew from, adapted to the same map, so a publisher can play and compare the two. Each is a separate engine behind the same engine contract, with its own bots and its own variants. The choice is kept in the address (`?rules=pr2e`; no `rules` means Continental Rails), shown in the game header and recorded in bug reports. On the simulator command line it is `--rules=pr2e`. The second edition's engine is at present a copy of the Continental Rails engine and plays identically; its own rules are to follow. How it fits together: [docs/engine-contract.md](docs/engine-contract.md), section 21.
+
 ## Rule variants
 
 Every rule that was not settled is a switchable **variant**. On the set-up page, "Rules variants" lists all 25 with their choices (and three presets: Full game, Base game, Core only). A variant that differs from the default shows in the game header, on the end screen and in bug reports.
@@ -42,7 +46,7 @@ A configuration is shared by address: the set-up page keeps `?variants=name=valu
 https://www.wombatgamefactory.com/continental-rails-game/?variants=conversionRate=1:1,modulePonyExpress=false
 ```
 
-Other parameters of the address: `bots=human,medium` (a level per seat, which also starts the game), `players=3`, `names=Anna,Ben`, `seed=42`, `speed=normal|fast|instant`. The full list is at the top of `src/ui/setup.js`. The same variant names work on the simulator command line as `--variant.<name>=<value>`.
+Other parameters of the address: `rules=pr2e` (the ruleset), `bots=human,medium` (a level per seat, which also starts the game), `players=3`, `names=Anna,Ben`, `seed=42`, `speed=normal|fast|instant`. The full list is at the top of `src/ui/setup.js`. The same variant names work on the simulator command line as `--variant.<name>=<value>`.
 
 The variants (the engine's table in `src/engine/variants.js` is the one list; the page and the simulator are built from it):
 
@@ -77,7 +81,7 @@ The variants (the engine's table in `src/engine/variants.js` is the one list; th
 ## Tests
 
 ```
-npm test            # 15 suites in Node: rules, data, determinism, bots, simulator, bug reporter; no browser needed
+npm test            # 16 suites in Node: rules, data, determinism, bots, simulator, bug reporter, rulesets; no browser needed
 npm run test:ui     # drives the real page in your installed Chrome or Edge with playwright-core (nothing is downloaded)
 ```
 
@@ -96,7 +100,12 @@ node sim/sim.mjs --games=200 --players=3 --bots=medium --jitter=0.05 --baseline 
 
 # 3. The search bot against Medium, seats rotated, at a fixed number of search iterations a turn
 node sim/sim.mjs --games=20 --players=2 --bots=hard,medium --rotate --iterations=120 --label=readme-hard
+
+# 4. The same kind of run under the other ruleset (--rules=continental is the default)
+node sim/sim.mjs --rules=pr2e --games=200 --players=3 --bots=medium --jitter=0.05 --label=readme-pr2e
 ```
+
+`--rules` picks the ruleset; the variants, constants and bots of the run are that ruleset's (`node sim/sim.mjs --help --rules=pr2e` lists its variants), and the output names it.
 
 Then turn a result into a single self-contained HTML report with charts (no network needed; it is written beside the input, and a second run writes `-v2`):
 
@@ -120,8 +129,10 @@ It rebuilds the position from the file and prints the legal actions and the bloc
 
 ```
 index.html, style.css      the page
-src/engine/                the rules: pure functions over JSON state (no DOM, no clock, seeded randomness)
-src/bots/                  Random, Easy, Medium and the tree-search bot; run in a Web Worker in the page
+src/engine/                the Continental Rails rules: pure functions over JSON state (no DOM, no clock, seeded randomness)
+src/engine-pr2e/           the Pacific Rails, second edition rules: a separate engine behind the same contract
+src/rulesets/              the ruleset registry: the one place that imports an engine
+src/bots/                  Random, Easy, Medium and the tree-search bot, built per ruleset; run in a Web Worker in the page
 src/ui/                    the screens: set-up page, board, trains, dock, end screen, bug reporter
 sim/                       the simulator and its HTML report generator
 tests/                     the Node suites (npm test), the browser tests (test:ui) and hand-run QA scripts (tests/qa)

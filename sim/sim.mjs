@@ -3,6 +3,7 @@
 //   node sim/sim.mjs --games=1000 --players=4 --bots=random
 //   npm run sim -- --games=200 --players=3 --bots=medium,medium,easy --rotate --jitter=0.05
 //   npm run sim -- --games=500 --variant.conversionRate=1:1 --baseline --label=conversion-1to1
+//   node sim/sim.mjs --rules=pr2e --games=20 --players=3 --bots=medium,easy,random
 //   node sim/sim.mjs --help
 //
 // Plays bot-versus-bot games headless through the same driver loop as the browser (run-game.mjs),
@@ -15,7 +16,7 @@
 
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { activeModules } from '../src/engine/index.js';
+import { getRuleset, DEFAULT_RULESET_ID } from '../src/rulesets/index.js';
 import { UsageError, parseArgs, resolveOptions, helpText, slug } from './args.mjs';
 import { playAll } from './pool.mjs';
 import { aggregateArm, compareArms } from './aggregate.mjs';
@@ -32,7 +33,8 @@ function defaultLabel(plan) {
   const bots = [...new Set(plan.bots.map((b) => b.type))].join('-');
   const test = plan.arms[0];
   const rules = [...Object.keys(test.variants), ...Object.keys(test.constants)].map(slug).join('-').slice(0, 40);
-  return slug(`${bots}-${plan.players}p-${plan.games}g${rules ? `-${rules}` : ''}${plan.baseline ? '-vs-baseline' : ''}`);
+  const prefix = plan.rules && plan.rules !== DEFAULT_RULESET_ID ? `${plan.rules}-` : '';
+  return slug(`${prefix}${bots}-${plan.players}p-${plan.games}g${rules ? `-${rules}` : ''}${plan.baseline ? '-vs-baseline' : ''}`);
 }
 
 /**
@@ -48,7 +50,7 @@ export async function runCli(argv, io = {}) {
   try {
     const parsed = parseArgs(argv);
     if (parsed.options.help) {
-      out(helpText());
+      out(helpText(parsed.options.rules));
       return { exitCode: 0 };
     }
     plan = resolveOptions(parsed);
@@ -80,11 +82,13 @@ export async function runCli(argv, io = {}) {
 
   // Aggregate in the main thread, from the records in game-index order.
   const botTypes = [...new Set(plan.bots.map((b) => b.type))].sort();
+  const ruleset = getRuleset(plan.rules);
+  const rulesEngine = ruleset.engine;
   const arms = [];
   const failures = [];
   for (const armPlan of plan.arms) {
     const records = recordsByArm[armPlan.name];
-    const ctx = { players: plan.players, botTypes, variants: armPlan.variantsResolved, modulesOn: activeModules(armPlan.variantsResolved) };
+    const ctx = { players: plan.players, botTypes, variants: armPlan.variantsResolved, modulesOn: rulesEngine.activeModules(armPlan.variantsResolved), engine: rulesEngine };
     const { aggregate, aggregateAll } = aggregateArm(records, ctx);
     for (const r of records) {
       if (r.failed) failures.push({ arm: armPlan.name, index: r.index, seed: r.seed, type: r.failed.type, seat: r.failed.seat ?? null, hash: r.failed.hash ?? null, action: r.failed.action ?? null, reason: r.failed.reason });
@@ -124,6 +128,8 @@ export async function runCli(argv, io = {}) {
       engineDirty: engine.dirty,
       nodeVersion: process.version,
       commandLine: ['node', 'sim/sim.mjs', ...argv].join(' '),
+      rules: ruleset.id,
+      rulesName: ruleset.name,
       label: plan.label ?? defaultLabel(plan),
       seed: plan.seed,
       seedIsDefault,

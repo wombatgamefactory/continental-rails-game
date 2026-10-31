@@ -6,7 +6,7 @@
 // the engine made for a player because there was only one legal choice
 // (`auto: true`): those are marked so the player can see why the game moved on.
 
-import { formatCost, MAP, NAMES, ponyCardData, upgradeTileData } from '../engine/index.js';
+import { formatCost, MAP, NAMES, ponyCardData, upgradeTileData } from './active-ruleset.js';
 
 /** Player-facing names of the VP sources (R20.1, R20.2). */
 export const VP_LABELS = {

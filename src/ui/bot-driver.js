@@ -11,7 +11,7 @@
 // main thread, logs the incident, and starts counting again. The counter is
 // reset by every action that is applied.
 
-import { getValidActions, makeRng, rngNext } from '../engine/index.js';
+import { getValidActions, makeRng, rngNext } from './active-ruleset.js';
 import { BOT_LEVELS } from '../bots/index.js';
 
 /**
@@ -48,6 +48,8 @@ function timeoutFor(level) {
  *   getState()            the current game state
  *   shouldRun()           true when a bot move should be asked for now (a bot to act, not paused, game on screen)
  *   levelFor(playerId)    the bot level id of a seat
+ *   rules()               optional: the ruleset id of the game, sent with every request so that the worker
+ *                         plays the bots of that ruleset against its engine (absent: the default ruleset)
  *   speed()               'normal' | 'fast' | 'instant'
  *   apply(action, how)    the page's commit path; returns { ok, error? }; how is 'bot' or 'fallback'
  *   incident(text)        log a driver incident
@@ -120,7 +122,8 @@ export function createBotDriver(hooks) {
     inflight = { id, seq: state.seq, toAct: state.toAct };
     try {
       if (!worker) worker = makeWorker();
-      worker.postMessage({ id, state, level, seed: Math.floor(rngNext(botRng) * 2147483647), timeBudgetMs: null });
+      const rules = typeof hooks.rules === 'function' ? hooks.rules() : null;
+      worker.postMessage({ id, state, level, rules, seed: Math.floor(rngNext(botRng) * 2147483647), timeBudgetMs: null });
     } catch (err) {
       onFailure(`Could not start the bot worker: ${err.message}`, true);
       return;

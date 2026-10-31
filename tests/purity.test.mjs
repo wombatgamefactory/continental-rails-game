@@ -22,7 +22,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
-import {
+import { ENGINE, RULESET, RULES_ID, RULES_TAG } from './helpers/engine.mjs';
+const {
   createGame,
   cloneState,
   hashState,
@@ -35,11 +36,11 @@ import {
   makeRng,
   rngNext,
   SILENT,
-} from '../src/engine/index.js';
+} = ENGINE;
 import { playGame, assertPlainJson, makeSuite, HARNESS } from './helpers/play.mjs';
 import { makeBuilder } from './helpers/builder.mjs';
 
-const suite = makeSuite('purity');
+const suite = makeSuite(`purity${RULES_TAG}`);
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // --- 1. serialisable state --------------------------------------------------
@@ -345,9 +346,12 @@ suite.check('the stripper keeps code and drops comments and strings', () => {
   assert.equal((code.match(/window/g) ?? []).length, 1);
 });
 
-const files = [...sourceFiles(join(root, 'src', 'engine')), ...sourceFiles(join(root, 'src', 'bots'))];
+// The engine of the ruleset under test (src/engine for Continental Rails, src/engine-pr2e for the second
+// edition), the bots and the ruleset registry: all three must be pure.
+const ENGINE_DIR = RULESET.engineDir;
+const files = [...sourceFiles(join(root, ...ENGINE_DIR.split('/'))), ...sourceFiles(join(root, 'src', 'bots')), ...sourceFiles(join(root, 'src', 'rulesets'))];
 
-suite.check('src/engine and src/bots hold no impure call', () => {
+suite.check(`${ENGINE_DIR}, src/bots and src/rulesets hold no impure call`, () => {
   assert.ok(files.length >= 12, `expected the engine and bot files, found ${files.length}`);
   const problems = [];
   for (const file of files) {
@@ -371,18 +375,45 @@ suite.check('source files use LF line endings', () => {
   assert.deepEqual(withCr.map((f) => relative(root, f)), []);
 });
 
-suite.check('engine files import only from inside src/engine, bots only from src/bots and src/engine', () => {
+/** Every static `import ... from` and dynamic `import('...')` target of a file, relative to the repository root. */
+function importTargets(file) {
+  const raw = readFileSync(file, 'utf8');
+  const out = [];
+  for (const match of raw.matchAll(/(?:import|export)[^'"]*from\s+['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+    const spec = match[1] ?? match[2];
+    if (!spec.startsWith('.')) continue; // node: built-ins and bare names are not files of the repository
+    out.push({ spec, rel: relative(root, join(dirname(file), spec)).split('\\').join('/') });
+  }
+  return out;
+}
+
+const isEngineFile = (rel) => /^src\/engine(-[a-z0-9-]+)?\//.test(rel);
+const engineDirOf = (rel) => rel.slice(0, rel.indexOf('/', 'src/'.length));
+
+suite.check('engine files import only their own engine; bots only bots and the registry; the registry only engines\' index.js, bots and itself', () => {
   const problems = [];
   for (const file of files) {
     const rel = relative(root, file).split('\\').join('/');
+    for (const { spec, rel: target } of importTargets(file)) {
+      if (isEngineFile(rel) && engineDirOf(target) !== engineDirOf(rel)) problems.push(`${rel} imports ${spec}`);
+      if (rel.startsWith('src/bots/') && !target.startsWith('src/bots/') && !target.startsWith('src/rulesets/')) problems.push(`${rel} imports ${spec}`);
+      if (rel.startsWith('src/rulesets/') && !target.startsWith('src/rulesets/') && !target.startsWith('src/bots/') && !/^src\/engine(-[a-z0-9-]+)?\/index\.js$/.test(target)) problems.push(`${rel} imports ${spec}`);
+    }
+  }
+  assert.deepEqual(problems, []);
+});
+
+suite.check('no file of src/ui, src/bots, sim or tools imports an engine: only src/rulesets does', () => {
+  const outside = ['src/ui', 'src/bots', 'sim', 'tools'].flatMap((d) => sourceFiles(join(root, ...d.split('/'))));
+  assert.ok(outside.length >= 30, `expected the UI, bot, simulator and tool files, found ${outside.length}`);
+  const problems = [];
+  for (const file of outside) {
+    const rel = relative(root, file).split('\\').join('/');
     const raw = readFileSync(file, 'utf8');
-    for (const match of raw.matchAll(/(?:import|export)[^'"]*from\s+['"]([^'"]+)['"]/g)) {
-      const target = join(dirname(file), match[1]);
-      const targetRel = relative(root, target).split('\\').join('/');
-      const inEngine = targetRel.startsWith('src/engine/');
-      const inBots = targetRel.startsWith('src/bots/');
-      if (rel.startsWith('src/engine/') && !inEngine) problems.push(`${rel} imports ${match[1]}`);
-      if (rel.startsWith('src/bots/') && !inEngine && !inBots) problems.push(`${rel} imports ${match[1]}`);
+    for (const { spec, rel: target } of importTargets(file)) if (isEngineFile(target)) problems.push(`${rel} imports ${spec}`);
+    // An engine path handed to new URL() or import() at run time is a direct import as well.
+    for (const match of raw.matchAll(/(?:new\s+URL|import)\s*\(\s*['"`]([^'"`]+)['"`]/g)) {
+      if (/(^|\/)src\/engine(-[a-z0-9-]+)?\//.test(match[1]) || /^(\.\.\/)*engine(-[a-z0-9-]+)?\//.test(match[1])) problems.push(`${rel} loads ${match[1]} at run time`);
     }
   }
   assert.deepEqual(problems, []);

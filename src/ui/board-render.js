@@ -41,7 +41,7 @@ import {
   scoreGame,
   upgradeTileData,
   upgradeTileAt,
-} from '../engine/index.js';
+} from './active-ruleset.js';
 import { art, hasArt, piece, isRealArt, svgArt, upgradeArtId, trackTile, ponyToken, svgPiece, svgPonyToken, svgTrackTile } from './art.js';
 import { ITEM_ART, moveTolls, stationEffect, targetState } from './action-targets.js';
 import { entryHtml } from './log-html.js';
@@ -96,6 +96,7 @@ export function renderHeader(ctx) {
   const speedNames = { normal: 'Normal', fast: 'Fast', instant: 'Instant' };
   return `
     <div class="hdr__title">Continental Rails</div>
+    ${rulesBadge(ctx)}
     <div class="hdr__meta" title="Use this seed to reproduce the game">Seed <b data-field="seed">${esc(state.config.seed)}</b></div>
     ${scoringCardBadge(state)}
     <div class="hdr__meta hdr__variants" aria-label="Rules variants in this game">${variantChips(state.variants)}</div>
@@ -109,6 +110,13 @@ export function renderHeader(ctx) {
     </div>
     <button type="button" class="btn btn--small" data-ui="undo" data-undo-available="${ctx.undo.available ? 1 : 0}" ${ctx.undo.available ? '' : 'disabled'} title="${esc(undoWhy)}">Undo</button>
     <button type="button" class="btn btn--small" data-ui="new-game">New game</button>`;
+}
+
+/** Which rules this game is played by (src/rulesets/index.js), always in the header. */
+function rulesBadge(ctx) {
+  const ruleset = ctx.ruleset;
+  if (!ruleset) return '';
+  return `<div class="hdr__meta hdr__rules" data-field="rules" data-rules="${esc(ruleset.id)}" title="${esc(`This game is played by the rules of ${ruleset.name}. ${ruleset.description}`)}">Rules: <b>${esc(ruleset.name)}</b></div>`;
 }
 
 /** R11.9 - the scoring card in force, always in view: it changes what every route is worth. */
@@ -805,7 +813,7 @@ export function renderEnd(ctx) {
     </table>
     </div>
     <p class="end__tie" data-field="tie-break">${esc(ctx.labels.tieBreak[result.decidedBy] ?? '')}</p>
-    <div class="end__meta">Seed <b data-field="seed">${esc(state.config.seed)}</b> <span class="end__rules">Rules: ${variantChips(state.variants, 'end__chips')}</span></div>
+    <div class="end__meta">Seed <b data-field="seed">${esc(state.config.seed)}</b> <span class="end__rules">Rules: <b data-field="end-rules">${esc(ctx.ruleset ? ctx.ruleset.name : '')}</b> ${variantChips(state.variants, 'end__chips')}</span></div>
     <div class="end__buttons">
       <button type="button" class="btn btn--primary btn--big" data-ui="again-new-seed">Play again</button>
       <button type="button" class="btn" data-ui="back-to-setup">Change set-up</button>

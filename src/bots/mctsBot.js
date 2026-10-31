@@ -61,22 +61,10 @@
 // the player board; buildings on the map are railway and telegraph stations;
 // grid locations are districts. Building tiles and laying tiles are different
 // actions (`useStep` builds, `claimRoute` lays).
-
-import {
-  getValidActions,
-  applyAction,
-  isGameOver,
-  scoreGame,
-  cloneState,
-  determinise,
-  hiddenDecks,
-  actionKey,
-  topFrame,
-  forkRng,
-  makeRng,
-  SILENT,
-} from '../engine/index.js';
-import { heuristicBot, heuristicPolicy, rolloutPolicy, scoreValidActions, repeatGuard } from './heuristicBot.js';
+//
+// ENGINE. This file imports no engine and no policy: `createMctsSearch(engine,
+// policies)` below builds the search for one ruleset (src/rulesets/index.js).
+// MCTS_SETTINGS and resolveSettings do not depend on either.
 
 // ---------------------------------------------------------------------------
 // Tuning constants
@@ -196,6 +184,46 @@ export function resolveSettings(overrides) {
 }
 
 // ---------------------------------------------------------------------------
+// The factory: everything below depends on the engine and the policies
+// ---------------------------------------------------------------------------
+//
+// `createMctsSearch(engine, policies)` builds the search against one engine
+// and the policies of its ruleset (src/rulesets/index.js hands both in), so
+// this file imports no engine and no policy. `policies` must provide
+// `heuristicBot`, `heuristicPolicy`, `rolloutPolicy`, `scoreValidActions` and
+// `repeatGuard` (the shape `createHeuristicPolicies` returns). Two game-
+// specific readings may also come from it, and fall back to the Continental
+// Rails readings below when it does not: `decisionShare(state, S)` (the share
+// of the per-turn allowance a decision gets) and `pipelineValue(player, S)`
+// (the static value of what a player holds, used at a playout cut-off).
+//
+// The body of the factory is deliberately not indented, so that its history
+// reads as it did before it was wrapped.
+
+/**
+ * The search bot built against one engine and one set of policies.
+ * @param {object} engine the namespace exported by an engine's index.js
+ * @param {object} policies the ruleset's heuristic policies (see above)
+ * @returns {{ blindCopy, decisionShare, search, createMctsBot, hardBot, expertBot }}
+ */
+export function createMctsSearch(engine, policies) {
+const {
+  getValidActions,
+  applyAction,
+  isGameOver,
+  scoreGame,
+  cloneState,
+  determinise,
+  hiddenDecks,
+  actionKey,
+  topFrame,
+  forkRng,
+  makeRng,
+  SILENT,
+} = engine;
+const { heuristicBot, heuristicPolicy, rolloutPolicy, scoreValidActions, repeatGuard } = policies;
+
+// ---------------------------------------------------------------------------
 // Hidden information
 // ---------------------------------------------------------------------------
 
@@ -204,7 +232,7 @@ export function resolveSettings(overrides) {
  * in a fixed order (sorted) and the game RNG is zeroed. The search works from
  * this copy only, so no result can depend on the real order of a deck.
  */
-export function blindCopy(state) {
+function blindCopy(state) {
   const copy = cloneState(state);
   for (const deck of hiddenDecks(copy)) deck.sort();
   copy.rng = { s: 0 };
@@ -215,8 +243,13 @@ export function blindCopy(state) {
 // The budget of one decision, read from the state
 // ---------------------------------------------------------------------------
 
-/** The share of the per-turn allowance that the pending decision of `state` gets. */
-export function decisionShare(state, S = MCTS_SETTINGS) {
+/** The share of the per-turn allowance that the pending decision of `state` gets: the ruleset's reading if it gives one. */
+function decisionShare(state, S = MCTS_SETTINGS) {
+  return typeof policies.decisionShare === 'function' ? policies.decisionShare(state, S) : standardDecisionShare(state, S);
+}
+
+/** The Continental Rails reading of decisionShare, by the kind of the pending frame. */
+function standardDecisionShare(state, S) {
   if (state.phase !== 'play') return S.shareSetup;
   if (state.turn.player !== state.toAct) return S.shareOffTurn;
   const frame = topFrame(state);
@@ -240,7 +273,9 @@ export function decisionShare(state, S = MCTS_SETTINGS) {
 // The result of a finished (or cut-off) playout
 // ---------------------------------------------------------------------------
 
+/** The static value of what a player holds, at a playout cut-off: the ruleset's reading if it gives one. */
 function pipelineValue(player, S) {
+  if (typeof policies.pipelineValue === 'function') return policies.pipelineValue(player, S);
   const t = player.builtTiles;
   const r = player.resources;
   return (t.ground + t.tunnel + t.bridge) * S.evalBuiltTile + (r.iron + r.wood + r.gunpowder) * S.evalResource + player.coins * S.evalCoin + player.hats * S.evalHat;
@@ -375,7 +410,7 @@ function playout(sim, rng, S, turnZero) {
  * @param {object} context the bot context (docs/engine-contract.md, section 14) plus
  *   `mcts` (overrides of MCTS_SETTINGS) and the level's `defaults`
  */
-export function search(state, context = {}) {
+function search(state, context = {}) {
   const S = resolveSettings(context.mcts);
   const defaults = context.defaults || { timeBudgetMs: S.hardTimeBudgetMs, iterations: S.hardIterations };
   const legal = getValidActions(state);
@@ -507,7 +542,7 @@ export function search(state, context = {}) {
  * thinking time per turn, and the per-turn iteration allowance used when the
  * driver gives no clock.
  */
-export function createMctsBot(level) {
+function createMctsBot(level) {
   return {
     /**
      * @param {object} state the game state (not changed)
@@ -522,7 +557,10 @@ export function createMctsBot(level) {
 }
 
 /** Hard: about 1.5 seconds of search per turn. */
-export const hardBot = createMctsBot({ timeBudgetMs: MCTS_SETTINGS.hardTimeBudgetMs, iterations: MCTS_SETTINGS.hardIterations });
+const hardBot = createMctsBot({ timeBudgetMs: MCTS_SETTINGS.hardTimeBudgetMs, iterations: MCTS_SETTINGS.hardIterations });
 
 /** Expert: about 6 seconds of search per turn. */
-export const expertBot = createMctsBot({ timeBudgetMs: MCTS_SETTINGS.expertTimeBudgetMs, iterations: MCTS_SETTINGS.expertIterations });
+const expertBot = createMctsBot({ timeBudgetMs: MCTS_SETTINGS.expertTimeBudgetMs, iterations: MCTS_SETTINGS.expertIterations });
+
+return { blindCopy, decisionShare, search, createMctsBot, hardBot, expertBot };
+}

@@ -34,17 +34,11 @@ import {
 } from '../src/engine/index.js';
 import { getBot, BOT_LEVELS, botLevelIds } from '../src/bots/index.js';
 import { handleBotRequest } from '../src/bots/bot-worker.js';
-import {
-  HEURISTIC_WEIGHTS,
-  heuristicBot,
-  heuristicPolicy,
-  rolloutPolicy,
-  rolloutBot,
-  repeatGuard,
-  resolveWeights,
-  scoreValidActions,
-  describePlan,
-} from '../src/bots/heuristicBot.js';
+import { HEURISTIC_WEIGHTS, resolveWeights } from '../src/bots/heuristicBot.js';
+import { getRuleset } from '../src/rulesets/index.js';
+
+// The heuristic policies are built per ruleset (src/rulesets/define.js); this suite tests Continental Rails'.
+const { heuristicBot, heuristicPolicy, rolloutPolicy, rolloutBot, repeatGuard, scoreValidActions, describePlan } = getRuleset('continental').policies;
 import { makeSuite } from './helpers/play.mjs';
 
 const suite = makeSuite('bots');

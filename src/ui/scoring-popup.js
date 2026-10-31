@@ -6,7 +6,7 @@
 // scoring) plus the neighbouring events that say what the VP were for. Nothing
 // is recomputed: an amount on screen is an amount in an event.
 
-import { MAP, ponyCardData, upgradeTileData } from '../engine/index.js';
+import { MAP, ponyCardData, upgradeTileData } from './active-ruleset.js';
 import { VP_LABELS } from './log.js';
 
 function esc(text) {

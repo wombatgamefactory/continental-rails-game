@@ -13,12 +13,21 @@
 // The worked examples E1, E3, E4 and E9 of spec R22 are played out as written
 // where the skeleton can. Expected numbers are read from the rules tables.
 //
+// Rulesets: the engine and the bots are those of the ruleset under test
+// (tests/helpers/engine.mjs; TEST_RULES, default Continental Rails), so
+// tests/rulesets.test.mjs runs this whole suite against every other ruleset.
+// Part A is the contract every engine must meet. Part B checks Continental
+// Rails rules; while the second edition's engine is still a copy it passes
+// them too, and when its rules are rewritten Part B must be guarded with
+// RULES_ID (or split) so that only Part A binds it.
+//
 // Harness note: states are built with createGame and then adjusted by hand
 // (a worker put on the grid, resources granted). The turn record is never
 // replaced wholesale.
 
 import assert from 'node:assert/strict';
-import {
+import { ENGINE, RULESET, RULES_ID, RULES_TAG } from './helpers/engine.mjs';
+const {
   createGame,
   getValidActions,
   applyAction,
@@ -58,13 +67,14 @@ import {
   MAP,
   SPACE_DISTRICTS,
   isSpaceId,
-} from '../src/engine/index.js';
-import { gainItems } from '../src/engine/actions.js'; // an engine-internal helper, tested directly
+} = ENGINE;
+// an engine-internal helper, tested directly: from the engine of the ruleset under test
+const { gainItems } = await import(new URL(`../${RULESET.engineDir}/actions.js`, import.meta.url).href);
 import { BOT_LEVELS, getBot, botLevelIds } from '../src/bots/index.js';
 import { handleBotRequest } from '../src/bots/bot-worker.js';
 import { playGame, drive, makeSuite } from './helpers/play.mjs';
 
-const suite = makeSuite('contract');
+const suite = makeSuite(`contract${RULES_TAG}`);
 const NAMES = ['Anna', 'Ben', 'Cara', 'Dev'];
 
 /**
@@ -322,20 +332,20 @@ suite.check('the bot registry and the worker entry return legal actions and repe
   assert.ok(botLevelIds().includes('random'));
   for (const level of BOT_LEVELS) {
     assert.ok(level.name.length > 0 && level.description.length > 0 && Number.isFinite(level.defaultTimeBudgetMs));
-    assert.equal(typeof getBot(level.id).chooseAction, 'function');
+    assert.equal(typeof getBot(level.id, RULES_ID).chooseAction, 'function');
   }
-  assert.throws(() => getBot('grandmaster'), /Unknown bot level "grandmaster"/);
+  assert.throws(() => getBot('grandmaster', RULES_ID), /Unknown bot level "grandmaster"/);
 
   const { state } = playGame({ playerCount: 4, seed: 'worker' }, { stopAfter: 70 });
   const before = JSON.stringify(state);
   const wire = JSON.parse(before); // what a Web Worker would receive
   const picks = new Set();
   for (let seed = 0; seed < 40; seed++) {
-    const reply = handleBotRequest({ id: seed, state: wire, level: 'random', seed, timeBudgetMs: 50 });
+    const reply = handleBotRequest({ rules: RULES_ID, id: seed, state: wire, level: 'random', seed, timeBudgetMs: 50 });
     assert.equal(reply.ok, true);
     assert.equal(reply.id, seed);
     assert.equal(getBlockReason(state, reply.action), null);
-    assert.deepEqual(handleBotRequest({ id: seed, state: wire, level: 'random', seed }).action, reply.action, 'same seed, same move');
+    assert.deepEqual(handleBotRequest({ rules: RULES_ID, id: seed, state: wire, level: 'random', seed }).action, reply.action, 'same seed, same move');
     picks.add(actionKey(reply.action));
   }
   assert.ok(picks.size > 1, 'different seeds should not all pick the same move');
@@ -343,24 +353,24 @@ suite.check('the bot registry and the worker entry return legal actions and repe
   assert.equal(JSON.stringify(wire), before, 'a bot must not change the state it is given');
   // Extra options reach the bot untouched, and cannot displace the RNG the worker makes for it.
   const seen = [];
-  const random = getBot('random');
+  const random = getBot('random', RULES_ID);
   const realChoose = random.chooseAction;
   random.chooseAction = (s, context) => {
     seen.push(context);
     return getValidActions(s)[0];
   };
   try {
-    handleBotRequest({ state: wire, level: 'random', seed: 5, options: { jitter: 2, rng: 'not this' } }, () => 123);
+    handleBotRequest({ rules: RULES_ID, state: wire, level: 'random', seed: 5, options: { jitter: 2, rng: 'not this' } }, () => 123);
   } finally {
     random.chooseAction = realChoose;
   }
   assert.equal(seen[0].jitter, 2);
   assert.equal(typeof seen[0].rng.s, 'number');
   assert.equal(seen[0].now(), 123);
-  const bad = handleBotRequest({ id: 'x', state: wire, level: 'grandmaster', seed: 1 });
+  const bad = handleBotRequest({ rules: RULES_ID, id: 'x', state: wire, level: 'grandmaster', seed: 1 });
   assert.deepEqual([bad.id, bad.ok], ['x', false]);
   assert.match(bad.error, /Unknown bot level/);
-  assert.equal(handleBotRequest({ state: wire, level: 'random' }).ok, false, 'a request without a seed is an error, not a silent default');
+  assert.equal(handleBotRequest({ rules: RULES_ID, state: wire, level: 'random' }).ok, false, 'a request without a seed is an error, not a silent default');
 });
 
 // =============================================================================

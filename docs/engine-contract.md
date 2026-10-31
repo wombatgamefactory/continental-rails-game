@@ -14,7 +14,9 @@ What is binding and what is not:
 | The auto-advance rule and the stop actions (section 4) | Internal helper functions |
 | Module namespacing (section 11), VP source ids (section 9) | |
 
-Contents: 1 the model - 2 public API - 3 state shape - 4 decisions - 5 action catalogue - 6 block reasons - 7 hidden information - 8 RNG - 9 scoring - 10 variants and constants - 11 modules - 12 effect encoding - 13 events - 14 bots - 15 files - 16 speed - 17 identifiers - 18 tests - 19 how to add a rule - 20 how the engine reads the rules where they are silent or ambiguous.
+Contents: 1 the model - 2 public API - 3 state shape - 4 decisions - 5 action catalogue - 6 block reasons - 7 hidden information - 8 RNG - 9 scoring - 10 variants and constants - 11 modules - 12 effect encoding - 13 events - 14 bots - 15 files - 16 speed - 17 identifiers - 18 tests - 19 how to add a rule - 20 how the engine reads the rules where they are silent or ambiguous - 21 rulesets.
+
+**Rulesets.** The game offers two rulesets, each a separate engine behind this same contract: Continental Rails (`continental`, `src/engine/`, the default) and Pacific Rails, second edition (`pr2e`, `src/engine-pr2e/`). Everything in this file describes ONE engine and binds each of them; "`src/engine/index.js`" below means the index.js of whichever engine is in use. How the rest of the code chooses an engine is in section 21.
 
 ---
 
@@ -48,7 +50,7 @@ Three promises make the loop safe:
 
 ## 2. Public API
 
-Import everything from `src/engine/index.js`. Nothing in `src/ui`, `src/bots`, `sim` or `tests` imports another engine file directly (tests may, for an internal helper, and say so).
+Everything public is exported by the engine's `index.js`. Only the ruleset registry (`src/rulesets/`) imports an engine's `index.js`; `src/ui`, `src/bots`, `sim` and `tools` take the engine from the ruleset in use (section 21). Tests may import an engine directly where they test that engine's internals (and say so); the contract-level suites take it from the ruleset under test.
 
 ### 2.1 Games
 
@@ -828,13 +830,13 @@ bot.chooseAction(state, { rng, timeBudgetMs, iterations, now, ...options }) -> a
 | `...options` | Anything else a level understands, for example the `jitter` and `weights` of a heuristic bot. A bot ignores what it does not know. |
 | returns | One of `getValidActions(state)`. Always legal. |
 
-`src/bots/index.js`: `BOT_LEVELS` (`[{ id, name, description, defaultTimeBudgetMs }]`, weakest first; the setup screen builds its seat menu from it) and `getBot(level)` (throws on an unknown level). Five levels are registered: `random`, `easy`, `medium`, `hard`, `expert`.
+`src/bots/index.js`: `BOT_LEVELS` (`[{ id, name, description, defaultTimeBudgetMs }]`, weakest first; the setup screen builds its seat menu from it) and `getBot(level, rules?)` (the bot of that level for ruleset `rules`, the default ruleset when it is left out; throws on an unknown level or ruleset). Five levels are registered: `random`, `easy`, `medium`, `hard`, `expert`, the same for every ruleset; the bots behind them are built per ruleset (section 21).
 
 `src/bots/bot-worker.js` is the module Web Worker entry.
 
 ```js
 // request
-{ id, state, level, seed, timeBudgetMs?, iterations?, options? }   // options: passed to the bot as they are
+{ id, state, level, seed, rules?, timeBudgetMs?, iterations?, options? }   // rules: ruleset id, default continental; options: passed to the bot as they are
 // reply
 { id, ok: true, action }   or   { id, ok: false, error }
 ```
@@ -868,7 +870,7 @@ Driver rules, for the UI and the simulator alike:
 | `game.js` | `createGame`, `isGameOver`, `replayGame`. | |
 | `index.js` | The public exports. | |
 
-Imports run one way: `rng, rules, variants, events -> board -> state -> queries -> conditions -> scoring -> legality -> actions -> game -> index`. A file never imports from one to its right. `tests/purity.test.mjs` checks that engine files import only engine files and that bots import only bots and the engine.
+Imports run one way: `rng, rules, variants, events -> board -> state -> queries -> conditions -> scoring -> legality -> actions -> game -> index`. A file never imports from one to its right. `tests/purity.test.mjs` checks that engine files import only files of their own engine, that bots import only bots and the ruleset registry, that the registry imports only engines' `index.js`, bots and itself, and that nothing in `src/ui`, `src/bots`, `sim` or `tools` imports an engine (section 21).
 
 Two rules from the house pattern, both enforced by tests or by the tables above:
 
@@ -940,7 +942,7 @@ Conventions: assert behaviour, not constants; read expected numbers from `rules.
 
 `rules-audit`: the independent conformance audit, 476 checks named by spec rule number (`R11.5.4`, `R18.7/26`, `E7`), written from the spec; permanently green, a red line is a regression. Its checks live in `tests/rules-audit/part-*.mjs`, the spec's data tables in `tests/rules-audit/spec-tables.mjs`. See `docs/rules-audit-report.md`.
 
-Later suites: `bots`, `sim`, `mcts`, `sim-report`, `bug-report`.
+Later suites: `bots`, `sim`, `mcts`, `sim-report`, `bug-report`, `rulesets` (section 21).
 
 ---
 
@@ -997,3 +999,63 @@ Places where the rules text is silent or can be read two ways and the engine had
 26. **R18.3 and R18.4 - tokens and storage.** A token returned for a resource goes into storage and can overflow it (R8.5.4); the discard is then asked like any other.
 27. **R3.8 - setup order.** Module setup draws from the game RNG after every core draw, in the order upgrades, milestones, goals, Legislative Agenda, Pony Express.
 
+---
+
+## 21. Rulesets
+
+The page, the bots and the simulator can play more than one ruleset. A **ruleset** is a complete game: its own engine, the bot policies that play it, its variants and constants, and hooks for the page. Two are registered:
+
+| id | Name | Engine | Policies |
+|---|---|---|---|
+| `continental` (the default) | Continental Rails | `src/engine/` | the heuristic bot of `src/bots/heuristicBot.js`, tuned for these rules |
+| `pr2e` | Pacific Rails, second edition | `src/engine-pr2e/` | for now the same heuristic bot, built against the `pr2e` engine; to be replaced by one written for these rules |
+
+The second edition is the published 2020 rules of the game Continental Rails grew from, adapted to the same route map. Its engine began as a straight copy of `src/engine/` (its `data/` included) and plays identically until its rules are rewritten; `src/engine/` itself is unchanged.
+
+### 21.1 The registry
+
+`src/rulesets/index.js` is the one place that imports an engine's `index.js` (through `src/rulesets/continental.js` and `src/rulesets/pr2e.js`). It exports:
+
+| Export | |
+|---|---|
+| `RULESETS` | The entries, in the order the set-up page offers them. |
+| `DEFAULT_RULESET_ID` | `'continental'`. A game, a request, an address or a results file that names no ruleset is Continental Rails. |
+| `getRuleset(id?)` | The entry for an id (the default for `undefined`, `null` or `''`; an entry is returned as it is). Throws `Unknown rules "x". The rules are: continental, pr2e.` on anything else. |
+| `isRulesetId(id)`, `rulesetIds()`, `getEngine(id?)` | |
+| `REQUIRED_ENGINE_EXPORTS`, `RULESET_BOT_LEVELS` | What every engine must export (21.3); the bot levels every ruleset provides. |
+
+An entry (`defineRuleset` in `src/rulesets/define.js`) is frozen and holds:
+
+| Field | |
+|---|---|
+| `id`, `name`, `description` | The id used in the address (`?rules=`), on the simulator command line (`--rules=`), in saved games, bug reports, analytics and results files; the player-facing name; one line for the set-up page. |
+| `engine` | The namespace the engine's `index.js` exports (`import * as engine`). |
+| `engineDir` | Where the engine lives (`src/engine`, `src/engine-pr2e`): for the tests that scan an engine's files, and tools. Nothing loads modules by it at run time. |
+| `variants`, `constants` | The engine's `VARIANTS` table and `RULES` tables: what the set-up page, `--variant.` and `--const.` offer. |
+| `policies` | The heuristic policies built against this engine by the entry's `makePolicies(engine)`: at least `heuristicBot`, `easyBot`, `heuristicPolicy`, `rolloutPolicy`, `scoreValidActions`, `repeatGuard`; optionally `decisionShare(state, S)` and `pipelineValue(player, S)` for the search. Built on first use and kept. |
+| `search` | The tree search built against this engine and these policies (`createMctsSearch`): `search`, `blindCopy`, `decisionShare`, `createMctsBot`, `hardBot`, `expertBot`. Built on first use and kept. |
+| `bots`, `getBot(level)` | The five levels: `random` (`createRandomBot(engine)`), `easy` and `medium` (from `policies`), `hard` and `expert` (from `search`). |
+| `ui.views` | Optional render functions that replace the page's own, region by region, for this ruleset: `renderHeader`, `renderScores`, `renderPrompt`, `renderGrid`, `renderCongress`, `renderMap`, `renderTrains`, `renderLog`, `renderDock`, `renderEnd`. Each takes the render context (which holds `ctx.ruleset` and `ctx.engine`) and returns HTML. A view module must not import `src/ui/active-ruleset.js` (an import cycle through the registry); it reads the engine from the context. Empty for both rulesets today. |
+
+### 21.2 How each part gets its engine
+
+No module outside `src/rulesets/` imports an engine; `tests/purity.test.mjs` enforces it for `src/ui`, `src/bots`, `sim` and `tools`, static and dynamic imports alike. The two patterns:
+
+- **Dependency injection, for the bots and the simulator**, which may meet both rulesets in one process. `src/bots/randomBot.js`, `heuristicBot.js` and `mctsBot.js` export factories (`createRandomBot(engine)`, `createHeuristicPolicies(engine)`, `createMctsSearch(engine, policies)`) and import no engine; everything that depended on the engine (the map tables, the memos, the repeat guard) lives in the closure, so two engines never share a cache. The tuning constants (`HEURISTIC_WEIGHTS`, `MCTS_SETTINGS`, `resolveWeights`, `resolveSettings`) do not depend on the engine and stay plain exports. The search takes its priors and playouts from the ruleset's policies, never from a fixed module. `getBot(level, rules)` hands out a ruleset's bot. The bot Web Worker is told the ruleset in every request (`rules`, section 14) and holds none of its own. The simulator takes `--rules=<id>`, puts the id in the plan its worker threads receive, and hands the engine to every module that needs one (`createTally(P, engine)`, `finalMetrics(state, tally, engine)`, `aggregateArm(records, { ..., engine })`).
+- **One active ruleset, for the page**, which plays one game at a time. `src/ui/active-ruleset.js` exports every engine function and table the UI uses as ES module live bindings, plus `useRuleset(id)`, `activeRuleset()` and `activeRulesetId()`. Every UI module imports the engine from it. `useRuleset` reassigns all the bindings at once; the set-up page calls it when the rules are changed (so the variants panel and the presets show that ruleset's), and `main.js` when a game is started or loaded (so the board, the log, the bug reporter and the bot driver talk to the game's engine). UI code reads engine values inside functions, never into module-level constants. A UI module that needs an engine export not yet listed adds it to `active-ruleset.js`.
+
+The ruleset id travels with the game everywhere outside the engine; the engine state itself does not record it (so Continental Rails states are unchanged): the set-up form and the address (`?rules=pr2e`, absent for the default), the bot request, the bug report (`rules: { id, name }`, which `tools/replay-bug-report.mjs` uses to pick the engine), the analytics events `game_start` and `game_end` (`rules`), a saved game (`{ savedGame: 1, rules, state }`, read back with that ruleset's engine), and the simulator's output (`run.rules`, `run.rulesName`; sim/SCHEMA.md). A game in progress shows its rules in the header, and the end screen repeats them.
+
+### 21.3 What each engine must provide
+
+Each engine meets this WHOLE contract on its own: sections 1 to 20 apply to it as written, with its own rule text, its own variants table and its own constants. In particular it is pure (section 15), imports nothing outside its own folder, and loads its data by relative module import (as `data/route-map.js` does), so it works the same in Node and in the browser. The registry refuses an engine that lacks any of `REQUIRED_ENGINE_EXPORTS` (the games API of 2.1, state as a value of 2.2, hidden information and randomness, the descriptions the bots and the bug reporter use, and the variants API of section 10). The page's standard views read further queries (the board, the trains, the Congress strip); a ruleset whose engine does not export them must supply its own `ui.views` for those regions.
+
+### 21.4 How to add a ruleset
+
+1. Put its engine in `src/engine-<id>/`, meeting the whole contract. Start from a copy of an existing engine if the rules are close.
+2. Write `src/rulesets/<id>.js` with `defineRuleset({ id, name, description, engine, engineDir, makePolicies, ui })` and add it to `RULESETS` in `src/rulesets/index.js`.
+3. Give it presets in `src/ui/presets.js` (`PRESETS_BY_RULESET`), and `ui.views` for any region whose standard view does not fit it.
+4. Run the contract-level suites against it: `tests/rulesets.test.mjs` runs `contract`, `determinism`, `purity` and `smoke` (a quarter of its random games) with `TEST_RULES=<id>` for every ruleset other than the default; by hand, `TEST_RULES=<id> node tests/contract.test.mjs`. The test helpers (`tests/helpers/engine.mjs`) read the same variable.
+5. `tests/qa/sweep.mjs` must still be clean: a new name may need a ruling before it can appear in this public repository.
+
+While `pr2e` is a copy, the Continental Rails rule checks in those suites (Part B of `contract`, the module counters of `smoke`) pass for it too. When its rules are rewritten they must be guarded with the ruleset id or split, so that only the contract part binds it.

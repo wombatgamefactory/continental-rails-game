@@ -7,14 +7,15 @@
 // wholesale; the action under test is always taken through applyAction.
 
 import assert from 'node:assert/strict';
-import {
+import { ENGINE } from './engine.mjs';
+const {
   createGame,
   getValidActions,
   applyAction,
   topFrame,
   actionKey,
   isSpaceId,
-} from '../../src/engine/index.js';
+} = ENGINE;
 import { drive } from './play.mjs';
 
 export const NAMES = ['Anna', 'Ben', 'Cara', 'Dev'];

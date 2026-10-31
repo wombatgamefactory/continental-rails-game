@@ -27,6 +27,12 @@
 // The clock and the random source are allowed here because this is UI code; the
 // engine never sees them.
 //
+// Rulesets: the report names the ruleset of the game (`rules`: { id, name };
+// a report without it is Continental Rails). The engine functions below are the
+// ACTIVE ruleset's (active-ruleset.js); the page makes the game's ruleset
+// active, and tools/replay-bug-report.mjs activates the one the report names
+// before it replays.
+//
 // No rules logic lives here: diagnostics call the engine's own functions
 // (getBlockReason, getStructuralBlockReason, getActionSpace, describeDecision,
 // describeAction, describeProgress, scoreGame, ...) and report what they say.
@@ -63,7 +69,9 @@ import {
   deserialiseState,
   applyAction,
   SILENT,
-} from '../engine/index.js';
+  activeRuleset,
+} from './active-ruleset.js';
+import { getRuleset, isRulesetId } from '../rulesets/index.js';
 import { standingText } from './explain.js';
 import { CONFIG } from './config.js';
 
@@ -583,6 +591,7 @@ export function checkReplay(replay, expectedHash) {
  * Builds the report. NEVER THROWS.
  *
  * @param {object} input
+ *   rules            the ruleset id of the game (or of the set-up form); the active ruleset when absent
  *   state            the live game state, or null (setup screen)
  *   seats            [{ human, level, label, name, colour }] by player id
  *   replay           { actions: [...applied actions], base: null | state text the actions start from }
@@ -638,6 +647,10 @@ export function buildReport(input = {}, options = {}) {
   section('id', () => id);
   section('timestamp', () => ({ iso: now.toISOString(), local: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`, utcOffsetMinutes: -now.getTimezoneOffset() }));
   section('build', () => String(config.BUILD));
+  section('rules', () => {
+    const ruleset = isRulesetId(input.rules) ? getRuleset(input.rules) : activeRuleset();
+    return { id: ruleset.id, name: ruleset.name };
+  });
   section('environment', () => input.environment ?? null);
   section('screen', () => input.screen ?? null);
   section('words', () => ({ title: String(input.words?.title ?? ''), category: String(input.words?.category ?? ''), expected: String(input.words?.expected ?? ''), actual: String(input.words?.actual ?? '') }));

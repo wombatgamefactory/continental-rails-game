@@ -150,6 +150,7 @@ export function formatReport(result) {
   const run = result.run;
   const out = [];
   out.push(`Continental Rails simulation, ${run.dateUk} (Europe/London)`);
+  out.push(`Rules: ${run.rulesName ?? 'Continental Rails'} (${run.rules ?? 'continental'})`);
   out.push(`Command: ${run.commandLine}`);
   out.push(`Engine: ${run.engineCommit ?? 'commit unknown'}${run.engineDirty ? ' (src/engine or src/bots has uncommitted changes)' : ''}; Node ${run.nodeVersion}`);
   out.push(

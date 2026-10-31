@@ -17,6 +17,14 @@
 // Everything the player is told about a refusal goes through ONE function,
 // `say`: the engine's refusal of a click, the engine's refusal of an action,
 // a click on something that is not open to them. One mechanism, one place.
+//
+// Rulesets: a game belongs to one ruleset (`app.rules`). beginGame makes it the
+// page's active ruleset (active-ruleset.js), so every module talks to that
+// ruleset's engine; the bot driver names it in every request to the worker; the
+// bug reporter, the replay record and the analytics events carry its id; and a
+// saved game (`saveGame` / `loadState` of the test hook) records it so that it is
+// loaded with the right engine. A ruleset's `ui.views` replace the page's own
+// renderers region by region (render below).
 
 import {
   createGame,
@@ -28,12 +36,14 @@ import {
   cloneState,
   hashState,
   serialiseState,
-  deserialiseState,
   topFrame,
   playerName,
   scoreGame,
   nonDefaultVariants,
-} from '../engine/index.js';
+  useRuleset,
+  activeRuleset,
+} from './active-ruleset.js';
+import { getRuleset, isRulesetId, DEFAULT_RULESET_ID } from '../rulesets/index.js';
 import { BOT_LEVELS } from '../bots/index.js';
 import { loadArt, installArtFallback, isRealArt, artUrl } from './art.js';
 import * as UI from './ui-state.js';
@@ -60,6 +70,8 @@ const POPUP_MS = 9000;
 /** Everything the page remembers about the running game. Nothing of it is stored in the DOM. */
 const app = {
   state: null,
+  /** The ruleset id of the running game (src/rulesets/index.js). */
+  rules: DEFAULT_RULESET_ID,
   /** seats[playerId] = { human, level, label, name, colour } */
   seats: [],
   setupSeats: [],
@@ -120,6 +132,7 @@ async function boot() {
     getState: () => app.state,
     shouldRun: () => app.state !== null && app.state.phase !== 'ended' && UI.getView().screen === 'game' && !UI.getView().paused && !isHuman(app.state.toAct) && !needsCover(),
     levelFor: (pid) => (app.seats[pid] ? app.seats[pid].level : 'random'),
+    rules: () => app.rules,
     speed: () => UI.getView().speed,
     apply: (action, how) => commitAction(action, how === 'bot' ? 'bot' : 'fallback'),
     incident: (text) => logIncident(text),
@@ -145,13 +158,16 @@ function showSetup() {
   $('end').hidden = true;
   $('cover').hidden = true;
   hideFloating();
+  // Back on the set-up page the form's rules are the active ones again (a loaded game may have used others).
+  useRuleset(getForm().rules);
   renderSetup($('screen-setup'));
 }
 
 function startGame() {
-  const { config, seats } = buildGame();
+  const { config, seats, rules } = buildGame();
   let state;
   try {
+    useRuleset(rules);
     state = createGame(config);
   } catch (err) {
     setSetupError(err.message);
@@ -163,7 +179,7 @@ function startGame() {
   app.seedGiven = String(getForm().seed).trim() !== '';
   app.demo = false;
   syncUrl();
-  beginGame(state, seats.map((s) => s));
+  beginGame(state, seats.map((s) => s), 'created', rules);
 }
 
 /**
@@ -172,10 +188,11 @@ function startGame() {
  * and the bot speed differ. `seed` replays a particular demo.
  */
 function startDemo(seed = null) {
-  const { config, seats, speed } = buildDemoGame();
+  const { config, seats, speed, rules } = buildDemoGame();
   if (seed !== null) config.seed = seed;
   let state;
   try {
+    useRuleset(rules);
     state = createGame(config);
   } catch (err) {
     setSetupError(err.message);
@@ -187,7 +204,7 @@ function startDemo(seed = null) {
   app.seedGiven = seed !== null;
   app.demo = true;
   UI.getView().speed = speed;
-  beginGame(state, seats.map((s) => s));
+  beginGame(state, seats.map((s) => s), 'created', rules);
 }
 
 /**
@@ -202,8 +219,12 @@ function normaliseSeat(seat, player) {
   return { human: true, level: null, label: 'Human', ...seat, name, colour };
 }
 
-/** Starts play from a freshly created state. `seatList` is in setup order; players know their `configIndex`. */
-function beginGame(state, seatList, origin = 'created') {
+/**
+ * Starts play from a freshly created (or loaded) state. `seatList` is in setup order; players know their
+ * `configIndex`. `rules` is the ruleset id the state belongs to; it becomes the page's active ruleset.
+ */
+function beginGame(state, seatList, origin = 'created', rules = DEFAULT_RULESET_ID) {
+  app.rules = useRuleset(rules).id;
   app.state = state;
   app.seats = state.players.map((p) => normaliseSeat({ ...seatList[p.configIndex] }, p));
   app.log = [];
@@ -233,7 +254,7 @@ function beginGame(state, seatList, origin = 'created') {
   $('screen-game').hidden = false;
   settleDeviceHolder();
   startLogs();
-  logEvent('info', `game started (${origin})`, { seed: state.config.seed, players: state.players.length });
+  logEvent('info', `game started (${origin})`, { seed: state.config.seed, players: state.players.length, rules: app.rules });
   resetSampling();
   trackGameStart(state);
   afterStep();
@@ -474,8 +495,12 @@ function buildContext() {
     else viewer = state.toAct ?? state.turn.player ?? 0;
   }
   const tabs = tabsInPlay(state.variants);
+  const ruleset = activeRuleset();
   return {
     state,
+    /** The ruleset of the game (registry entry) and its engine, for ruleset views (src/rulesets/index.js, "UI hooks"). */
+    ruleset,
+    engine: ruleset.engine,
     actions,
     targets,
     view,
@@ -519,15 +544,18 @@ function render() {
   const dockEl = $('region-dock');
   const oldBody = dockEl.querySelector('.dock__body');
   const keepScroll = oldBody ? { tab: oldBody.dataset.tab, top: oldBody.scrollTop } : null;
-  $('region-header').innerHTML = renderHeader(ctx);
-  $('region-scores').innerHTML = renderScores(ctx);
-  $('region-prompt').innerHTML = renderPrompt(ctx);
-  $('region-grid').innerHTML = renderGrid(ctx);
-  $('region-congress').innerHTML = renderCongress(ctx);
-  $('region-map').innerHTML = renderMap(ctx);
-  $('region-trains').innerHTML = renderTrains(ctx);
-  $('region-log').innerHTML = renderLog(ctx);
-  const dock = renderDock(ctx);
+  // A ruleset may replace any region's renderer with its own (ruleset.ui.views); the page's own is the default.
+  const views = ctx.ruleset.ui.views;
+  const viewFor = (name, standard) => (typeof views[name] === 'function' ? views[name] : standard);
+  $('region-header').innerHTML = viewFor('renderHeader', renderHeader)(ctx);
+  $('region-scores').innerHTML = viewFor('renderScores', renderScores)(ctx);
+  $('region-prompt').innerHTML = viewFor('renderPrompt', renderPrompt)(ctx);
+  $('region-grid').innerHTML = viewFor('renderGrid', renderGrid)(ctx);
+  $('region-congress').innerHTML = viewFor('renderCongress', renderCongress)(ctx);
+  $('region-map').innerHTML = viewFor('renderMap', renderMap)(ctx);
+  $('region-trains').innerHTML = viewFor('renderTrains', renderTrains)(ctx);
+  $('region-log').innerHTML = viewFor('renderLog', renderLog)(ctx);
+  const dock = viewFor('renderDock', renderDock)(ctx);
   dockEl.innerHTML = dock;
   dockEl.hidden = dock === '';
   $('app').dataset.dock = dock === '' ? 'none' : ctx.view.dock.open ? 'open' : 'closed';
@@ -551,7 +579,7 @@ function render() {
 
   const end = $('end');
   if (state.phase === 'ended' && !app.endHidden) {
-    end.innerHTML = renderEnd(ctx);
+    end.innerHTML = viewFor('renderEnd', renderEnd)(ctx);
     end.hidden = false;
     UI.getView().screen = 'end';
   } else {
@@ -873,6 +901,7 @@ function recordApplied(action, events, source, actor) {
 function trackGameStart(state) {
   const kinds = app.seats.map((s) => (s.human ? 'human' : s.level));
   track('game_start', {
+    rules: app.rules,
     player_count: state.players.length,
     humans: kinds.filter((k) => k === 'human').length,
     bots: kinds.filter((k) => k !== 'human').length,
@@ -890,6 +919,7 @@ function trackGameEnd(state) {
     const winner = score.winner === null || score.winner === undefined ? null : app.seats[score.winner];
     logEvent('info', 'game over', { reason: state.gameEnd ? state.gameEnd.reason : null, seq: state.seq });
     track('game_end', {
+      rules: app.rules,
       end_reason: score.endReason ?? (state.gameEnd ? state.gameEnd.reason : 'unknown'),
       turns: state.turn.number,
       duration_minutes: Math.round(((Date.now() - app.startedAt) / 60000) * 10) / 10,
@@ -931,13 +961,15 @@ function bugContext() {
   const choice = UI.getModeData();
   return {
     screen,
+    /** The ruleset id: the running game's, or the one chosen on the set-up page. */
+    rules: onSetup ? form.rules : app.rules,
     state: onSetup ? null : state,
     seats: app.seats,
     replay: { actions: app.replay, base: app.replayBase },
     lastHumanActor: app.lastHumanActor,
     tipText,
     setupForm: onSetup
-      ? { playerCount: form.playerCount, seats: form.seats.slice(0, form.playerCount).map((s) => ({ kind: s.kind, name: s.name, colour: s.colour })), seed: form.seed, shuffle: form.shuffle, variants: { ...form.variants }, error: form.error }
+      ? { rules: form.rules, playerCount: form.playerCount, seats: form.seats.slice(0, form.playerCount).map((s) => ({ kind: s.kind, name: s.name, colour: s.colour })), seed: form.seed, shuffle: form.shuffle, variants: { ...form.variants }, error: form.error }
       : null,
     ui: {
       screen: view.screen,
@@ -975,6 +1007,32 @@ function applyTestConfig(search) {
 }
 
 // ---------------------------------------------------------------------------
+// Saved games: the state with the id of the ruleset it belongs to
+// ---------------------------------------------------------------------------
+
+/** The running game as JSON text `{ savedGame: 1, rules, state }`. */
+function saveGameText() {
+  return JSON.stringify({ savedGame: 1, rules: app.rules, state: JSON.parse(serialiseState(app.state)) });
+}
+
+/**
+ * Reads a saved game, state JSON or a state object; returns `{ rules, state }`. A saved game is read
+ * with the engine of the ruleset it names; anything else with the engine of `rules` (the page's active
+ * ruleset when null). An unknown ruleset id throws.
+ */
+function readSavedGame(input, rules = null) {
+  const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+  if (parsed && typeof parsed === 'object' && parsed.savedGame === 1) {
+    const id = parsed.rules ?? DEFAULT_RULESET_ID;
+    if (!isRulesetId(id)) throw new Error(`The saved game names unknown rules "${id}".`);
+    return { rules: id, state: getRuleset(id).engine.deserialiseState(JSON.stringify(parsed.state)) };
+  }
+  const id = rules ?? activeRuleset().id;
+  if (!isRulesetId(id)) throw new Error(`Unknown rules "${id}".`);
+  return { rules: id, state: typeof input === 'string' ? getRuleset(id).engine.deserialiseState(input) : input };
+}
+
+// ---------------------------------------------------------------------------
 // Test hook (only with ?test=1)
 // ---------------------------------------------------------------------------
 
@@ -991,9 +1049,21 @@ function installTestHook() {
     incidents: () => app.incidents.slice(),
     /** The UI's own pending selection: { mode, hat, dock, card } (for the tests of Cancel and Escape). */
     pendingUi: () => ({ mode: UI.getMode(), hat: UI.hatOn(), dock: UI.getView().dock.open, card: UI.getView().cardOpen }),
-    /** Replaces the running game with a prepared state. `seatKinds` is per player id: 'human' or a bot level. */
-    loadState(text, seatKinds) {
-      const state = typeof text === 'string' ? deserialiseState(text) : text;
+    /** The running game as a saved game: JSON text `{ savedGame: 1, rules, state }` (loadState reads it back). */
+    saveGame: () => saveGameText(),
+    /** The ruleset id of the running game, and of the page's active ruleset (they agree once a game is on). */
+    rules: () => app.rules,
+    activeRules: () => activeRuleset().id,
+    /** Whether the page's active engine is the engine of ruleset `id` (tests: the game really uses that engine). */
+    engineIs: (id) => activeRuleset().engine === getRuleset(id).engine,
+    /**
+     * Replaces the running game with a prepared state. `text` is a saved game (saveGame), state JSON, or a
+     * state object; `seatKinds` is per player id: 'human' or a bot level. `rules` is the ruleset of a plain
+     * state (a saved game names its own); the page's active ruleset when left out.
+     */
+    loadState(text, seatKinds, rules = null) {
+      const loaded = readSavedGame(text, rules);
+      const state = loaded.state;
       const kinds = seatKinds || state.players.map(() => 'human');
       const seatList = [];
       state.players.forEach((p) => {
@@ -1003,7 +1073,7 @@ function installTestHook() {
         // A prepared state may carry no name and no colour: the seat then falls back (see normaliseSeat).
         seatList[p.configIndex] = { human: kind === 'human', level, label, name: p.name, colour: p.colour };
       });
-      beginGame(state, seatList, 'loaded');
+      beginGame(state, seatList, 'loaded', loaded.rules);
       return true;
     },
     commit: (action) => commitAction(action, 'human'),

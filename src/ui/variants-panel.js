@@ -15,8 +15,13 @@
 // activeModules() (found by asking the engine, not by name); those come first,
 // then every other variant, alphabetically by name.
 
-import { VARIANTS, resolveVariants, activeModules, defaultVariants, nonDefaultVariants } from '../engine/index.js';
-import { PRESETS } from './presets.js';
+//
+// Rulesets: VARIANTS and the functions above are those of the ACTIVE ruleset
+// (active-ruleset.js), and the presets are that ruleset's (presets.js), so the
+// panel lists only the variants of the rules chosen on the set-up page.
+
+import { VARIANTS, resolveVariants, activeModules, defaultVariants, nonDefaultVariants, activeRulesetId } from './active-ruleset.js';
+import { presetsFor } from './presets.js';
 
 function esc(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -150,7 +155,7 @@ function sameOverrides(a, b) {
 
 /** The id of the preset the overrides equal, or null. */
 export function activePreset(overrides) {
-  const found = PRESETS.find((p) => sameOverrides(p.variants, overrides));
+  const found = presetsFor(activeRulesetId()).find((p) => sameOverrides(p.variants, overrides));
   return found ? found.id : null;
 }
 
@@ -200,7 +205,7 @@ export function renderVariantsPanel(form) {
   const changedCount = Object.keys(tidy(form.variants)).length;
   const current = activePreset(form.variants);
   const summary = changedCount === 0 ? 'Default rules' : `${changedCount} changed from the defaults`;
-  const presets = PRESETS.map(
+  const presets = presetsFor(activeRulesetId()).map(
     (p) => `<button type="button" class="btn vpreset${current === p.id ? ' is-on' : ''}" data-setup="preset:${esc(p.id)}" aria-pressed="${current === p.id}" ><span class="btn__text"><span class="btn__label">${esc(p.label)}</span><span class="btn__sub">${esc(p.note)}</span></span></button>`,
   ).join('');
   const body = form.variantsOpen

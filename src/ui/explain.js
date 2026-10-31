@@ -30,7 +30,7 @@ import {
   goalsInPlay,
   goalStandings,
   legislativeCardData,
-} from '../engine/index.js';
+} from './active-ruleset.js';
 import { probesFor, refusalReason } from './action-targets.js';
 import { forcedFollowUps, consequenceSentence } from './preview.js';
 

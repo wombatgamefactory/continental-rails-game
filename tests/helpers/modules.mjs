@@ -7,7 +7,8 @@
 // action under test always goes through applyAction.
 
 import assert from 'node:assert/strict';
-import { RULES, topFrame, getValidActions, actionKey, SPACE_IDS, SPACE_DISTRICTS } from '../../src/engine/index.js';
+import { ENGINE } from './engine.mjs';
+const { RULES, topFrame, getValidActions, actionKey, SPACE_IDS, SPACE_DISTRICTS } = ENGINE;
 import { start, MODULES_OFF, put, act, take, give, setTrain, setHeads, claim, placeAndChoose, types } from './rig.mjs';
 
 export { start, MODULES_OFF, put, act, take, give, setTrain, setHeads, claim, placeAndChoose, types };

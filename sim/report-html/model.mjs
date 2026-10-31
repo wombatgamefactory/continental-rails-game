@@ -11,14 +11,25 @@ import { isNum, get, arr, obj, humanise, NAMES, itemLabel } from './util.mjs';
 // The report works without them (older engine, moved files): it then shows ids.
 // ---------------------------------------------------------------------------
 
-export async function loadEngineInfo(simDir) {
-  const info = { variants: new Map(), rules: null };
+/**
+ * The tables of the engine of ruleset `rules` (the id a results file names in run.rules;
+ * absent in files made before rulesets existed, which were all Continental Rails), read
+ * through the ruleset registry.
+ */
+export async function loadEngineInfo(simDir, rules = null) {
+  const info = { variants: new Map(), rules: null, rulesets: new Map() };
+  let engine = null;
   try {
-    const v = await import(new URL('../src/engine/variants.js', simDir).href);
-    for (const d of v.VARIANTS ?? []) info.variants.set(d.name, d);
+    const registry = await import(new URL('../src/rulesets/index.js', simDir).href);
+    for (const r of registry.RULESETS ?? []) info.rulesets.set(r.id, r.name);
+    engine = registry.getRuleset(rules && registry.isRulesetId(rules) ? rules : null).engine;
   } catch { /* optional */ }
   try {
-    const r = await import(new URL('../src/engine/rules.js', simDir).href);
+    for (const d of engine?.VARIANTS ?? []) info.variants.set(d.name, d);
+  } catch { /* optional */ }
+  try {
+    const r = engine?.RULES;
+    if (!r) throw new Error('no rules table');
     info.rules = r;
     const fill = (key, list) => {
       for (const x of arr(list)) if (x && x.id && x.name) NAMES[key][x.id] = x.name;
@@ -196,6 +207,7 @@ export function buildModel(inputs, info) {
     if (a.run.gamesPerArm !== b.run.gamesPerArm) diffs.push(`game counts differ (${a.run.gamesPerArm} against ${b.run.gamesPerArm})`);
     if (a.run.jitter !== b.run.jitter) diffs.push('jitter differs');
     if (a.run.mode !== b.run.mode) diffs.push(`one run is --fast and the other is not (${a.run.mode} against ${b.run.mode})`);
+    if ((a.run.rules ?? 'continental') !== (b.run.rules ?? 'continental')) diffs.push(`the rules differ (${a.run.rulesName ?? a.run.rules ?? 'continental'} against ${b.run.rulesName ?? b.run.rules ?? 'continental'}): the two games are not played under the same rules at all`);
     if (diffs.length) warnings.push(`Two separate files are only comparable if they used the same seeds, bots and player count. Here ${diffs.join('; ')}. Treat every difference below with caution.`);
     else warnings.push('The two files used the same seed, bots and player count, so the games are comparable (the games diverge once a rule differs).');
     if (a.run.engineCommit !== b.run.engineCommit) warnings.push(`The files were made by different engine commits (${a.run.engineCommit ?? 'unknown'} and ${b.run.engineCommit ?? 'unknown'}): a difference may come from engine or bot changes, not only the rules.`);

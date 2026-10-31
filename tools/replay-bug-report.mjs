@@ -19,25 +19,28 @@
 //
 // Exit codes: 0 fine, 2 damaged or unsupported file, 3 the two rebuilds disagree.
 //
-// Node only, no browser, no dependencies; imports the engine's public face.
+// Node only, no browser, no dependencies. The engine is the one of the ruleset the
+// report names (`rules.id`; a report without it is Continental Rails), taken from
+// the ruleset registry: loading a report switches the bindings below to it.
 
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import {
-  replayGame,
-  applyAction,
-  SILENT,
-  deserialiseState,
-  hashState,
-  cloneState,
-  getValidActions,
-  getBlockReason,
-  getStructuralBlockReason,
-  getActionSpace,
-  describeDecision,
-  describeAction,
-  actionKey,
-} from '../src/engine/index.js';
+import { getRuleset, isRulesetId, DEFAULT_RULESET_ID } from '../src/rulesets/index.js';
+
+let replayGame, applyAction, SILENT, deserialiseState, hashState, cloneState, getValidActions, getBlockReason, getStructuralBlockReason, getActionSpace, describeDecision, describeAction, actionKey;
+
+/** The ruleset id a report names (the default ruleset for a report made before rulesets existed). */
+export function rulesOf(report) {
+  const id = report && report.rules && typeof report.rules === 'object' ? report.rules.id : null;
+  return id ?? DEFAULT_RULESET_ID;
+}
+
+/** Points the engine bindings of this tool at the engine of ruleset `id`. */
+export function useRules(id) {
+  ({ replayGame, applyAction, SILENT, deserialiseState, hashState, cloneState, getValidActions, getBlockReason, getStructuralBlockReason, getActionSpace, describeDecision, describeAction, actionKey } = getRuleset(id).engine);
+}
+
+useRules(DEFAULT_RULESET_ID);
 
 /** The report format this tool reads (bug-report-capture.js REPORT_SCHEMA_VERSION). */
 export const SUPPORTED_REPORT_SCHEMA = 1;
@@ -61,6 +64,8 @@ export function loadReport(text) {
     throw new DamagedReport(`Report schema version ${JSON.stringify(report.schemaVersion)} is not one this tool reads (it reads ${SUPPORTED_REPORT_SCHEMA}).`);
   }
   if (typeof report.id !== 'string' || !/^crbug-/.test(report.id)) throw new DamagedReport('The report has no id of the form crbug-YYYYMMDD-HHMMSS-xxxx.');
+  if (!isRulesetId(rulesOf(report))) throw new DamagedReport(`The report names rules "${rulesOf(report)}", which this build does not have.`);
+  useRules(rulesOf(report));
   if (report.gameState === null) return report; // a report filed from the setup screen: words and environment only
   if (report.gameState === undefined || typeof report.gameState !== 'object' || report.gameState.error !== undefined) {
     throw new DamagedReport(`The report's gameState is missing or damaged${report.gameState && report.gameState.error ? ` (${report.gameState.error})` : ''}.`);
@@ -79,6 +84,7 @@ export function loadReport(text) {
  *   deserialised: object|null, replayed: object|null, problems: string[] }}
  */
 export function rebuildBothWays(report) {
+  useRules(rulesOf(report));
   const out = { ok: true, hashStored: report.stateHash, hashDeserialised: null, hashReplayed: null, deserialised: null, replayed: null, problems: [] };
   try {
     out.deserialised = deserialiseState(JSON.stringify(report.gameState));
@@ -228,6 +234,10 @@ export function describeReport(report, options = {}) {
   const w = report.words || {};
   lines.push(`Report ${report.id}  (build ${report.build}, schema ${report.schemaVersion})`);
   lines.push(`Filed ${report.timestamp && report.timestamp.local ? report.timestamp.local : '?'} from the ${report.screen} screen`);
+  if (isRulesetId(rulesOf(report))) {
+    useRules(rulesOf(report));
+    lines.push(`Rules: ${getRuleset(rulesOf(report)).name} (${rulesOf(report)})`);
+  }
   lines.push('');
   lines.push("The reporter's words");
   lines.push(`  Title:      ${w.title || '(none)'}`);

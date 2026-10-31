@@ -1,7 +1,8 @@
 // Shared helpers for the test suites. Not a suite: tests/run-all.mjs runs
 // only tests/*.test.mjs.
 
-import {
+import { ENGINE, RULESET } from './engine.mjs';
+const {
   createGame,
   getValidActions,
   applyAction,
@@ -9,8 +10,10 @@ import {
   makeRng,
   forkRng,
   SILENT,
-} from '../../src/engine/index.js';
-import { getBot } from '../../src/bots/index.js';
+} = ENGINE;
+
+// The engine and the bots are those of the ruleset under test (engine.mjs, TEST_RULES).
+const getBot = (level) => RULESET.getBot(level);
 
 /** Hard stops of the HARNESS. Hitting one means the engine failed to end a game by itself. */
 export const HARNESS = {

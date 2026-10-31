@@ -37,8 +37,12 @@ import {
   SILENT,
 } from '../src/engine/index.js';
 import { getBot, BOT_LEVELS, botLevelIds } from '../src/bots/index.js';
-import { heuristicBot } from '../src/bots/heuristicBot.js';
-import { search, blindCopy, decisionShare, resolveSettings, MCTS_SETTINGS } from '../src/bots/mctsBot.js';
+import { resolveSettings, MCTS_SETTINGS } from '../src/bots/mctsBot.js';
+import { getRuleset } from '../src/rulesets/index.js';
+
+// The search and the policies are built per ruleset (src/rulesets/define.js); this suite tests Continental Rails'.
+const { heuristicBot } = getRuleset('continental').policies;
+const { search, blindCopy, decisionShare } = getRuleset('continental').search;
 import { handleBotRequest } from '../src/bots/bot-worker.js';
 import { makeSuite } from './helpers/play.mjs';
 

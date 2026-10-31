@@ -105,8 +105,8 @@ The search runs in the Web Worker (`src/bots/bot-worker.js`), so the page never 
 
 ## Adding a level
 
-1. Write the bot: an object with `chooseAction(state, context)` returning one of `getValidActions(state)` (contract section 14). It must not change `state`, must take its randomness from `context.rng` only, and must not read a clock (`context.now` is injected). A bot that looks ahead works on `determinise` copies. For a search level of a different strength, `createMctsBot({ timeBudgetMs, iterations })` in `mctsBot.js` is enough.
-2. Register it in `src/bots/index.js`: an entry in `BOT_LEVELS` (`id`, `name`, `description`, `defaultTimeBudgetMs`, weakest first) and in `BOTS`. The setup screen, the simulator's `--bots=` and the worker pick it up from there.
+1. Write the bot: an object with `chooseAction(state, context)` returning one of `getValidActions(state)` (contract section 14). It must not change `state`, must take its randomness from `context.rng` only, and must not read a clock (`context.now` is injected). A bot that looks ahead works on `determinise` copies. Bots import no engine: write it as a factory over the engine a ruleset hands it (as `createRandomBot(engine)`, `createHeuristicPolicies(engine)` and `createMctsSearch(engine, policies)` are; contract section 21). For a search level of a different strength, the `createMctsBot({ timeBudgetMs, iterations })` of a ruleset's `search` is enough.
+2. Register it: an entry in `BOT_LEVELS` in `src/bots/index.js` (`id`, `name`, `description`, `defaultTimeBudgetMs`, weakest first), and the bot itself in the `bots` of every ruleset (`src/rulesets/define.js`, `RULESET_BOT_LEVELS`). The setup screen, the simulator's `--bots=` and the worker pick it up from there.
 3. If it thinks for longer than about 10 seconds a decision, check the timeout in `src/ui/bot-driver.js`.
 4. Add it to `tests/mcts.test.mjs` (the registry check lists the ids in order) and measure it against the level below with `tests/mcts-strength.mjs --match=`.
 

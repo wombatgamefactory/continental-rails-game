@@ -11,21 +11,12 @@
 //   bot streams "bots:<game seed>:<seat>", one per seat, forked once per decision
 //
 // so game k is the same game whatever the thread count or the order games are played in.
+//
+// The engine and the bots are those of the plan's ruleset (`plan.rules`, an id of
+// src/rulesets/index.js; the default ruleset when absent).
 
-import {
-  createGame,
-  getValidActions,
-  applyAction,
-  isGameOver,
-  scoreGame,
-  topFrame,
-  hashState,
-  makeRng,
-  forkRng,
-  SILENT,
-} from '../src/engine/index.js';
-import { getBot } from '../src/bots/index.js';
-import { createTally, tallyEvents, finishTrace, finalMetrics, sortedCounters, FINAL_SOURCES } from './metrics.mjs';
+import { getRuleset } from '../src/rulesets/index.js';
+import { createTally, tallyEvents, finishTrace, finalMetrics, sortedCounters, finalSources } from './metrics.mjs';
 import { sortedKeys } from './stats.mjs';
 
 const clock = () => performance.now();
@@ -58,6 +49,10 @@ export function gameSeed(plan, index) {
  * returns a record, with `failed` set, so the run can report it and exit non-zero.
  */
 export function runGame(plan, armName, index) {
+  const ruleset = getRuleset(plan.rules);
+  const engine = ruleset.engine;
+  const { createGame, getValidActions, applyAction, isGameOver, scoreGame, topFrame, hashState, makeRng, forkRng, SILENT } = engine;
+  const FINAL_SOURCES = finalSources(engine);
   const arm = plan.arms.find((a) => a.name === armName);
   const P = plan.players;
   const seed = gameSeed(plan, index);
@@ -81,7 +76,7 @@ export function runGame(plan, armName, index) {
     // Who is who. state.players[p].configIndex is the position in config.players.
     const slotOfSeat = state.players.map((p) => order[p.configIndex]);
     const bots = slotOfSeat.map((slot) => plan.bots[slot]);
-    const impl = bots.map((b) => getBot(b.level));
+    const impl = bots.map((b) => ruleset.getBot(b.level));
     const botRng = bots.map((_, seat) => makeRng(`bots:${seed}:${seat}`));
     const contexts = bots.map((b) => {
       const ctx = { timeBudgetMs: plan.budget, iterations: plan.iterations, now: clock };
@@ -93,7 +88,7 @@ export function runGame(plan, armName, index) {
     record.seats = bots.map((b) => b.type);
     record.startPlayer = state.startPlayer;
 
-    const tally = full ? createTally(P) : null;
+    const tally = full ? createTally(P, engine) : null;
     const chosen = Array.from({ length: P }, () => ({}));
     let decisions = 0;
     let setupDecisions = 0;
@@ -183,7 +178,7 @@ export function runGame(plan, armName, index) {
     record.vp = score.players.map((p) => p.bySource);
     record.actions = sortedCounters(chosen);
 
-    const fin = finalMetrics(state, tally);
+    const fin = finalMetrics(state, tally, engine);
     record.routes = fin.routes;
     record.buildings = fin.buildings;
     record.unlaid = fin.unlaid;
@@ -238,13 +233,13 @@ export function runGame(plan, armName, index) {
       }
     }
   } catch (err) {
-    record.failed = { type: 'error', seat: null, hash: state ? safeHash(state) : null, reason: String(err && err.stack ? err.stack.split('\n').slice(0, 4).join(' | ') : err) };
+    record.failed = { type: 'error', seat: null, hash: state ? safeHash(state, hashState) : null, reason: String(err && err.stack ? err.stack.split('\n').slice(0, 4).join(' | ') : err) };
   }
   record.timing = { ms: performance.now() - started };
   return record;
 }
 
-function safeHash(state) {
+function safeHash(state, hashState) {
   try {
     return hashState(state);
   } catch {

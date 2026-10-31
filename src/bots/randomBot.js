@@ -4,18 +4,27 @@
 // smoke tests. It knows nothing about the game: everything it does comes from
 // getValidActions, which is the point. If this bot is ever refused, the
 // engine's own list and its own mutators disagree.
+//
+// Generic over the engine: `createRandomBot(engine)` takes the namespace a
+// ruleset's engine exports (src/rulesets/index.js), so the same bot plays any
+// ruleset. It imports no engine itself.
 
-import { getValidActions, rngPick } from '../engine/index.js';
-
-export const randomBot = {
-  /**
-   * @param {object} state the game state (not changed)
-   * @param {{ rng: { s: number } }} context `rng` is the bot's own stream, never `state.rng`
-   * @returns {object} one of getValidActions(state)
-   */
-  chooseAction(state, { rng }) {
-    const actions = getValidActions(state);
-    if (actions.length === 0) throw new Error('randomBot: there is no legal action (the game is over).');
-    return rngPick(rng, actions);
-  },
-};
+/**
+ * The random bot for one engine.
+ * @param {object} engine the namespace exported by an engine's index.js (needs `getValidActions` and `rngPick`)
+ */
+export function createRandomBot(engine) {
+  const { getValidActions, rngPick } = engine;
+  return {
+    /**
+     * @param {object} state the game state (not changed)
+     * @param {{ rng: { s: number } }} context `rng` is the bot's own stream, never `state.rng`
+     * @returns {object} one of getValidActions(state)
+     */
+    chooseAction(state, { rng }) {
+      const actions = getValidActions(state);
+      if (actions.length === 0) throw new Error('randomBot: there is no legal action (the game is over).');
+      return rngPick(rng, actions);
+    },
+  };
+}

@@ -15,7 +15,13 @@
 // colour (de-duplicated across seats), and under "Advanced" a seed and the seat
 // order.
 //
+// Rules: the first choice of the panel is which ruleset to play
+// (src/rulesets/index.js), by its name from the registry.
+// Choosing one makes it the page's active ruleset (active-ruleset.js),
+// so the variants panel and the presets below show that ruleset's variants.
+//
 // Query string (so tests and the designer can start a configured game):
+//   ?rules=pr2e                   the ruleset (absent: continental, the default)
 //   ?players=4&bots=random,random,random,random&seed=5&fast=1
 //   ?bots=human,medium            per seat: "human" or a bot level id
 //   ?names=Anna,Ben               seat names
@@ -28,7 +34,8 @@
 // autostart=0).
 
 import { BOT_LEVELS } from '../bots/index.js';
-import { parseVariantValue, getVariantDef, VARIANTS } from '../engine/index.js';
+import { RULESETS, DEFAULT_RULESET_ID, isRulesetId, rulesetIds, getRuleset } from '../rulesets/index.js';
+import { parseVariantValue, getVariantDef, VARIANTS, useRuleset } from './active-ruleset.js';
 import { PRESETS } from './presets.js';
 import { renderVariantsPanel, checkVariants, tidy, variantsToQuery } from './variants-panel.js';
 import { CONFIG } from './config.js';
@@ -52,6 +59,8 @@ export const PLAYER_COLOURS = [
 
 /** The form's own state (never stored in the DOM). */
 const form = {
+  /** The ruleset id of the game to set up (src/rulesets/index.js). */
+  rules: DEFAULT_RULESET_ID,
   playerCount: 2,
   seats: [
     { kind: 'human', name: 'Player 1', colour: PLAYER_COLOURS[0].hex },
@@ -95,6 +104,12 @@ export function seatLabel(kind) {
 export function applyQuery(search) {
   const q = new URLSearchParams(search);
   const extras = { autostart: false, speed: null, generic: false, test: false, error: null };
+  // The rules first: the variants below are read with that ruleset's engine.
+  const rules = q.get('rules');
+  if (rules !== null && rules !== '') {
+    if (isRulesetId(rules)) setRules(rules);
+    else extras.error = `Unknown rules "${rules}". The rules are: ${rulesetIds().join(', ')}.`;
+  }
   const players = q.get('players');
   const bots = q.get('bots');
   const names = q.get('names');
@@ -139,7 +154,20 @@ export function applyQuery(search) {
   return extras;
 }
 
-/** The seats and the engine config for the form as it stands. */
+/**
+ * Chooses the ruleset of the game being set up, and makes it the page's active
+ * ruleset. Variant overrides that the new ruleset does not have are dropped
+ * (they would only be refused); the others are kept.
+ */
+export function setRules(id) {
+  const ruleset = getRuleset(id);
+  form.rules = ruleset.id;
+  useRuleset(ruleset.id);
+  const names = new Set(ruleset.variants.map((v) => v.name));
+  form.variants = tidy(Object.fromEntries(Object.entries(form.variants).filter(([name]) => names.has(name))));
+}
+
+/** The seats, the engine config and the ruleset id for the form as it stands. */
 export function buildGame() {
   const seats = form.seats.slice(0, form.playerCount).map((s) => ({
     human: s.kind === 'human',
@@ -156,7 +184,7 @@ export function buildGame() {
     variants: { ...form.variants },
     shuffleSeats: form.shuffle,
   };
-  return { config, seats };
+  return { config, seats, rules: form.rules };
 }
 
 /**
@@ -174,7 +202,7 @@ export function buildDemoGame() {
     variants: checkVariants(form.variants).ok ? { ...form.variants } : {},
     shuffleSeats: true,
   };
-  return { config, seats, speed: DEMO_SPEED };
+  return { config, seats, speed: DEMO_SPEED, rules: form.rules };
 }
 
 /** How fast the bots move in the demo game: quick enough to hold attention, slow enough to follow. */
@@ -309,9 +337,21 @@ function hero() {
     </header>`;
 }
 
+/** The rules chooser, the first thing in the set-up panel: one button per ruleset, the chosen one lit. */
+function rulesChooser() {
+  const buttons = RULESETS.map((r) => {
+    const on = form.rules === r.id;
+    return `<button type="button" class="btn vrules${on ? ' is-on' : ''}" data-setup="rules:${esc(r.id)}" data-rules="${esc(r.id)}" aria-pressed="${on}"><span class="btn__text"><span class="btn__label">${esc(r.name)}</span><span class="btn__sub">${esc(r.description)}</span></span></button>`;
+  }).join('');
+  return `<div class="setup__rules" role="group" aria-labelledby="rules-label" data-field="rules-chooser">
+        <span class="setup__rules-label" id="rules-label">Rules</span>${buttons}
+      </div>`;
+}
+
 function setupPanel() {
   const botRows = BOT_LEVELS.map((l) => `<li><b>${esc(l.name)}</b> ${esc(l.description)}</li>`).join('');
   return `<section class="setup__panel" id="setup-panel" aria-labelledby="setup-title">
+      ${rulesChooser()}
       <div class="setup__head">
         <h2 id="setup-title">Set up a game</h2>
         <div class="setup__count" role="group" aria-label="Number of players">
@@ -380,10 +420,12 @@ function startButton() {
   return `<button type="button" class="btn btn--primary btn--big" data-setup="start" disabled title="${esc(check.message)}">Start game</button><span class="setup__why">${esc(check.message)}</span>`;
 }
 
-/** Keeps the address of the page in step with the chosen variants (so a copy of it shares them). */
+/** Keeps the address of the page in step with the chosen rules and variants (so a copy of it shares them). */
 export function syncUrl() {
   try {
     const url = new URL(window.location.href);
+    if (form.rules === DEFAULT_RULESET_ID) url.searchParams.delete('rules');
+    else url.searchParams.set('rules', form.rules);
     const q = variantsToQuery(form.variants);
     if (q) url.searchParams.set('variants', q);
     else url.searchParams.delete('variants');
@@ -457,7 +499,11 @@ export function handleSetupEvent(root, target, eventType = 'click') {
     }
     return null;
   }
-  if (action === 'count') {
+  if (action === 'rules') {
+    if (eventType !== 'click' || !isRulesetId(arg)) return null;
+    setRules(arg);
+    syncUrl();
+  } else if (action === 'count') {
     form.playerCount = Number(arg);
   } else if (action === 'kind') {
     form.seats[Number(arg)].kind = el.value;

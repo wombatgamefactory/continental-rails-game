@@ -4,7 +4,7 @@
 // state, asks the engine to apply the action to the clone, and reads what came
 // back. The real state is never touched.
 
-import { cloneState, applyAction, STOP_ACTION_TYPES } from '../engine/index.js';
+import { cloneState, applyAction, STOP_ACTION_TYPES } from './active-ruleset.js';
 
 /**
  * Applies `action` to a copy of `state`.

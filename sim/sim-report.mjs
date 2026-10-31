@@ -60,7 +60,7 @@ export async function generateReport(inputPaths, opts = {}) {
     }
     return { file: path.basename(p), json };
   });
-  const info = await loadEngineInfo(HERE);
+  const info = await loadEngineInfo(HERE, inputs[0].json?.run?.rules ?? null);
   const model = buildModel(inputs, info);
   const html = buildPage(model);
   const first = path.resolve(inputPaths[0]);

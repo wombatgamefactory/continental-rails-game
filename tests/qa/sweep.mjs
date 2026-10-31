@@ -9,7 +9,8 @@
 //   secrets              tokens, keys, passwords, .env files
 //   addresses            email addresses (none are allowed; test-only dummies are built from parts)
 //   local paths          drive letters, user folders, Dropbox, AppData
-//   names                the earlier game's title and any publisher's name
+//   names                the earlier game's title and any publisher's name; the one exception is the exact name
+//                        of the second ruleset (the title followed by ", second edition"), ruled 31/10/2026
 //   terminology          "Steel" anywhere; "house" outside the player-board sense
 //   structure            file names starting with an underscore, CRLF line endings, files over 1 MB,
 //                        art over 200 KB, ignored folders really untracked
@@ -37,6 +38,11 @@ const PATTERNS = {
   names: [new RegExp(j('Pacific', ' Rails'), 'i'), new RegExp(j('Vesuv', 'ius'), 'i'), new RegExp(j('Pacific', 'Rails'), 'i')],
   terminology: [/\bsteel\b/i],
 };
+// The one allowed use of the earlier game's title (ruled 31/10/2026): the exact name of the second ruleset,
+// "<title>, second edition", spelt exactly so. It is removed from a line before the names are looked for, so
+// any other use on the same line (another spelling, the title alone, the title run together) is still caught.
+const ALLOWED_TITLE = j('Pacific', ' Rails', ', second edition');
+const withoutAllowedTitle = (line) => line.split(ALLOWED_TITLE).join(' ');
 const SKIP_CONTENT = /\.(png|jpe?g|webp|gif|ico)$/i;
 const SKIP_CONTENT_FILES = new Set(['package-lock.json']);
 const hits = {};
@@ -56,8 +62,9 @@ for (const f of files) {
   const lines = text.split('\n');
   for (const [cat, patterns] of Object.entries(PATTERNS)) {
     lines.forEach((line, i) => {
+      const seen = cat === 'names' ? withoutAllowedTitle(line) : line;
       for (const re of patterns) {
-        const m = re.exec(line);
+        const m = re.exec(seen);
         if (!m) continue;
         // "Steel" is only allowed where a test or document says it must never appear.
         if (cat === 'terminology' && /\b(never|not|no|must not|ban|banned|forbid|reject|iron|mentions)\b|!\/steel/i.test(line)) continue;

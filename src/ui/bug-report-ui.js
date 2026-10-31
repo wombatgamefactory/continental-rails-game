@@ -195,6 +195,7 @@ function freeze() {
   const c = ctxProvider ? ctxProvider() : {};
   const frozenReport = buildReport(
     {
+      rules: c.rules ?? null,
       state: c.state ?? null,
       seats: c.seats ?? [],
       replay: c.replay,

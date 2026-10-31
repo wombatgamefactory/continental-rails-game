@@ -42,7 +42,8 @@
 // (R19.3) end to end.
 
 import assert from 'node:assert/strict';
-import {
+import { ENGINE, RULESET, RULES_ID, RULES_TAG } from './helpers/engine.mjs';
+const {
   createGame,
   getValidActions,
   applyAction,
@@ -75,12 +76,21 @@ import {
   getActionSpace,
   actionKey,
   topFrame,
-} from '../src/engine/index.js';
+} = ENGINE;
 import { playGame, assertPlainJson, makeSuite, HARNESS } from './helpers/play.mjs';
 import { makeBuilder } from './helpers/builder.mjs';
 
 const FULL_CHECK_GAMES = 3; // games per run in which every offered action is re-checked after every action
-const suite = makeSuite('smoke');
+// TEST_SMOKE_SCALE (default 1) scales the number of RANDOM games of every run (and of the speed measurement), for
+// a quicker pass over another ruleset (tests/rulesets.test.mjs). Below 1 the usage counters, which need the full
+// run to reach every card and tile, are reported but not asserted. The builder games are never scaled.
+const SCALE = (() => {
+  const x = Number(process.env.TEST_SMOKE_SCALE ?? 1);
+  if (!(x > 0 && x <= 1)) throw new Error(`TEST_SMOKE_SCALE must be a number above 0 and at most 1, not ${process.env.TEST_SMOKE_SCALE}`);
+  return x;
+})();
+const scaled = (n) => Math.max(1, Math.round(n * SCALE));
+const suite = makeSuite(`smoke${RULES_TAG}`);
 
 const usage = {}; // action type -> times applied (the player's and the engine's), over the whole run
 const taken = {}; // action type -> times chosen by the driver
@@ -469,7 +479,7 @@ function describeRun(run) {
 
 const defaultRuns = [];
 for (const players of [2, 3, 4]) {
-  const run = randomRun(`default ${players}p`, {}, [players], 200, `smoke-${players}`);
+  const run = randomRun(`default ${players}p`, {}, [players], scaled(200), `smoke-${players}`);
   defaultRuns.push(run);
   report.push(describeRun(run));
 }
@@ -484,7 +494,7 @@ const bigVariantRuns = [
   ['turnStructure=rounds', { turnStructure: 'rounds' }],
 ];
 for (const [label, variants] of bigVariantRuns) {
-  const run = randomRun(label, variants, [2, 3, 4], 100, `smoke-${label}`);
+  const run = randomRun(label, variants, [2, 3, 4], scaled(100), `smoke-${label}`);
   report.push(describeRun(run));
 }
 
@@ -514,7 +524,7 @@ const smallVariantRuns = [
   ['hireCostModel=table-only', { hireCostModel: 'table-only' }],
 ];
 for (const [label, variants] of smallVariantRuns) {
-  const run = randomRun(label, variants, [2, 3, 4], 30, `smoke-${label}`);
+  const run = randomRun(label, variants, [2, 3, 4], scaled(30), `smoke-${label}`);
   report.push(describeRun(run));
 }
 
@@ -524,14 +534,14 @@ for (const [label, variants] of smallVariantRuns) {
 
 const moduleRuns = {};
 // 400 games with every module on, goals and milestones both.
-moduleRuns.allOn = randomRun('all modules on', ALL_ON_VARIANTS, [2, 3, 4], 400, 'smoke-all-on');
+moduleRuns.allOn = randomRun('all modules on', ALL_ON_VARIANTS, [2, 3, 4], scaled(400), 'smoke-all-on');
 report.push(describeRun(moduleRuns.allOn));
 // 100 games with each module individually off (the others on).
 for (const off of Object.keys(OFF_VARIANTS)) {
   const variants = { ...ALL_ON_VARIANTS, ...OFF_VARIANTS[off] };
   if (off === 'goals') variants.endGameScoring = 'milestones';
   // (the seed text must not contain the module's name: the state keeps the seed)
-  const run = randomRun(`${off} off`, variants, [2, 3, 4], 100, `smoke-module-off-${Object.keys(OFF_VARIANTS).indexOf(off)}`, { off });
+  const run = randomRun(`${off} off`, variants, [2, 3, 4], scaled(100), `smoke-module-off-${Object.keys(OFF_VARIANTS).indexOf(off)}`, { off });
   moduleRuns[`off-${off}`] = run;
   report.push(describeRun(run));
 }
@@ -547,14 +557,14 @@ const moduleVariantRuns = [
   ['bothBuildingsSameOwner=false + modules', { bothBuildingsSameOwner: false, endGameScoring: 'both' }],
 ];
 for (const [label, variants] of moduleVariantRuns) {
-  const run = randomRun(label, variants, [2, 3, 4], 30, `smoke-${label}`);
+  const run = randomRun(label, variants, [2, 3, 4], scaled(30), `smoke-${label}`);
   report.push(describeRun(run));
 }
 // Each of the 17 Legislative Agenda cards fixed, a few games each (7, so that the 119 games match the 120 of the
 // 20-card deck before spec v4 retired cards 1 to 3).
 const agendaRuns = [];
 for (const card of RULES.LEGISLATIVE_CARDS) {
-  const run = randomRun(`agenda card ${card.number}`, { legislativeAgendaCard: card.number, endGameScoring: 'both' }, [2, 3, 4], 7, `smoke-agenda-${card.number}`);
+  const run = randomRun(`agenda card ${card.number}`, { legislativeAgendaCard: card.number, endGameScoring: 'both' }, [2, 3, 4], scaled(7), `smoke-agenda-${card.number}`);
   agendaRuns.push(run);
 }
 report.push(
@@ -779,8 +789,8 @@ suite.check('off means absent: a game created with a module on draws the same se
 
 suite.check('zero refusals over the whole run', () => assert.equal(totals.refusals, 0));
 suite.check('zero harness-cap hits over the whole run', () => assert.equal(totals.capHits, 0));
-suite.check('600 random games on default variants, 200 at each player count', () => {
-  assert.deepEqual(defaultRuns.map((r) => r.games), [200, 200, 200]);
+suite.check(`${3 * scaled(200)} random games on default variants, ${scaled(200)} at each player count`, () => {
+  assert.deepEqual(defaultRuns.map((r) => r.games), [scaled(200), scaled(200), scaled(200)]);
 });
 
 // A zero here is a plumbing bug: an action that exists but is never offered.
@@ -812,7 +822,7 @@ const randomEnds = defaultRuns.reduce((acc, r) => {
   return acc;
 }, {});
 suite.check('every random game ended by a reason of R19 (the share by each is reported)', () => {
-  assert.equal(Object.values(randomEnds).reduce((a, b) => a + b, 0), 600);
+  assert.equal(Object.values(randomEnds).reduce((a, b) => a + b, 0), 3 * scaled(200));
   for (const reason of Object.keys(randomEnds)) assert.ok(getConstants(createGame({ playerCount: 2, seed: 1 })).END_REASONS.includes(reason));
 });
 
@@ -854,6 +864,7 @@ const COUNTED = {
   'goal paid VP': [RULES.GOAL_CARDS.map((g) => g.id), moduleUse.goals, {}],
 };
 for (const [what, [ids, natural, constructed]] of Object.entries(COUNTED)) {
+  if (SCALE < 1) continue; // reported below, asserted only on the full run
   suite.check(`usage: every ${what} at least once across the run (or named in NOT_REACHED / ONLY_WITH_TOKENS_HANDED_OUT)`, () => {
     const never = ids.filter((id) => !natural[id] && !constructed[id]);
     const onlyConstructed = ids.filter((id) => !natural[id] && constructed[id]);
@@ -870,17 +881,17 @@ for (const [what, [ids, natural, constructed]] of Object.entries(COUNTED)) {
 }
 suite.check('usage: a free-action opportunity is never left by the engine for lack of anything to do, and tokens were collected and spent', () => {
   assert.equal(moduleUse.autoEndFree, 0, 'a free-action opportunity with nothing in it was asked');
-  assert.ok(moduleUse.windows > 100, `only ${moduleUse.windows} opportunities were asked`);
-  assert.ok(moduleUse.tokens > 100, `only ${moduleUse.tokens} tokens were collected`);
-  assert.ok(moduleUse.exchanged > 10);
+  assert.ok(moduleUse.windows > 100 * SCALE, `only ${moduleUse.windows} opportunities were asked`);
+  assert.ok(moduleUse.tokens > 100 * SCALE, `only ${moduleUse.tokens} tokens were collected`);
+  assert.ok(moduleUse.exchanged > 10 * SCALE);
 });
 suite.check('every Legislative Agenda card is in force in at least one fixed-card run, each with zero refusals', () => {
   for (const run of agendaRuns) assert.deepEqual([run.refusals, run.capHits], [0, 0], run.label);
-  for (const card of RULES.LEGISLATIVE_CARDS) assert.ok(moduleUse.agenda[card.id] >= 6, `${card.id} fixed in 6 games`);
+  for (const card of RULES.LEGISLATIVE_CARDS) assert.ok(moduleUse.agenda[card.id] >= Math.max(1, scaled(7) - 1), `${card.id} fixed in ${Math.max(1, scaled(7) - 1)} games`);
 });
 suite.check('the module runs are the sizes the acceptance asks for', () => {
-  assert.equal(moduleRuns.allOn.games, 400);
-  for (const off of Object.keys(OFF_VARIANTS)) assert.equal(moduleRuns[`off-${off}`].games, 100);
+  assert.equal(moduleRuns.allOn.games, scaled(400));
+  for (const off of Object.keys(OFF_VARIANTS)) assert.equal(moduleRuns[`off-${off}`].games, scaled(100));
 });
 
 // Speed of a bare random playout: the loop a simulator or a Monte Carlo
@@ -888,7 +899,7 @@ suite.check('the module runs are the sizes the acceptance asks for', () => {
 // the report; the assertion is only a floor that catches a collapse.
 const speed = [];
 for (const players of [2, 3, 4]) {
-  const games = 100;
+  const games = scaled(100);
   const rng = makeRng(`speed-${players}`);
   let decisions = 0;
   let turns = 0;

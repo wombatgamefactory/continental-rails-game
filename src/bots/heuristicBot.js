@@ -70,36 +70,11 @@
 // locations are `district`; the metal is `iron`. Built tiles (in storage) and
 // laid tiles (on the map) are never confused: `useStep` builds, `claimRoute`
 // lays.
-
-import {
-  getValidActions,
-  getConstants,
-  topFrame,
-  rngNext,
-  rngInt,
-  MAP,
-  SPACE_DISTRICTS,
-  DISTRICT_SPACES,
-  DISTRICT_NEIGHBOURS,
-  DISTRICT_IDS,
-  SPACE_IDS,
-  isDistrictId,
-  districtInfo,
-  production,
-  storageCapacity,
-  nextSpecialistSlot,
-  hireCost,
-  multiplierFor,
-  activationTile,
-  standingEffects,
-  cardIndex,
-  congressTable,
-  congressCoinCost,
-  buildingTableVp,
-  networkCities,
-  metricValue,
-  junctionCities,
-} from '../engine/index.js';
+//
+// ENGINE. This file imports no engine. `createHeuristicPolicies(engine)` (at
+// the end of the tuning constants) builds the bot against whichever engine a
+// ruleset hands it (src/rulesets/index.js); the tuning constants and
+// `resolveWeights` do not depend on the engine and are exported as they are.
 
 // ---------------------------------------------------------------------------
 // Tuning constants
@@ -347,8 +322,84 @@ export const GUARD_SETTINGS = {
   memory: 6,
 };
 
+/** Weights resolved per overrides object (independent of the engine). */
+const WEIGHT_CACHE = new WeakMap();
+
+/**
+ * HEURISTIC_WEIGHTS with `overrides` laid over it. Throws on a name that is
+ * not a weight or a value that is not a finite number, so that a misspelt
+ * override can never quietly run the baseline bot.
+ */
+export function resolveWeights(overrides) {
+  if (overrides === null || overrides === undefined) return HEURISTIC_WEIGHTS;
+  if (typeof overrides !== 'object') throw new Error('heuristicBot: `weights` must be an object of overrides of HEURISTIC_WEIGHTS.');
+  let merged = WEIGHT_CACHE.get(overrides);
+  if (merged === undefined) {
+    for (const name of Object.keys(overrides)) {
+      if (!Object.prototype.hasOwnProperty.call(HEURISTIC_WEIGHTS, name)) {
+        throw new Error(`heuristicBot: unknown weight "${name}". The weights are: ${Object.keys(HEURISTIC_WEIGHTS).join(', ')}.`);
+      }
+      if (typeof overrides[name] !== 'number' || !Number.isFinite(overrides[name])) {
+        throw new Error(`heuristicBot: weight "${name}" must be a finite number, not ${JSON.stringify(overrides[name])}.`);
+      }
+    }
+    merged = { ...HEURISTIC_WEIGHTS, ...overrides };
+    WEIGHT_CACHE.set(overrides, merged);
+  }
+  return merged;
+}
+
 // ---------------------------------------------------------------------------
-// Static tables of the map (fixed for the process: board.js builds one map)
+// The factory: everything below depends on the engine and lives in a closure
+// ---------------------------------------------------------------------------
+//
+// `createHeuristicPolicies(engine)` builds the whole bot against the namespace
+// an engine exports (src/rulesets/index.js hands it in), so this file imports
+// no engine. Each call gets its own map tables and its own memos (the map
+// analysis, the repeat guard, the district roles), so two engines never share
+// a cache. The registry calls it once per ruleset and keeps the result.
+//
+// The body of the factory is deliberately not indented, so that its history
+// reads as it did before it was wrapped.
+
+/**
+ * The heuristic bot and its policies, built against one engine.
+ * @param {object} engine the namespace exported by an engine's index.js
+ * @returns {{ repeatGuard, scoreValidActions, describePlan, createHeuristicBot, heuristicBot, easyBot, heuristicPolicy, rolloutPolicy, rolloutBot }}
+ */
+export function createHeuristicPolicies(engine) {
+const {
+  getValidActions,
+  getConstants,
+  topFrame,
+  rngNext,
+  rngInt,
+  MAP,
+  SPACE_DISTRICTS,
+  DISTRICT_SPACES,
+  DISTRICT_NEIGHBOURS,
+  DISTRICT_IDS,
+  SPACE_IDS,
+  isDistrictId,
+  districtInfo,
+  production,
+  storageCapacity,
+  nextSpecialistSlot,
+  hireCost,
+  multiplierFor,
+  activationTile,
+  standingEffects,
+  cardIndex,
+  congressTable,
+  congressCoinCost,
+  buildingTableVp,
+  networkCities,
+  metricValue,
+  junctionCities,
+} = engine;
+
+// ---------------------------------------------------------------------------
+// Static tables of the map (fixed for the engine: its board.js builds one map)
 // ---------------------------------------------------------------------------
 
 const INF = 1e9;
@@ -578,7 +629,7 @@ function layoutKey(state, playerId, railheads) {
  *   repeatGuard.filter(state, actions)      the actions with such moves removed (all of them back if nothing else is left)
  *   repeatGuard.fingerprint(state, playerId) the layout key, for tests and logs
  */
-export const repeatGuard = {
+const repeatGuard = {
   fingerprint(state, playerId) {
     return layoutKey(state, playerId, state.players[playerId].railheads);
   },
@@ -614,31 +665,6 @@ export const repeatGuard = {
 // The context of one decision: the plan, worked out from the state
 // ---------------------------------------------------------------------------
 
-const WEIGHT_CACHE = new WeakMap();
-
-/**
- * HEURISTIC_WEIGHTS with `overrides` laid over it. Throws on a name that is
- * not a weight or a value that is not a finite number, so that a misspelt
- * override can never quietly run the baseline bot.
- */
-export function resolveWeights(overrides) {
-  if (overrides === null || overrides === undefined) return HEURISTIC_WEIGHTS;
-  if (typeof overrides !== 'object') throw new Error('heuristicBot: `weights` must be an object of overrides of HEURISTIC_WEIGHTS.');
-  let merged = WEIGHT_CACHE.get(overrides);
-  if (merged === undefined) {
-    for (const name of Object.keys(overrides)) {
-      if (!Object.prototype.hasOwnProperty.call(HEURISTIC_WEIGHTS, name)) {
-        throw new Error(`heuristicBot: unknown weight "${name}". The weights are: ${Object.keys(HEURISTIC_WEIGHTS).join(', ')}.`);
-      }
-      if (typeof overrides[name] !== 'number' || !Number.isFinite(overrides[name])) {
-        throw new Error(`heuristicBot: weight "${name}" must be a finite number, not ${JSON.stringify(overrides[name])}.`);
-      }
-    }
-    merged = { ...HEURISTIC_WEIGHTS, ...overrides };
-    WEIGHT_CACHE.set(overrides, merged);
-  }
-  return merged;
-}
 
 function smooth(x, lo, hi) {
   if (x <= lo) return 0;
@@ -2801,7 +2827,7 @@ function scoreActions(ctx, frame, actions) {
  * and the UI's "why did the bot do that": `[{ action, score }]`, null scores
  * for actions the bot has no opinion about.
  */
-export function scoreValidActions(state, context = {}) {
+function scoreValidActions(state, context = {}) {
   const actions = getValidActions(state);
   const frame = topFrame(state);
   if (actions.length === 0 || frame === null) return [];
@@ -2811,7 +2837,7 @@ export function scoreValidActions(state, context = {}) {
 }
 
 /** The plan Medium has in mind in `state`, in words a log can print. */
-export function describePlan(state, context = {}) {
+function describePlan(state, context = {}) {
   if (state.toAct === null || state.toAct === undefined) return null;
   const ctx = getPlan(makeCtx(state, state.toAct, resolveWeights(context.weights)));
   const show = (c) => (c === null ? null : { route: c.r.id, from: c.from, value: Math.round(c.rv.total * 10) / 10, needsMove: c.move });
@@ -2872,7 +2898,7 @@ function choose(state, context, settings) {
  * Builds a heuristic bot. `settings`: `{ noise, topThreeChance, jitter }`
  * (all optional). The Medium level is `createHeuristicBot()`.
  */
-export function createHeuristicBot(settings = {}) {
+function createHeuristicBot(settings = {}) {
   return {
     /**
      * @param {object} state the game state (not changed)
@@ -2888,13 +2914,13 @@ export function createHeuristicBot(settings = {}) {
 }
 
 /** Medium: the heuristic as it stands. */
-export const heuristicBot = createHeuristicBot();
+const heuristicBot = createHeuristicBot();
 
 /** Easy: the same scores with strong noise, and often a pick among the top three. */
-export const easyBot = createHeuristicBot(EASY_SETTINGS);
+const easyBot = createHeuristicBot(EASY_SETTINGS);
 
 /** The policy as a plain function, `(state, context) -> action`. */
-export function heuristicPolicy(state, context = {}) {
+function heuristicPolicy(state, context = {}) {
   return choose(state, context, {});
 }
 
@@ -3222,7 +3248,7 @@ function liteChoose(state, actions, rng) {
  * `rolloutPolicy(state, { rng }) -> action`. Always one of
  * getValidActions(state); deterministic for a state and an rng.
  */
-export function rolloutPolicy(state, context = {}) {
+function rolloutPolicy(state, context = {}) {
   const actions = getValidActions(state);
   if (actions.length === 0) throw new Error('rolloutPolicy: there is no legal action (the game is over).');
   const rng = context.rng;
@@ -3238,8 +3264,11 @@ export function rolloutPolicy(state, context = {}) {
 }
 
 /** The rollout policy as a bot object, for drivers that take `{ chooseAction }`. */
-export const rolloutBot = {
+const rolloutBot = {
   chooseAction(state, context = {}) {
     return rolloutPolicy(state, context);
   },
 };
+
+return { repeatGuard, scoreValidActions, describePlan, createHeuristicBot, heuristicBot, easyBot, heuristicPolicy, rolloutPolicy, rolloutBot };
+}

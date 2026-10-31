@@ -19,9 +19,12 @@
 //     gives the 1-based number.
 //   - Rates of "per seat-instance" are over every (game, seat) pair of the games used.
 
-import { RULES, MAP, ACTIONS } from '../src/engine/index.js';
+//   - The rule tables (VP sources, actions, the map, card lists) come from the engine of the
+//     run's ruleset, handed in as `ctx.engine` (the default ruleset's engine when absent).
+
+import { getEngine } from '../src/rulesets/index.js';
 import { describe, mean, sum, proportionSe, sigmaFromFair, ratio, sortedKeys } from './stats.mjs';
-import { FINAL_SOURCES } from './metrics.mjs';
+import { finalSources } from './metrics.mjs';
 import { evaluateHealth } from './health.mjs';
 
 export const SMALL_N = 30; // an acquisition comparison with fewer than this on either side is flagged
@@ -124,6 +127,9 @@ const MODULE_OF_ACTION = {
 
 /** Builds every statistics section over one set of records. */
 export function computeSections(recs, ctx) {
+  const engine = ctx.engine ?? getEngine();
+  const { RULES, MAP, ACTIONS } = engine;
+  const FINAL_SOURCES = finalSources(engine);
   const P = ctx.players;
   const n = recs.length;
   if (n === 0) return { n: 0 };
@@ -570,7 +576,8 @@ export function headlineOf(s, ctx) {
 /**
  * The whole aggregate of one arm.
  * @param {object[]} records every record of the arm, in game-index order
- * @param {{ players: number, botTypes: string[], variants: object, modulesOn: object }} ctx
+ * @param {{ players: number, botTypes: string[], variants: object, modulesOn: object, engine?: object }} ctx
+ *   `engine`: the namespace of the run's engine (src/rulesets/index.js); the default ruleset's when absent
  * @returns {{ aggregate: object, aggregateAll: object }}
  */
 export function aggregateArm(records, ctx) {

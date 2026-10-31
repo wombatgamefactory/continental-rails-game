@@ -5,17 +5,12 @@
 // cannot drift apart. An unknown flag, a malformed value, an unknown variant, an
 // illegal variant value, an unknown constant and an unknown bot level all stop
 // the run with a message BEFORE any game is played (UsageError, exit code 2).
+//
+// --rules picks the ruleset (src/rulesets/index.js); every variant, constant and
+// bot of the run is checked against THAT ruleset's engine.
 
 import os from 'node:os';
-import {
-  RULES,
-  VARIANTS,
-  createGame,
-  parseVariantValue,
-  resolveVariants,
-  nonDefaultVariants,
-  activeModules,
-} from '../src/engine/index.js';
+import { DEFAULT_RULESET_ID, RULESETS, getRuleset, isRulesetId, rulesetIds } from '../src/rulesets/index.js';
 import { BOT_LEVELS, botLevelIds, getBot } from '../src/bots/index.js';
 
 /** A problem with how the simulator was called. The message is for the person at the keyboard. */
@@ -44,6 +39,13 @@ export const MAX_GAMES = 10_000_000;
  * `default` may be a function (evaluated when --help is printed and when options are resolved).
  */
 export const FLAGS = [
+  {
+    name: 'rules',
+    type: 'string',
+    default: DEFAULT_RULESET_ID,
+    arg: 'ID',
+    help: `Which rules to play: ${RULESETS.map((r) => `${r.id} (${r.name})`).join(', ')}. The variants, constants and bots of the run are that ruleset's; --help --rules=ID lists its variants.`,
+  },
   { name: 'games', type: 'int', min: 1, max: MAX_GAMES, default: 100, arg: 'N', help: 'Games per arm.' },
   { name: 'players', type: 'int', values: [2, 3, 4], default: 4, arg: '2|3|4', help: 'Players per game.' },
   {
@@ -163,8 +165,8 @@ function kindOf(value) {
   return typeof value;
 }
 
-/** Reads the current value of a constant at a path of RULES, or undefined. */
-function constantAt(path) {
+/** Reads the current value of a constant at a path of RULES (the run's engine's), or undefined. */
+function constantAt(RULES, path) {
   let node = RULES;
   for (const key of path) {
     if (node === null || typeof node !== 'object' || !Object.prototype.hasOwnProperty.call(node, key)) return undefined;
@@ -178,14 +180,14 @@ function constantAt(path) {
  * NAME of a constant but accepts any value for it, so the kind is checked here: a number
  * constant must be given a number, a string constant a string, and so on.
  */
-function parseConstantValue(path, text) {
+function parseConstantValue(RULES, path, text) {
   let value;
   try {
     value = JSON.parse(text);
   } catch {
     value = text; // a bare word is a string
   }
-  const current = constantAt(path);
+  const current = constantAt(RULES, path);
   const label = path.join('.');
   if (current === undefined) return value; // unknown name: the engine's own message follows
   const want = kindOf(current);
@@ -232,6 +234,12 @@ export function resolveOptions(parsed) {
   const players = get('players');
   const games = get('games');
 
+  // Rules: the engine everything below is checked against.
+  const rules = get('rules');
+  if (!isRulesetId(rules)) throw new UsageError(`Unknown rules "${rules}". The rules are: ${rulesetIds().join(', ')}.`);
+  const ruleset = getRuleset(rules);
+  const { RULES, createGame, parseVariantValue, resolveVariants, nonDefaultVariants, activeModules } = ruleset.engine;
+
   // Bots
   const botNames = options.bots ?? [defaultBotLevel()];
   if (botNames.some((b) => b === '')) throw new UsageError('--bots has an empty entry. Give a level for each seat: --bots=medium,medium,easy.');
@@ -240,7 +248,7 @@ export function resolveOptions(parsed) {
   }
   for (const level of botNames) {
     try {
-      getBot(level);
+      getBot(level, rules);
     } catch (err) {
       throw new UsageError(err.message);
     }
@@ -280,7 +288,7 @@ export function resolveOptions(parsed) {
   }
 
   // Constants
-  const constants = nestConstants(constantText.map(({ path, text }) => ({ path, value: parseConstantValue(path, text) })));
+  const constants = nestConstants(constantText.map(({ path, text }) => ({ path, value: parseConstantValue(RULES, path, text) })));
   const hasConstants = constantText.length > 0;
 
   // The engine has the last word: build one game of each arm now, so that a name or value it
@@ -317,6 +325,8 @@ export function resolveOptions(parsed) {
 
   return {
     schema: 1,
+    rules,
+    rulesName: ruleset.name,
     games,
     players,
     bots,
@@ -343,10 +353,16 @@ export function resolveOptions(parsed) {
   };
 }
 
-/** The --help text, generated from the flag tables and the engine's variant table. */
-export function helpText() {
+/**
+ * The --help text, generated from the flag tables and the variant table of the engine of
+ * `rules` (a ruleset id; the default ruleset when left out or unknown).
+ */
+export function helpText(rules = DEFAULT_RULESET_ID) {
+  const ruleset = getRuleset(isRulesetId(rules) ? rules : DEFAULT_RULESET_ID);
+  const VARIANTS = ruleset.engine.VARIANTS;
   const lines = [];
   lines.push('Continental Rails simulator: plays bot-versus-bot games headless and reports balance statistics.');
+  lines.push(`Rules: ${RULESETS.map((r) => `${r.id} = ${r.name}${r.id === DEFAULT_RULESET_ID ? ' (the default)' : ''}`).join('; ')}. Choose with --rules=ID.`);
   lines.push('');
   lines.push('Usage: node sim/sim.mjs [options]        (or: npm run sim -- [options])');
   lines.push('');
@@ -374,7 +390,7 @@ export function helpText() {
   lines.push('');
   lines.push(`Bot levels registered now: ${BOT_LEVELS.map((l) => l.id).join(', ')}.`);
   lines.push('');
-  lines.push('Rules variants (--variant.<name>=<value>); the default is marked with *');
+  lines.push(`Rules variants of ${ruleset.name} (--variant.<name>=<value>); the default is marked with *`);
   for (const v of VARIANTS) {
     let allowed;
     if (v.type === 'enum') allowed = v.values.map((x) => (x === v.default ? `${x}*` : x)).join(' | ');

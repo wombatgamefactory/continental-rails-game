@@ -20,11 +20,23 @@
 //   - the half-time leader is whoever led (ties: everyone tied) after the sample at
 //     floor(R / 2), R being the number of samples.
 
-import { MAP, RULES, goalsInPlay, goalStandings } from '../src/engine/index.js';
+//   - the engine is the one of the run's ruleset, handed in (createTally, finalMetrics,
+//     finalSources); the default ruleset's when none is given.
+
+import { getEngine } from '../src/rulesets/index.js';
 import { sortedKeys } from './stats.mjs';
 
-/** The VP sources that are only booked by final scoring. */
-export const FINAL_SOURCES = new Set(RULES.VP_SOURCES.filter((s) => s.when === 'final').map((s) => s.id));
+const FINAL_SOURCES_OF = new WeakMap();
+
+/** The VP sources that are only booked by final scoring, for an engine (memoised per engine). */
+export function finalSources(engine = getEngine()) {
+  let set = FINAL_SOURCES_OF.get(engine);
+  if (set === undefined) {
+    set = new Set(engine.RULES.VP_SOURCES.filter((s) => s.when === 'final').map((s) => s.id));
+    FINAL_SOURCES_OF.set(engine, set);
+  }
+  return set;
+}
 
 const BONUS_KINDS = ['hire', 'hat', 'carriage', 'upgrade'];
 
@@ -38,10 +50,11 @@ function bump(obj, key, by = 1) {
   obj[key] = (obj[key] ?? 0) + by;
 }
 
-/** A fresh tally for a game of P players. */
-export function createTally(P) {
+/** A fresh tally for a game of P players, played with `engine` (the default ruleset's when left out). */
+export function createTally(P, engine = getEngine()) {
   return {
     P,
+    finalSources: finalSources(engine),
     turn: 0,
     vpPlay: new Array(P).fill(0),
     vpEvents: perSeat(P, () => ({})),
@@ -115,7 +128,7 @@ export function tallyEvents(t, events) {
         break;
       case 'vp':
         bump(t.vpEvents[e.player], e.source, e.amount);
-        if (!FINAL_SOURCES.has(e.source)) t.vpPlay[e.player] += e.amount;
+        if (!t.finalSources.has(e.source)) t.vpPlay[e.player] += e.amount;
         break;
       case 'districtChosen':
         bump(t.districts[e.player], e.district);
@@ -208,9 +221,10 @@ export function sortedCounters(list) {
 
 /**
  * Everything the final state shows without events. `tally` (or null in fast mode)
- * adds the turns at which things happened.
+ * adds the turns at which things happened. `engine` is the engine the game was played with.
  */
-export function finalMetrics(state, tally) {
+export function finalMetrics(state, tally, engine = getEngine()) {
+  const { MAP, goalsInPlay, goalStandings } = engine;
   const P = state.players.length;
 
   // Routes: count, by length, and slots by terrain, per seat.

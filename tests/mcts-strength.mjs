@@ -46,7 +46,10 @@ import {
   SILENT,
 } from '../src/engine/index.js';
 import { getBot } from '../src/bots/index.js';
-import { MCTS_SETTINGS, search } from '../src/bots/mctsBot.js';
+import { MCTS_SETTINGS } from '../src/bots/mctsBot.js';
+import { getRuleset } from '../src/rulesets/index.js';
+
+const { search } = getRuleset('continental').search;
 
 const SEARCH_LEVELS = { hard: { timeBudgetMs: MCTS_SETTINGS.hardTimeBudgetMs, iterations: MCTS_SETTINGS.hardIterations }, expert: { timeBudgetMs: MCTS_SETTINGS.expertTimeBudgetMs, iterations: MCTS_SETTINGS.expertIterations } };
 /** The tie-break jitter given to heuristic seats, as the simulator's --jitter does (identical deterministic bots otherwise repeat games). */

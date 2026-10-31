@@ -27,8 +27,9 @@ Conventions used throughout:
 | Field | Meaning |
 |---|---|
 | `date`, `dateUk` | Start time: ISO 8601 UTC, and `DD/MM/YYYY HH:mm` in Europe/London. |
-| `engineCommit`, `engineDirty` | Short git commit of the repo (null if git is unavailable); whether `src/engine` or `src/bots` have uncommitted changes. |
+| `engineCommit`, `engineDirty` | Short git commit of the repo (null if git is unavailable); whether `src/engine`, `src/engine-pr2e`, `src/bots` or `src/rulesets` have uncommitted changes. |
 | `nodeVersion`, `commandLine` | The command line as given (`node sim/sim.mjs <args>`). |
+| `rules`, `rulesName` | The ruleset the games were played by (`--rules`): its id (`continental`, `pr2e`) and its name ("Continental Rails", "Pacific Rails, second edition"). The engine, the bots, the variants and the constants of the run are that ruleset's. Absent in files made before rulesets existed, which are all Continental Rails. |
 | `label` | The label used for the file name. |
 | `seed`, `seedIsDefault` | The base seed. Game k of an arm is played on the seed `"<seed>-<k>"`, the same in both arms. |
 | `gamesPerArm`, `players` | |

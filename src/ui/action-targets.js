@@ -31,7 +31,7 @@ import {
   MAP,
   NAMES,
   upgradeTileData,
-} from '../engine/index.js';
+} from './active-ruleset.js';
 import { simulate, followUpsFromEvents, consequenceSentence } from './preview.js';
 
 /** Action types that become the buttons of the prompt banner (the "stop / go on" family). */

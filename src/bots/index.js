@@ -27,10 +27,14 @@
 //                 of a heuristic bot). A bot ignores what it does not know.
 //
 // The action returned is always one of getValidActions(state).
+//
+// RULESETS. The levels are the same for every ruleset; the bots behind them
+// are built per ruleset, against its engine and with its policies
+// (src/rulesets/define.js). `getBot(level, rules)` takes the ruleset id (the
+// default, Continental Rails, when it is left out).
 
-import { randomBot } from './randomBot.js';
-import { heuristicBot, easyBot } from './heuristicBot.js';
-import { hardBot, expertBot, MCTS_SETTINGS } from './mctsBot.js';
+import { MCTS_SETTINGS } from './mctsBot.js';
+import { getRuleset } from '../rulesets/index.js';
 
 /**
  * The levels on offer, weakest first.
@@ -70,27 +74,20 @@ export const BOT_LEVELS = [
   },
 ];
 
-const BOTS = {
-  random: randomBot,
-  easy: easyBot,
-  medium: heuristicBot,
-  hard: hardBot,
-  expert: expertBot,
-};
-
 /** The ids of the registered levels. */
 export function botLevelIds() {
   return BOT_LEVELS.map((level) => level.id);
 }
 
 /**
- * The bot for a level.
+ * The bot for a level, for one ruleset.
  * @param {string} level an id from BOT_LEVELS
+ * @param {string|object} [rules] a ruleset id (or registry entry); the default ruleset when left out
  * @returns {{ chooseAction: (state: object, context: object) => object }}
  */
-export function getBot(level) {
-  if (!Object.prototype.hasOwnProperty.call(BOTS, level)) {
+export function getBot(level, rules) {
+  if (!BOT_LEVELS.some((entry) => entry.id === level)) {
     throw new Error(`Unknown bot level "${level}". The levels are: ${botLevelIds().join(', ')}.`);
   }
-  return BOTS[level];
+  return getRuleset(rules).getBot(level);
 }

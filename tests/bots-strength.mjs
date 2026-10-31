@@ -32,7 +32,9 @@ import {
   SILENT,
 } from '../src/engine/index.js';
 import { getBot } from '../src/bots/index.js';
-import { describePlan, rolloutBot } from '../src/bots/heuristicBot.js';
+import { getRuleset } from '../src/rulesets/index.js';
+
+const { describePlan, rolloutBot } = getRuleset('continental').policies;
 
 const quick = process.argv.includes('--quick');
 const scale = quick ? 0.25 : 1;

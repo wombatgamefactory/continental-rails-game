@@ -26,7 +26,7 @@ import {
   goalsInPlay,
   describeProgress,
   ponyOngoing,
-} from '../engine/index.js';
+} from './active-ruleset.js';
 import { art, cardArtId, upgradeArtId, ponyToken } from './art.js';
 import { reasonPair, availability, standingText } from './explain.js';
 

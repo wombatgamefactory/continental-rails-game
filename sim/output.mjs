@@ -42,7 +42,7 @@ export function engineCommit(repoRoot) {
     const commit = git(['rev-parse', '--short', 'HEAD']);
     let dirty = false;
     try {
-      dirty = git(['status', '--porcelain', '--', 'src/engine', 'src/bots']).length > 0;
+      dirty = git(['status', '--porcelain', '--', 'src/engine', 'src/engine-pr2e', 'src/bots', 'src/rulesets']).length > 0;
     } catch {
       dirty = false;
     }

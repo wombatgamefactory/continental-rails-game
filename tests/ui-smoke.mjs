@@ -7,7 +7,9 @@
 // downloaded), and FAILS on any console error, page error, failed request or
 // HTTP error. Sections:
 //
-//   1  a four-bot game (random bots, instant speed, every module on) reaches the end screen
+//   1  a four-bot game (random bots, instant speed, every module on) reaches the end screen;
+//      1c/1d the rules selector (Continental Rails | Pacific Rails, second edition) and a
+//      whole bot game under ?rules=pr2e
 //   2  scripted human segments through the BESPOKE controls: place, remove, displace,
 //      choose a district with and without a hat, gather, a bonus action, train
 //      activation use and skip, a Congress entry, a route claim, a move, stop,
@@ -31,6 +33,7 @@ import { chromium } from 'playwright-core';
 import { startServer } from '../tools/serve.mjs';
 import { writeEvidence } from './helpers/tmp.mjs';
 import * as E from '../src/engine/index.js';
+import { getRuleset } from '../src/rulesets/index.js';
 import { start, put, give, setHeads, setTrain, claim } from './helpers/rig.mjs';
 import { startWith, giveTokens, stock, ownCard, installTile, gatherCoinsTurn } from './helpers/modules.mjs';
 
@@ -286,6 +289,93 @@ async function mixedBots(browser) {
   assert((await page.evaluate(() => window.__cr.incidents().length)) === 0, 'no bot driver incidents with the registered bot levels');
   assert((await page.locator('th[data-rank]').count()) === 4, 'four ranked scores');
   log(`       bots ${pick.join(', ')}: ${((Date.now() - started) / 1000).toFixed(1)} s`);
+  await page.close();
+}
+
+// ---------------------------------------------------------------------------
+// 1c, 1d - rulesets
+// ---------------------------------------------------------------------------
+
+async function rulesSelector(browser) {
+  const PR2E = getRuleset('pr2e');
+  const CR = getRuleset('continental');
+  const page = await newPage(browser);
+  await page.goto(`${BASE}?test=1`);
+  await waitSetup(page);
+  const chooser = page.locator('[data-field="rules-chooser"]');
+  assert(await chooser.isVisible(), 'the rules selector is on the set-up page');
+  const text = (await chooser.textContent()).replace(/\s+/g, ' ');
+  assert(text.includes('Rules') && text.includes(CR.name) && text.includes(PR2E.name), `the selector names both rulesets: "${text}"`);
+  const box = async (sel) => (await page.locator(sel).first().boundingBox()).y;
+  assert((await box('[data-field="rules-chooser"]')) < (await box('.setup__count')) && (await box('[data-field="rules-chooser"]')) < (await box('.seats')), 'the selector sits above the other options');
+  assert((await page.getAttribute('[data-setup="rules:continental"]', 'aria-pressed')) === 'true', 'Continental Rails is the default');
+  assert(!new URL(page.url()).searchParams.has('rules'), 'no rules= in the address for the default');
+  await shot(page, 'setup-rules-continental', 1440, 900);
+
+  await page.click('[data-setup="rules:pr2e"]');
+  await page.waitForSelector('[data-setup="rules:pr2e"][aria-pressed="true"]');
+  assert(new URL(page.url()).searchParams.get('rules') === 'pr2e', `the address carries rules=pr2e (${page.url()})`);
+  assert((await page.evaluate(() => window.__cr.activeRules())) === 'pr2e', 'the second edition is the active ruleset');
+  const toggle = (await page.textContent('[data-setup="variants-toggle"]')).trim();
+  assert(toggle.includes(String(PR2E.variants.length)), `the variants panel counts the pr2e variants (${toggle})`);
+  await page.mouse.move(5, 5);
+  await shot(page, 'setup-rules-pr2e', 1440, 900);
+
+  // The address round-trips: a reload keeps the choice.
+  await page.reload();
+  await waitSetup(page);
+  assert((await page.getAttribute('[data-setup="rules:pr2e"]', 'aria-pressed')) === 'true', 'a reload keeps rules=pr2e');
+
+  // Start: the game is the second edition's, played by its engine, and the header says so.
+  await page.click('.setup__go [data-setup="start"]');
+  await page.waitForSelector('[data-field="rules"][data-rules="pr2e"]', { timeout: 10000 });
+  assert((await page.evaluate(() => window.__cr.rules())) === 'pr2e', 'the game records rules pr2e');
+  assert((await page.evaluate(() => window.__cr.engineIs('pr2e'))) === true, 'the page runs the pr2e engine');
+  assert((await page.evaluate(() => window.__cr.engineIs('continental'))) === false, 'and not the Continental Rails engine');
+  const header = (await page.textContent('[data-field="rules"]')).replace(/\s+/g, ' ').trim();
+  assert(header === `Rules: ${PR2E.name}`, `the header names the rules: "${header}"`);
+  const saved = JSON.parse(await page.evaluate(() => window.__cr.saveGame()));
+  assert(saved.rules === 'pr2e' && saved.savedGame === 1 && saved.state.seq >= 0, 'a saved game records its rules');
+  await shot(page, 'in-play-pr2e', 1440, 900);
+
+  // A saved game loads with its own rules, whatever the page has active.
+  await page.goto(`${BASE}?test=1`);
+  await waitSetup(page);
+  assert((await page.evaluate(() => window.__cr.activeRules())) === 'continental', 'a fresh page is Continental Rails');
+  await page.evaluate(([t]) => window.__cr.loadState(t, ['human', 'medium']), [JSON.stringify(saved)]);
+  await page.waitForSelector('[data-field="rules"][data-rules="pr2e"]', { timeout: 10000 });
+  assert((await page.evaluate(() => window.__cr.engineIs('pr2e'))) === true, 'loading a pr2e saved game switches to the pr2e engine');
+
+  // Back to the set-up page and back to Continental Rails.
+  await page.evaluate(() => window.__cr.pause(true));
+  await page.click('[data-ui="new-game"]');
+  await page.click('[data-ui="new-game"]');
+  await waitSetup(page);
+  await page.click('[data-setup="rules:continental"]');
+  await page.waitForSelector('[data-setup="rules:continental"][aria-pressed="true"]');
+  assert(!new URL(page.url()).searchParams.has('rules'), 'choosing the default removes rules= from the address');
+  assert((await page.evaluate(() => window.__cr.activeRules())) === 'continental', 'Continental Rails is active again');
+  await page.close();
+}
+
+async function pr2eBotGame(browser) {
+  const PR2E = getRuleset('pr2e');
+  const page = await newPage(browser);
+  const started = Date.now();
+  await page.goto(`${BASE}?rules=pr2e&players=3&bots=medium,easy,random&fast=1&seed=8&test=1`);
+  await page.waitForSelector('[data-screen="end"]', { timeout: 240000 });
+  assert((await page.evaluate(() => window.__cr.rules())) === 'pr2e', 'the game was the second edition');
+  assert((await page.evaluate(() => window.__cr.engineIs('pr2e'))) === true, 'played by the pr2e engine');
+  assert((await page.evaluate(() => window.__cr.incidents().length)) === 0, 'no bot driver incidents (the worker played the pr2e bots)');
+  assert((await page.locator('th[data-rank]').count()) === 3, 'three ranked scores');
+  const endRules = (await page.textContent('[data-field="end-rules"]')).trim();
+  assert(endRules === PR2E.name, `the end screen names the rules (${endRules})`);
+  // The game the page played replays to the same position through the pr2e engine in Node.
+  const record = await page.evaluate(() => ({ ...window.__cr.replayRecord(), hash: window.__cr.hash(), config: window.__cr.getState().config }));
+  const replayed = PR2E.engine.replayGame(PR2E.engine.getGameConfig(await page.evaluate(() => window.__cr.getState())), record.actions);
+  assert(PR2E.engine.hashState(replayed) === record.hash, 'the pr2e engine replays the page\'s game to the same hash');
+  await shot(page, 'end-pr2e', 1440, 900);
+  log(`       pr2e bot game: ${((Date.now() - started) / 1000).toFixed(1)} s, ${record.actions.length} actions`);
   await page.close();
 }
 
@@ -2099,7 +2189,9 @@ async function landingPage(browser) {
   assert((await page.locator('[data-field="distinctive"] li').count()) === 4 && (await page.locator('[data-field="prototype"] li').count()) === 4, 'four points on what is different and four on the prototype');
   const order = await page.evaluate(() => ['[data-field="hero"]', '#setup-panel', '[data-field="loop"]', '[data-field="distinctive"]', '[data-field="credits"]'].map((s) => Math.round(document.querySelector(s).getBoundingClientRect().top + window.scrollY)));
   assert(order.every((y, i) => i === 0 || y > order[i - 1]), `hero, set-up, the loop, the points, the credits, in that order (${order.join(' < ')})`);
-  const text = await page.evaluate(() => document.getElementById('screen-setup').innerText);
+  // The exact name of the second ruleset is allowed (ruled 31/10/2026); any other use of the earlier title is not.
+  const allowedTitle = 'Pacific' + ' Rails, second edition';
+  const text = (await page.evaluate(() => document.getElementById('screen-setup').innerText)).split(allowedTitle).join(' ');
   const banned = new RegExp(['Pacific' + ' Rails', 'Vesuv' + 'ius', 'Steel', 'playtest', 'simulat', 'award', 'undefined', 'NaN'].join('|'), 'i').exec(text);
   assert(!banned, `nothing the page must not say (${banned && banned[0]})`);
   assert(/Designed by Dean Morris/.test(text) && /Wombat Game Factory/.test(text) && /Prototype - rules and art subject to change/.test(text), 'the credits');
@@ -2495,6 +2587,8 @@ async function main() {
   try {
     await test('1 four-bot game reaches the end screen (all modules on)', () => fourBotGame(browser));
     await test('1b a four-bot game with the registered levels (random, easy, medium) runs without driver incidents', () => mixedBots(browser));
+    await test('1c rules selector: above the other options, switches to the second edition, rules= round-trips, the game runs the pr2e engine and says so, a saved game keeps its rules', () => rulesSelector(browser));
+    await test('1d a bot game under ?rules=pr2e reaches the end screen with the pr2e engine and its bots', () => pr2eBotGame(browser));
     await test('2a setup choices: railhead, house track, specialist', () => setupChoices(browser));
     await test('2b place, hat toggle, choose district with a hat, gather, bonus action', () => placeHatGatherBonus(browser));
     await test('2c choose a district without a hat, gather', () => gatherWithoutHat(browser));
