@@ -142,11 +142,13 @@ const TRACE = {
     key: 'pony',
     word: 'pony',
     vp: ['ponyCards', 'ponyEnd'],
-    actions: ['buyPonyCard', 'exchangeToken', 'usePonyCard', 'endFreeActions', 'skipEffect', 'returnResource', 'chooseForemanType', 'chooseSpecialistType', 'chooseExtraActivation'],
+    // skipEffect is not listed: since rules spec v8 it also declines the free hire of Congress entry C4 (R10.7), a core rule.
+    actions: ['buyPonyCard', 'exchangeToken', 'usePonyCard', 'endFreeActions', 'returnResource', 'chooseForemanType', 'chooseSpecialistType', 'chooseExtraActivation'],
     events: ['ponyToken', 'ponyCardBought', 'ponyMarketRefill', 'tokenExchanged', 'ponyCardUsed', 'resourceReturned', 'activationsDoubled'],
     causes: ['pony:'],
     frames: (top) =>
-      ['freeActions', 'hireSpecialist', 'chooseForemanType', 'chooseSpecialistType', 'chooseExtraActivation', 'exchange'].includes(top.kind) ||
+      ['freeActions', 'chooseForemanType', 'chooseSpecialistType', 'chooseExtraActivation', 'exchange'].includes(top.kind) ||
+      (top.kind === 'hireSpecialist' && !String(top.cause).startsWith('congress:')) || // Congress C4 hires too (R10.7)
       (top.kind === 'freeCongress' && top.stop === 'skipEffect') ||
       (top.kind === 'bonusAction' && top.bonus === 'any'),
   },
@@ -840,6 +842,8 @@ const ONLY_WITH_TOKENS_HANDED_OUT = Object.fromEntries(
   // players and the bots spend them on cheaper cards as they collect them, so in games as played nobody gets to 5.
   [
     ...RULES.PONY_CARDS.filter((c) => c.rank === 'C').map((c) => [c.id, 'rank C costs 5 tokens held at once; games as played do not collect that many in one hand']),
+    // Since rules spec v8, Congress C5 gives the same 3 built tiles for 3 Coins, and the games of this run no longer buy card 19 unprompted.
+    ['PX19', 'Track Stockpile (3 built tiles for 3 tokens) duplicates Congress C5 since spec v8; the seeded games of this run do not buy it'],
   ],
 );
 const COUNTED = {

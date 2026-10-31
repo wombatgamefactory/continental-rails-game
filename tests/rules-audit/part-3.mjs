@@ -615,30 +615,24 @@ export default function part3() {
     assert.equal(s.turn.player, 1);
     assert.equal(s.map.railwayStation.SPO, null);
   });
-  check('R13.6', 'Congress entry C6: up to one railway station and up to one telegraph station, each in any connected inland city, with normal placement effects and no first-connection bonus or toll', () => {
+  check('R13.6', 'retired in v8: Congress entry C6 places no building; buildings reach the map only on arrival (R13.4, R13.5)', () => {
     const s = game(3);
     setTrain(s, 0, [['financier', 'financier']]);
     give(s, 0, { coins: 3, resources: {} });
-    claim(s, 1, 'POR-SPO', 'POR-REN');
-    building(s, 2, 'railwayStation', 'REN');
+    claim(s, 1, 'POR-SPO', 'POR-REN'); // connected inland cities with room, where C6 once placed buildings
     placeAndChoose(s, 'W1', 'D2');
     while (topFrame(s).lobby < 3) act(s, { type: 'closeCongress' });
     const ev = act(s, { type: 'takeCongressEntry', entry: 'C6' });
-    const buildings = topFrame(s).options.findIndex((o) => o.effects.some((e) => e.type === 'placeBuildings'));
-    ev.push(...act(s, { type: 'chooseOption', option: buildings }));
-    assert.equal(kind(s), 'placeBuildings');
-    assert.deepEqual(sorted([...new Set(getValidActions(s).map((a) => a.city).filter(Boolean))]), ['REN', 'SPO'], 'connected inland cities only; no railhead need be there');
-    assert.ok(!offered(s, 'placeRailwayStation', { city: 'REN' }), 'Reno has no room for a railway station');
-    refused(s, { type: 'placeTelegraphStation', city: 'BOI' });
-    ev.push(...act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'coins' }));
-    assert.equal(production(s, 0, 'coins'), 2);
-    assert.ok(!offered(s, 'placeRailwayStation'), 'at most one railway station');
-    assert.ok(offered(s, 'placeTelegraphStation', { city: 'SPO' }) && offered(s, 'placeTelegraphStation', { city: 'REN' }), 'the same city or a different one');
-    assert.ok(offered(s, 'skipBuilding'), 'placing only one of the two is allowed');
-    ev.push(...act(s, { type: 'placeTelegraphStation', city: 'REN' }));
-    assert.deepEqual(vpBySource(ev, 0), { telegraph: 1 });
-    assert.deepEqual(vpBySource(ev, 2), {}, 'no toll');
-    assert.notEqual(kind(s), 'placeBuildings');
+    assert.equal(kind(s), 'chooseResource', 'resources of choice, not a choice between options');
+    for (let guard = 0; guard < 10 && kind(s) === 'chooseResource'; guard++) {
+      assert.ok(!offered(s, 'placeRailwayStation') && !offered(s, 'placeTelegraphStation'));
+      ev.push(...act(s, { type: 'chooseResource', resource: 'iron' }));
+    }
+    assert.equal(s.players[0].resources.iron, 6);
+    assert.equal(eventsOf(ev, 'buildingPlaced').length, 0);
+    assert.ok(Object.values(s.map.railwayStation).every((o) => o === null) && Object.values(s.map.telegraphStation).every((o) => o === null), 'the map has no building');
+    assert.ok(!s.stack.some((f) => f.kind === 'placeBuildings' || f.kind === 'chooseOption'));
+    assert.deepEqual(vpBySource(ev, 0), {}, 'and no VP');
   });
   check('R13.7', 'bothBuildingsSameOwner: by default one player may own both buildings of a city; false forbids it', () => {
     const s = layGame();

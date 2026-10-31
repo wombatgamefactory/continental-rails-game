@@ -421,8 +421,8 @@ export default function part6() {
     'R19.2 says "the first time in the game"; R19.6 says after the trigger "only R19.2 cannot happen again". The engine pays the bonus once, whenever the first line is completed.');
   skip('R17.3/18-19-card28', 'does a Hire Specialist or Add Carriage bonus action taken through Pony Express card 28 count for Legislative Agenda cards 18 and 19?',
     'Cards 18 and 19 say "with the ... bonus action" and "not for cards"; card 28 lets the player take "one of the four bonus actions". The engine does not count it.');
-  skip('R20.1/free-entries', 'to which VP source do the VP of a Congress entry taken free through a card belong (Reset or C6 through Pony Express cards 13 and 24 or Legislative Agenda card 20)?',
-    'R20.1 gives Reset and C6 to "congress" and "every VP scored only because of" a card to the card\'s source. The engine books them to congress.');
+  skip('R20.1/free-entries', 'to which VP source do the VP of a Reset taken free through a card belong (Pony Express cards 13 and 24 or Legislative Agenda card 20)?',
+    'R20.1 gives Reset VP to "congress" and "every VP scored only because of" a card to the card\'s source. The engine books them to congress. Since spec v8 Reset is the only Congress entry that scores VP: C6 no longer has a 3 VP option.');
   skip('R20.5.4/rounds', 'with turnStructure rounds the start player marker moves: is "closest to the start player" measured from the final round\'s start player or from seat 1?',
     'R4.8.3 moves the marker; R20.5.4 does not say which start player. The engine uses the start player of the final round.');
 

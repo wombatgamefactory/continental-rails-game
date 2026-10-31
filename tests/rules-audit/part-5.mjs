@@ -687,10 +687,10 @@ export default function part5() {
     act(s, { type: 'closeCongress' });
     assert.equal(topFrame(s).lobby, 2);
     act(s, { type: 'takeCongressEntry', entry: 'C3' });
-    assert.deepEqual([s.players[0].coins, s.players[0].resources.gunpowder, s.players[0].hats], [2, 2, 1]);
+    assert.deepEqual([s.players[0].coins, s.players[0].resources.gunpowder, s.players[0].hats], [2, 4, 1]);
     assert.ok(offered(s, 'useStep'));
     act(s, { type: 'useStep' });
-    assert.deepEqual([s.players[0].resources.gunpowder, s.players[0].builtTiles.tunnel], [0, 1]);
+    assert.deepEqual([s.players[0].resources.gunpowder, s.players[0].builtTiles.tunnel], [2, 1], 'he keeps 2 Gunpowder');
     assert.equal(s.turn.player, 1);
     assert.equal(s.congress.used.C3, true);
     // the alternative: C1 after the Foreman, C2 after the Financier
@@ -700,7 +700,7 @@ export default function part5() {
     placeAndChoose(t, 'W4', 'D2');
     act(t, { type: 'takeCongressEntry', entry: 'C1' });
     act(t, { type: 'takeCongressEntry', entry: 'C2' });
-    assert.deepEqual(held(t.players[0]), { iron: 2, wood: 2, gunpowder: 0, coins: 2 });
+    assert.deepEqual(held(t.players[0]), { iron: 3, wood: 3, gunpowder: 0, coins: 2 }, '3 Wood and 3 Iron for 2 Coins');
   });
   check('E7', 'Lay Tracks', () => {
     const s = game(2, PONY);

@@ -401,7 +401,9 @@ export function renderCongress(ctx) {
       const ct = tgt(ctx, 'congress', `congress:${e.id}`);
       const lower = e.id.toLowerCase();
       const costArt = hasArt(`congress-cost-${lower === 'cr' ? 'reset' : lower}`) ? art(`congress-cost-${lower === 'cr' ? 'reset' : lower}`, { cls: 'cong__cell', label: `cost ${e.coinCost}` }) : '';
-      const benefitArt = hasArt(`congress-benefit-${lower === 'cr' ? 'reset' : lower}`) ? art(`congress-benefit-${lower === 'cr' ? 'reset' : lower}`, { cls: 'cong__cell', label: 'benefit' }) : '';
+      // Rules spec v8 changed the benefits of C1 to C6: their pictures are the `-v2` ids (R10.1).
+      const benefitId = lower === 'cr' ? 'congress-benefit-reset' : hasArt(`congress-benefit-${lower}-v2`) ? `congress-benefit-${lower}-v2` : `congress-benefit-${lower}`;
+      const benefitArt = hasArt(benefitId) ? art(benefitId, { cls: 'cong__cell', label: 'benefit' }) : '';
       // The price to this player (a Pony Express card can change the Coins), against what they hold.
       const coin = ctx.interactive ? congressCoinCost(state, state.toAct, e) : e.coinCost;
       let why = '';

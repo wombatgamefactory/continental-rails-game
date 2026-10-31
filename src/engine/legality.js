@@ -60,7 +60,6 @@ import {
   networkCities,
   reachableCities,
   touchesClaimedRoute,
-  isCityConnected,
   buildingRoom,
   nextTelegraphVp,
   upgradeTileData,
@@ -767,7 +766,8 @@ export function anySenatorUsed(state) {
 
 /**
  * R10.5. A sentence if the entry's benefit could not be carried out at all
- * (the entry then cannot be taken), else null. C6 can always be taken for its 3 VP.
+ * (the entry then cannot be taken), else null. For C4 only the carriage
+ * counts: the free hire after it is optional (R10.7).
  */
 function congressBenefitBlock(state, playerId, entry) {
   const K = getConstants(state);
@@ -859,33 +859,12 @@ export function getChooseBuiltTileBlockReason(state, playerId, terrain) {
   );
 }
 
-/**
- * R10.1 C6. Whether one option of a `chooseOption` decision can be carried
- * out: a building option needs somewhere to put a building (R10.5).
- */
-function optionBlock(state, playerId, frame, index) {
-  const effects = frame.options[index].effects;
-  for (const effect of effects) {
-    if (effect.type === 'placeBuildings') {
-      const ctx = { scope: 'connected', city: null, cost: {}, left: effect.railwayStation + effect.telegraphStation, allow: { railwayStation: effect.railwayStation, telegraphStation: effect.telegraphStation } };
-      if (!canPlaceAnyBuilding(state, playerId, ctx)) {
-        return 'You cannot place a building anywhere: no connected inland city has room for one you can place. Take the other option.';
-      }
-    }
-  }
-  return null;
-}
-
-/** R10.1 C6. Why this player cannot pick option number `option` (from 0) now. */
+/** R18.7 cards 8, 9 and 23. Why this player cannot pick option number `option` (from 0) now. */
 export function getChooseOptionBlockReason(state, playerId, option) {
   if (!Number.isInteger(option) || option < 0) return `"${option}" is not an option number: options count from 0.`;
   const frame = ownFrame(state, playerId, 'chooseOption');
-  if (frame !== null) {
-    if (option >= frame.options.length) {
-      return `There are only ${frame.options.length} options to choose from, numbered 0 to ${frame.options.length - 1}.`;
-    }
-    const block = optionBlock(state, playerId, frame, option);
-    if (block !== null) return block;
+  if (frame !== null && option >= frame.options.length) {
+    return `There are only ${frame.options.length} options to choose from, numbered 0 to ${frame.options.length - 1}.`;
   }
   return timingBlock(state, playerId, isKind('chooseOption'), 'You are not being offered a choice between options at the moment.');
 }
@@ -1031,9 +1010,9 @@ export function getStopLayingBlockReason(state, playerId) {
 
 /**
  * Where, how many and at what price buildings may be placed right now:
- *   { scope: 'city' | 'connected' | 'network', city, cost, left, allow: { railwayStation, telegraphStation } }
+ *   { scope: 'city' | 'network', city, cost, left, allow: { railwayStation, telegraphStation } }
  * from the pending `placeBuildings` decision (free building on arrival R13.4,
- * paid building after a move R13.5, Congress C6 R13.6), or from a Lay Tracks
+ * paid building after a move R13.5), or from a Lay Tracks
  * action in network mode (the station step, R11.11.5). Null when no such
  * decision is pending.
  */
@@ -1066,9 +1045,6 @@ function placementWhereBlock(state, playerId, city, ctx) {
   if (ctx.scope === 'city' && city !== ctx.city) {
     return `You may place a building only in ${cityNameOf(ctx.city)} on this occasion, not in ${c.name}.`;
   }
-  if (ctx.scope === 'connected' && !isCityConnected(state, city)) {
-    return `${c.name} is not a connected city: no claimed route reaches it, and this benefit places buildings only in connected cities.`;
-  }
   if (ctx.scope === 'network' && !networkCities(state, playerId).includes(city)) {
     return `${c.name} is not in your network, and a station step places a building only in a city of your network.`;
   }
@@ -1093,7 +1069,7 @@ function placementLimitBlock(state, playerId, kind, ctx) {
 
 const PLACE_TIMING = {
   accepts: (frame, state) => frame.kind === 'placeBuildings' || (frame.kind === 'layTracks' && state.variants.claimFrom === 'network' && !frame.only),
-  otherwise: 'You can place a building only when the rules offer one: on arriving by a claim or a move, with Congress entry C6, or as a station step in network mode.',
+  otherwise: 'You can place a building only when the rules offer one: on arriving by a claim or a move, or as a station step in network mode.',
 };
 
 function placementTiming(state, playerId) {
@@ -1156,7 +1132,7 @@ export function getPlaceTelegraphStationBlockReason(state, playerId, city) {
   return placementTiming(state, playerId);
 }
 
-/** R13.4 to R13.6. Why this player cannot decline to place a (further) building. */
+/** R13.4, R13.5. Why this player cannot decline to place a (further) building. */
 export function getSkipBuildingBlockReason(state, playerId) {
   return timingBlock(state, playerId, isKind('placeBuildings'), 'There is no building on offer to decline.');
 }
@@ -1709,7 +1685,7 @@ export const ACTIONS = {
   },
   chooseOption: {
     params: ['option'],
-    rule: 'R10.1',
+    rule: 'R18.7',
     block: (state, pid, a) => getChooseOptionBlockReason(state, pid, a.option),
     space: () => [0, 1, 2].map((option) => ({ type: 'chooseOption', option })),
     describe: (state, a) => {
@@ -1769,7 +1745,7 @@ export const ACTIONS = {
   },
   skipBuilding: {
     params: [],
-    rule: 'R13.4 to R13.6',
+    rule: 'R13.4, R13.5',
     stop: true,
     block: (state, pid) => getSkipBuildingBlockReason(state, pid),
     space: () => [{ type: 'skipBuilding' }],
@@ -1833,10 +1809,11 @@ export const ACTIONS = {
   },
   skipEffect: {
     params: [],
-    rule: 'R18.7',
+    rule: 'R18.7, R10.7 C4',
     stop: true,
     block: (state, pid) => getSkipEffectBlockReason(state, pid),
-    space: (state) => (state.modules.pony === undefined ? [] : [{ type: 'skipEffect' }]),
+    // A core action since spec v8: the free hire of Congress C4 may be declined (R10.7), with or without a module.
+    space: () => [{ type: 'skipEffect' }],
     describe: (state) => {
       const frame = topFrame(state);
       if (frame !== null && frame.kind === 'exchange') return 'Stop giving resources back';
@@ -2073,7 +2050,7 @@ export const FRAMES = {
     label: (state, frame) => `take ${plural(frame.remaining, 'built track tile', 'built track tiles')} of your choice`,
     list: (state, frame) => keepLegal(state, frame.player, ACTIONS.chooseBuiltTile.space(state)),
   },
-  /** R10.1. Frame: { kind, player, options: [{ text, effects }], cause }. */
+  /** R18.7 cards 8, 9 and 23. Frame: { kind, player, options: [{ text, effects }], cause }. */
   chooseOption: {
     label: (state, frame) => `choose one: ${frame.options.map((o) => o.text).join(' or ')}`,
     list: (state, frame) =>
@@ -2149,9 +2126,9 @@ export const FRAMES = {
     },
   },
   /**
-   * R13.4 to R13.6. Frame: { kind, player, scope, city, cost, left, allow: {
-   * railwayStation, telegraphStation }, cause }. `scope` 'city' (the arrival
-   * city `city`) or 'connected' (any connected inland city, Congress C6);
+   * R13.4, R13.5. Frame: { kind, player, scope, city, cost, left, allow: {
+   * railwayStation, telegraphStation }, cause }. `scope` is 'city' (the arrival
+   * city `city`);
    * `left` is how many buildings may still be placed; `allow` how many of
    * each kind; `cost` what each building costs (nothing when free).
    */

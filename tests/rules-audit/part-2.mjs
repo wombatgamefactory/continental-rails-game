@@ -604,8 +604,8 @@ export default function part2() {
   check('R9.4.3/overflow', 'storage overflow is applied after the step that caused it, before the next step', () => {
     const s = lobbyGame();
     s.players[0].train.storageCarriages = 1;
-    give(s, 0, { resources: { iron: 8 } });
-    act(s, { type: 'takeCongressEntry', entry: 'C1' }); // 2 Wood: 10 of 9
+    give(s, 0, { resources: { iron: 7 } });
+    act(s, { type: 'takeCongressEntry', entry: 'C1' }); // 3 Wood: 10 of 9
     assert.equal(kind(s), 'discard');
     assert.equal(s.toAct, 0);
     const ev = act(s, { type: 'discard', item: 'iron' });
@@ -690,40 +690,48 @@ export default function part2() {
     void s;
     assert.deepEqual(RULES.CONGRESS.tables['design-2026-10'].map((e) => [e.id, e.tier, e.coinCost]), R10_1);
   });
-  check('R10.1/C1', 'C1: 1 lobby point and 1 Coin for 2 Wood', () => {
+  check('R10.1/C1', 'C1: 1 lobby point and 1 Coin for 3 Wood', () => {
     const { s, coinsPaid } = takeAtTier('C1', 1);
-    assert.deepEqual(held(s.players[0]), { iron: 0, wood: 2, gunpowder: 0, coins: 19 });
+    assert.deepEqual(held(s.players[0]), { iron: 0, wood: 3, gunpowder: 0, coins: 19 });
     assert.equal(coinsPaid, 1);
   });
-  check('R10.1/C2', 'C2: 1 lobby point and 1 Coin for 2 Iron', () => {
+  check('R10.1/C2', 'C2: 1 lobby point and 1 Coin for 3 Iron', () => {
     const { s } = takeAtTier('C2', 1);
-    assert.deepEqual(held(s.players[0]), { iron: 2, wood: 0, gunpowder: 0, coins: 19 });
+    assert.deepEqual(held(s.players[0]), { iron: 3, wood: 0, gunpowder: 0, coins: 19 });
   });
-  check('R10.1/C3', 'C3: 2 lobby points and 2 Coins for 2 Gunpowder and 1 cowboy hat', () => {
+  check('R10.1/C3', 'C3: 2 lobby points and 2 Coins for 4 Gunpowder and 1 cowboy hat', () => {
     const { s } = takeAtTier('C3', 2);
-    assert.deepEqual(held(s.players[0]), { iron: 0, wood: 0, gunpowder: 2, coins: 18 });
+    assert.deepEqual(held(s.players[0]), { iron: 0, wood: 0, gunpowder: 4, coins: 18 });
     assert.equal(s.players[0].hats, 1);
   });
-  check('R10.1/C4', 'C4: 2 lobby points and 2 Coins to add 1 carriage of either kind for free', () => {
-    let asked = null;
-    const { s } = takeAtTier('C4', 2, (x) => {
-      asked = [kind(x), sorted(offers(x, 'addCarriage').map((a) => a.carriage))];
-      return { type: 'addCarriage', carriage: 'specialist' };
+  check('R10.1/C4', 'C4: 2 lobby points and 2 Coins to add 1 carriage for free, then hire 1 specialist for free', () => {
+    const asked = [];
+    const { s, events } = takeAtTier('C4', 2, (x) => {
+      if (kind(x) === 'addCarriage') {
+        asked.push([kind(x), sorted(offers(x, 'addCarriage').map((a) => a.carriage)), offered(x, 'skipEffect')]);
+        return { type: 'addCarriage', carriage: 'specialist' };
+      }
+      asked.push([kind(x), sorted(offers(x, 'hireSpecialist').map((a) => a.specialist)), offered(x, 'skipEffect')]);
+      return { type: 'hireSpecialist', specialist: 'engineer' };
     }, {}, (x) => { x.players[0].train.storageCarriages = 2; });
-    assert.deepEqual(asked, ['addCarriage', ['specialist', 'storage']]);
+    assert.deepEqual(asked, [
+      ['addCarriage', ['specialist', 'storage'], false],
+      ['hireSpecialist', ['crew', 'engineer', 'financier', 'miner'], true],
+    ], 'the carriage first and required, then the hire, which may be declined');
     assert.equal(s.players[0].train.specialistCarriages.length, 2);
     assert.equal(s.players[0].train.storageCarriages, 2);
-    assert.deepEqual(held(s.players[0]), { iron: 0, wood: 0, gunpowder: 0, coins: 18 });
+    assert.deepEqual(s.players[0].train.specialistCarriages[1].slots, ['engineer', null]);
+    assert.deepEqual(held(s.players[0]), { iron: 0, wood: 0, gunpowder: 0, coins: 18 }, 'only the 2 Coins of the entry: the carriage and the hire are free');
+    assert.equal(eventsOf(events, 'hire').length, 1);
   });
-  check('R10.1/C5', 'C5: 3 lobby points and 3 Coins for 2 built track tiles, any types, same or different', () => {
-    for (const pick of [['bridge', 'bridge'], ['ground', 'tunnel']]) {
+  check('R10.1/C5', 'C5: 3 lobby points and 3 Coins for 3 built track tiles, any types, same or different', () => {
+    for (const pick of [['bridge', 'bridge', 'bridge'], ['ground', 'tunnel', 'ground']]) {
       const s = lobbyGame();
       waitLobby(s, 3);
       act(s, { type: 'takeCongressEntry', entry: 'C5' });
       assert.equal(kind(s), 'chooseBuiltTile');
       assert.deepEqual(sorted(getValidActions(s).map((a) => a.terrain)), ['bridge', 'ground', 'tunnel']);
-      act(s, { type: 'chooseBuiltTile', terrain: pick[0] });
-      act(s, { type: 'chooseBuiltTile', terrain: pick[1] });
+      for (const t of pick) act(s, { type: 'chooseBuiltTile', terrain: t });
       const want = { ground: 0, tunnel: 0, bridge: 0 };
       for (const t of pick) want[t] += 1;
       assert.deepEqual(s.players[0].builtTiles, want);
@@ -731,17 +739,18 @@ export default function part2() {
       assert.equal(kind(s), 'trainActivation');
     }
   });
-  check('R10.1/C6', 'C6: 3 lobby points and 3 Coins to place up to 1 railway station and up to 1 telegraph station, or gain 3 VP', () => {
+  check('R10.1/C6', 'C6: 3 lobby points and 3 Coins for 6 resources of your choice, mixed as you like', () => {
     const s = lobbyGame();
     claim(s, 1, 'POR-SPO');
     waitLobby(s, 3);
-    act(s, { type: 'takeCongressEntry', entry: 'C6' });
-    assert.equal(kind(s), 'chooseOption');
-    assert.equal(getValidActions(s).length, 2);
-    const vpOption = topFrame(s).options.findIndex((o) => o.effects.some((e) => e.type === 'vp'));
-    const ev = act(s, { type: 'chooseOption', option: vpOption });
-    assert.deepEqual(vpBySource(ev, 0), { congress: 3 });
-    assert.equal(s.players[0].coins, 17);
+    const ev = act(s, { type: 'takeCongressEntry', entry: 'C6' });
+    assert.equal(kind(s), 'chooseResource');
+    assert.deepEqual(sorted(getValidActions(s).map((a) => a.resource)), ['gunpowder', 'iron', 'wood'], 'R1.8: never Coins');
+    for (const r of ['wood', 'iron', 'gunpowder', 'wood', 'iron', 'wood']) ev.push(...act(s, { type: 'chooseResource', resource: r }));
+    assert.deepEqual(held(s.players[0]), { iron: 2, wood: 3, gunpowder: 1, coins: 17 });
+    assert.deepEqual(vpBySource(ev, 0), {}, 'no VP');
+    assert.equal(eventsOf(ev, 'buildingPlaced').length, 0, 'no building');
+    assert.equal(kind(s), 'trainActivation');
   });
   check('R10.1/CR', 'Reset: 1 lobby point and 1 Coin', () => {
     const { s, coinsPaid } = takeAtTier('CR', 1, null, {}, (x) => { x.congress.used.C5 = true; });
@@ -803,7 +812,7 @@ export default function part2() {
     assert.equal(eventsOf(ev, 'lobbyPoint').length, 1);
     assert.equal(kind(s), 'trainActivation');
     act(s, { type: 'takeCongressEntry', entry: 'C2' });
-    assert.equal(s.players[0].resources.iron, 2);
+    assert.equal(s.players[0].resources.iron, 3);
     const t = game(2);
     give(t, 0, { coins: 3 });
     const none = placeAndChoose(t, 'W6', 'D4');
@@ -840,20 +849,20 @@ export default function part2() {
     act(s, { type: 'chooseBuiltTile', terrain: 'ground' });
     assert.deepEqual(types(s), ['chooseBuiltTile']);
   });
-  check('R10.5', 'several entries in one activation; an entry whose benefit cannot be carried out at all cannot be taken; C6 can always be taken for 3 VP', () => {
+  check('R10.5', 'several entries in one activation; an entry whose benefit cannot be carried out at all cannot be taken', () => {
     const s = lobbyGame();
     setTrain(s, 0, [['financier', 'financier'], ['financier', 'financier'], [null, null]]); // 3 specialist + 3 storage carriages
     act(s, { type: 'takeCongressEntry', entry: 'C1' });
     waitLobby(s, 1);
     act(s, { type: 'takeCongressEntry', entry: 'C2' });
-    assert.deepEqual(held(s.players[0]), { iron: 2, wood: 2, gunpowder: 0, coins: 18 });
+    assert.deepEqual(held(s.players[0]), { iron: 3, wood: 3, gunpowder: 0, coins: 18 });
     waitLobby(s, 3);
-    assert.ok(!offered(s, 'takeCongressEntry', { entry: 'C4' }), 'C4 with 3 carriages of each kind');
+    assert.ok(!offered(s, 'takeCongressEntry', { entry: 'C4' }), 'C4 with 3 carriages of each kind, even with empty slots for its hire: the carriage is required');
     refused(s, { type: 'takeCongressEntry', entry: 'C4' });
-    // no connected inland city anywhere: C6 still gives its 3 VP
-    const ev = act(s, { type: 'takeCongressEntry', entry: 'C6' });
-    if (kind(s) === 'chooseOption') ev.push(...act(s, getValidActions(s)[0]));
-    assert.deepEqual(vpBySource(ev, 0), { congress: 3 });
+    // no connected inland city anywhere: C6 is a gain of resources and is taken as usual
+    act(s, { type: 'takeCongressEntry', entry: 'C6' });
+    assert.equal(kind(s), 'chooseResource');
+    assert.equal(topFrame(s).remaining, 6);
   });
   check('R10.6', 'Reset: every used senator returns and the player gains 1 VP per senator moved; not when no entry is used', () => {
     const s = lobbyGame();
@@ -877,7 +886,48 @@ export default function part2() {
     assert.equal(kind(s), 'chooseResource', 'holding 2 hats: 1 resource of choice instead');
     act(s, { type: 'chooseResource', resource: 'iron' });
     assert.equal(s.players[0].hats, 2);
-    assert.deepEqual(s.players[0].resources, { iron: 1, wood: 0, gunpowder: 2 });
+    assert.deepEqual(s.players[0].resources, { iron: 1, wood: 0, gunpowder: 4 });
+  });
+  check('R10.7/C4', 'C4: the carriage first; the free hire follows R8.6.1 (an earlier empty slot before the new carriage) and is optional', () => {
+    // An empty slot in the level 2 carriage takes the specialist; the new level 3 carriage stays empty.
+    const s = lobbyGame({}, 2, 20, [['financier', 'financier'], ['financier', null]]);
+    s.players[0].train.storageCarriages = 2;
+    waitLobby(s, 2);
+    act(s, { type: 'takeCongressEntry', entry: 'C4' });
+    assert.equal(kind(s), 'addCarriage', 'the carriage comes first');
+    act(s, { type: 'addCarriage', carriage: 'specialist' });
+    assert.equal(kind(s), 'hireSpecialist');
+    assert.ok(offered(s, 'skipEffect'), 'the hire is optional');
+    const ev = act(s, { type: 'hireSpecialist', specialist: 'miner' });
+    assert.deepEqual(s.players[0].train.specialistCarriages.map((c) => c.slots), [['financier', 'financier'], ['financier', 'miner'], [null, null]]);
+    assert.deepEqual([eventOf(ev, 'hire').level, eventOf(ev, 'hire').slot], [2, 2]);
+    assert.equal(s.players[0].coins, 18, 'R8.6.4: no fee and no hire cost');
+    // Declined: the carriage stays, no specialist is hired. Storage is full, so the carriage must be a specialist one.
+    const t = lobbyGame({}, 2, 20, [['financier', null]]);
+    waitLobby(t, 2);
+    const tv = act(t, { type: 'takeCongressEntry', entry: 'C4' });
+    assert.equal(kind(t), 'hireSpecialist');
+    tv.push(...act(t, { type: 'skipEffect' }));
+    assert.equal(eventsOf(tv, 'hire').length, 0);
+    assert.deepEqual(t.players[0].train.specialistCarriages.map((c) => c.slots), [['financier', null], [null, null]]);
+  });
+  check('R10.7/C6', 'C6: each resource is named by the player - Iron, Wood or Gunpowder, never Coins; storage overflow as usual', () => {
+    const s = lobbyGame();
+    s.players[0].train.storageCarriages = 1; // capacity 9
+    give(s, 0, { resources: { gunpowder: 5 } });
+    waitLobby(s, 3);
+    act(s, { type: 'takeCongressEntry', entry: 'C6' });
+    refused(s, { type: 'chooseResource', resource: 'coins' });
+    for (let i = 0; i < 4; i++) act(s, { type: 'chooseResource', resource: 'iron' });
+    assert.equal(kind(s), 'chooseResource', '9 of 9: nothing to discard yet');
+    act(s, { type: 'chooseResource', resource: 'wood' });
+    assert.equal(kind(s), 'discard', '10 of 9');
+    act(s, { type: 'discard', item: 'gunpowder' });
+    assert.equal(kind(s), 'chooseResource', 'the sixth resource is still owed');
+    act(s, { type: 'chooseResource', resource: 'wood' });
+    act(s, { type: 'discard', item: 'gunpowder' });
+    assert.deepEqual(s.players[0].resources, { iron: 4, wood: 2, gunpowder: 3 });
+    assert.equal(s.players[0].coins, 17);
   });
 }
 

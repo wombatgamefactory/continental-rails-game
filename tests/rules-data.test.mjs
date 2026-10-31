@@ -109,9 +109,6 @@ function checkEffect(effect, where) {
       assert.ok(Array.isArray(effect.options) && effect.options.length >= 2, `${where}: chooseOne needs options`);
       effect.options.forEach((option, i) => option.forEach((e, j) => checkEffect(e, `${where} option ${i + 1}.${j + 1}`)));
       break;
-    case 'placeBuildings':
-      assert.ok(Number.isInteger(effect.railwayStation) && Number.isInteger(effect.telegraphStation));
-      break;
     case 'trigger':
       assert.ok(TRIGGER_EVENTS.includes(effect.on), `${where}: unknown trigger event "${effect.on}"`);
       if (effect.condition) {

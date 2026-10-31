@@ -368,8 +368,6 @@ function describeEffect(K, effect) {
   switch (effect.type) {
     case 'vp':
       return `Gain ${effect.amount} VP`;
-    case 'placeBuildings':
-      return `Place up to ${n(effect.railwayStation, K.NAMES.railwayStation, K.NAMES.railwayStation + 's')} and up to ${n(effect.telegraphStation, K.NAMES.telegraphStation, K.NAMES.telegraphStation + 's')}`;
     case 'gain':
       return `Gain ${Object.keys(effect.items).map((k) => formatAmount(K, k, effect.items[k])).join(' and ')}`;
     case 'gainChoice':
@@ -481,7 +479,7 @@ export const EFFECT_HANDLERS = {
       cause: ctx.cause,
     });
   },
-  /** R10.1 C6, R18.7 cards 8 and 23, card 9's order. */
+  /** R18.7 cards 8 and 23, card 9's order. */
   chooseOne(state, playerId, effect, ctx) {
     const K = getConstants(state);
     pushFrame(state, {
@@ -491,19 +489,6 @@ export const EFFECT_HANDLERS = {
       cause: ctx.cause,
       vpSource: ctx.vpSource,
       rule: ctx.rule,
-    });
-  },
-  /** R13.6. The only place it is used is Congress C6: any connected inland city. */
-  placeBuildings(state, playerId, effect, ctx) {
-    pushFrame(state, {
-      kind: 'placeBuildings',
-      player: playerId,
-      scope: 'connected',
-      city: null,
-      cost: {},
-      left: effect.railwayStation + effect.telegraphStation,
-      allow: { railwayStation: effect.railwayStation, telegraphStation: effect.telegraphStation },
-      cause: ctx.cause,
     });
   },
   /** R10.6 with R18.7 card 30. */
@@ -597,7 +582,6 @@ function createsDecision(effect) {
     case 'exchange':
     case 'freeCongress':
     case 'chooseOne':
-    case 'placeBuildings':
     case 'untilEndOfTurn':
       return true;
     case 'addCarriage':
@@ -1092,7 +1076,7 @@ export const MUTATORS = {
     gainBuiltTiles(state, frame.player, action.terrain, 1, frame.cause);
   },
 
-  /** R10.1 C6. Pops the choice, then carries out the chosen option (which may push its own decision). */
+  /** R18.7 cards 8, 9 and 23. Pops the choice, then carries out the chosen option (which may push its own decision). */
   chooseOption(state, frame, action) {
     const option = frame.options[action.option];
     popFrame(state);
@@ -1212,7 +1196,7 @@ export const MUTATORS = {
     hookBuildingPlaced(state, player.id, 'telegraphStation', action.city, via);
   },
 
-  /** R13.4 to R13.6. */
+  /** R13.4, R13.5. */
   skipBuilding(state) {
     popFrame(state);
   },
@@ -1457,7 +1441,7 @@ export const RESUME = {
     popFrame(state);
     return true;
   },
-  /** R13.4 to R13.6. Closes when the occasion has no building left to give. */
+  /** R13.4, R13.5. Closes when the occasion has no building left to give. */
   placeBuildings(state, frame) {
     if (frame.left > 0) return false;
     popFrame(state);

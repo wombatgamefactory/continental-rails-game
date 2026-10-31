@@ -109,7 +109,7 @@ Counted games. Sections:
 | `n` | Counted games. Every section below is absent when `n` is 0 (only `{ n: 0 }`). |
 | `bySeat[]` | `{ seat, n, wins, winRate, se, fair, sigma, tieBreakWins, tieBreakWinRate, meanRank, score }`. `wins` = sum of win credit; `winRate` = wins / n; `se` = sqrt(p(1-p)/n); `fair` = 1/players; `sigma` = (p - fair) / sqrt(fair(1-fair)/n); `score` = `describe` block (below). |
 | `firstPlayer` | Win credit of the seat holding the start marker at the start (`n, wins, winRate, se, fair, sigma`). |
-| `byType[]` | As `bySeat` but per bot type, counted per seat taken (`n` = seats, `games` = games the type played in). `fair` is 1/players per seat. |
+| `byType` (array) | As `bySeat` but per bot type, counted per seat taken (`n` = seats, `games` = games the type played in). `fair` is 1/players per seat. |
 | `seatTypeCounts` | `{ type: [games with this type at seat 1, seat 2, ...] }`; with `--rotate` these are equal when games is a multiple of the player count. |
 | `vpTieForFirst` | `{ n, value, se }`: share of games where players tied on top VP (settled by the tie-breaks of R20.5 in the engine). |
 | `score`, `winningScore`, `winnersScore`, `restScore` | `describe` blocks: all players' scores; the top score of each game; scores of rank-1 players; scores of the others. `describe` = `{ n, mean, median, sd, se, min, max }` (`sd` sample, `se` = sd/sqrt(n)). |
@@ -118,7 +118,7 @@ Counted games. Sections:
 | `leadChanges`, `leaderAtHalf` **(full)** | `describe` of lead changes; `{ n, value, se, fair, sigma }`: how often the half-time leader won (win credit shared among leaders who tied). |
 | `decisions` | `perGame`, `forcedPerGame`, `perTurn` (play decisions per turn): `describe` blocks. |
 | `legalActions` **(full)** | `perDecision` and `distinctTypesPerDecision` (pooled means over all play decisions), `atTurnStart` and `distinctTypesAtTurnStart` (the first decision of each turn), each with `...Se` (ratio-estimator error over games), `max`, `playDecisions`, and `byKind` `{ frameKind: { decisions, meanLegal, meanDistinctTypes } }`. |
-| `vpBySource[]` | `{ source, final, meanPerPlayer, share, shareSe, shareWinners, shareRest }`: share of all VP, and of winners' VP and the rest's. |
+| `vpBySource` (array) | `{ source, final, meanPerPlayer, share, shareSe, shareWinners, shareRest }`: share of all VP, and of winners' VP and the rest's. |
 | `largestVpSource` | `{ source, share }`. |
 | `vpByQuarter` **(full)** | `shares` (4 values, each a share of ALL VP including final scoring), `shareSes`, `finalScoring` (+`Se`), `finalQuarterWithEndScoring` (+`Se`: quarter 4 plus final scoring), `inPlayShares` (shares of in-play VP only). |
 | `actionMix` | `counts` and `share` of actions chosen, `byBotType` (shares), `forcedCounts` (full; forced actions by type), `forcedShare` (forced / all applied). |
@@ -132,7 +132,7 @@ Counted games. Sections:
 | `bonusActions` **(full)** | `perPlayer` and `rate` (share of players taking at least one) by bonus action. |
 | `congress` **(full)** | `perGame`, `taken` and `perGameById` by entry id of the table in play, `neverTaken`. |
 | `modules` | One block per module that is on: `upgrades`, `milestones`, `goals`, `legislative`, `pony`. Each lists every item of its table with usage counts and rates (Pony Express also has `tokensCollectedPerPlayer`, `tokensHeldAtEndPerPlayer`, `tokensSpentPerPlayer` = collected minus held at the end, on cards or exchanged for resources), and the items never used (`neverInstalled`, `neverClaimed`, `neverInPlay`, `neverPaid`, `neverInForce`, `neverBought`). `winRateWithWithout.items[]` = `{ id, nWith, winRateWith, seWith, nWithout, winRateWithout, seWithout, diff, small }` per player; `small` is true when either side has 30 or fewer players. Milestones and goals count only games in which the item was in play; a Pony Express card's "without" includes games in which it never reached the market. |
-| `subsystems[]` | `{ id, kind, n, value, se, games }`: share of games using each add-on module (`kind: module`, only those on), each core action family (`action`) and tolls (`vp`). The health table's zero test. |
+| `subsystems` (array) | `{ id, kind, n, value, se, games }`: share of games using each add-on module (`kind: module`, only those on), each core action family (`action`) and tolls (`vp`). The health table's zero test. |
 | `headline` | A flat map `{ id: { label, value, se, n } }` of every headline metric. The comparison and the report generator read this. |
 | `healthBasis` | `counted`, or `all-finished` when fewer than 30 games were counted (the table then reads every finished game, since a handful of counted games would make it meaningless). |
 | `health` | The health table as data (below). |

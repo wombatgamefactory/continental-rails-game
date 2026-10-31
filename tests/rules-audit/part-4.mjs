@@ -273,8 +273,9 @@ export default function part4() {
     ev.push(...act(s, { type: 'takeCongressEntry', entry: 'C5' }));
     ev.push(...act(s, { type: 'chooseBuiltTile', terrain: 'ground' }));
     ev.push(...act(s, { type: 'chooseBuiltTile', terrain: 'ground' }));
+    ev.push(...act(s, { type: 'chooseBuiltTile', terrain: 'ground' }));
     ev.push(...finishTurn(s));
-    assert.equal(s.players[0].builtTiles.ground, 5, '2 built, 2 from Congress, 1 from the level 3 tile');
+    assert.equal(s.players[0].builtTiles.ground, 6, '2 built, 3 from Congress, 1 from the level 3 tile');
     assert.equal(vpBySource(ev, 0).upgrades, 2);
   });
   check('R15.6', 'upgradeVpTiming on-install: the three VP tiles score once when installed and do nothing afterwards; the other tiles are unaffected', () => {
@@ -658,7 +659,7 @@ export default function part4() {
     const coins = s.players[0].coins;
     act(s, { type: 'takeCongressEntry', entry: 'C2' });
     assert.equal(s.players[0].coins, coins, 'no Coins');
-    assert.deepEqual(held(s.players[0]), { iron: 2, wood: 2, gunpowder: 0, coins: 19 });
+    assert.deepEqual(held(s.players[0]), { iron: 3, wood: 3, gunpowder: 0, coins: 19 });
     assert.deepEqual([s.congress.used.C1, s.congress.used.C2], [true, true]);
     waitLobby(s, 2); // the free entry cost no lobby point: Foreman 1 - 1 = 0, then two more Financier steps
     act(s, { type: 'takeCongressEntry', entry: 'C3' });
@@ -933,7 +934,7 @@ export default function part4() {
       assert.deepEqual(sorted(offers(s, 'takeCongressEntry').map((a) => a.entry)), ['C2', 'CR'], 'tier 1, available');
       assert.ok(offered(s, 'skipEffect'), '"up to" 2');
       ev.push(...act(s, { type: 'takeCongressEntry', entry: 'C2' }));
-      assert.equal(s.players[1].resources.iron, 2);
+      assert.equal(s.players[1].resources.iron, 3);
       ev.push(...act(s, { type: 'takeCongressEntry', entry: 'CR' }));
       assert.deepEqual(vpBySource(ev, 1), { congress: 3 }, 'Reset returns C1, C2 and C5');
       assert.notEqual(kind(s), 'freeCongress', 'two entries and no more');

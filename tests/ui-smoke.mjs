@@ -405,9 +405,9 @@ async function congressSegment(browser) {
   assert((await page.locator('[data-field="lobby"]').count()) === 1, 'the Congress strip shows the lobby points');
   assert(await hasTarget(page, 'congress:C2'), 'a Congress entry lights up when lobby points are in hand');
   const iron = (await player(page, 0)).resources.iron;
-  await clickTarget(page, 'congress:C2'); // CONGRESS ENTRY: gain 2 Iron
+  await clickTarget(page, 'congress:C2'); // CONGRESS ENTRY: gain 3 Iron
   const afterEntry = await player(page, 0);
-  assert(afterEntry.resources.iron === iron + 2, 'the Congress entry gave 2 Iron');
+  assert(afterEntry.resources.iron === iron + 3, 'the Congress entry gave 3 Iron');
   assert(afterEntry.coins === 3, 'the entry cost 1 Coin');
   let closed = 0;
   for (let guard = 0; guard < 8 && (await kind(page)) === 'trainActivation'; guard++) {

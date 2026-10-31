@@ -316,15 +316,15 @@ suite.check('E6 (R22): lobby points from the Foreman and a Financier buy entry C
   const events = take(state, 'takeCongressEntry', { entry: 'C3' });
   const c3 = K.CONGRESS.tables['design-2026-10'].find((e) => e.id === 'C3');
   assert.equal(finn.coins, 4 - c3.coinCost);
-  assert.deepEqual(finn.resources, { iron: 0, wood: 0, gunpowder: 2 });
+  assert.deepEqual(finn.resources, { iron: 0, wood: 0, gunpowder: 4 });
   assert.equal(finn.hats, 1);
   assert.equal(state.congress.used.C3, true, 'R10.2: the senator slid down');
   assert.equal(eventOf(events, 'congressEntry').entry, 'C3');
   assert.equal(topFrame(state).lobby, 0);
-  // The Miner: pays 2 Gunpowder for a Tunnel tile.
+  // The Miner: pays 2 Gunpowder for a Tunnel tile, and Finn keeps 2.
   take(state, 'useStep');
   assert.equal(finn.builtTiles.tunnel, 1);
-  assert.equal(finn.resources.gunpowder, 0);
+  assert.equal(finn.resources.gunpowder, 2);
   assert.equal(state.turn.player, 1);
   // R10.2: C3 stays used for everybody until a Reset.
   const ben = state.players[1];
@@ -335,13 +335,13 @@ suite.check('E6 (R22): lobby points from the Foreman and a Financier buy entry C
 suite.check('E6 (R22): the other way - C1 after the first lobby point and C2 after the second', () => {
   const state = congressTurn([['financier', 'miner']], 4);
   const finn = state.players[0];
-  take(state, 'takeCongressEntry', { entry: 'C1' }); // tier 1, 1 Coin: 2 Wood
-  assert.equal(finn.resources.wood, 2);
+  take(state, 'takeCongressEntry', { entry: 'C1' }); // tier 1, 1 Coin: 3 Wood
+  assert.equal(finn.resources.wood, 3);
   // No lobby point is left, so the window closes by itself and the Financier step follows.
   assert.equal(topFrame(state).lobby, 1, 'the Financier step has run and given the second point');
   assert.equal(topFrame(state).index, 2);
-  take(state, 'takeCongressEntry', { entry: 'C2' }); // 2 Iron
-  assert.equal(finn.resources.iron, 2);
+  take(state, 'takeCongressEntry', { entry: 'C2' }); // 3 Iron
+  assert.equal(finn.resources.iron, 3);
   assert.equal(finn.coins, 4 - 2 * K.CONGRESS.tables['design-2026-10'][0].coinCost);
   assert.deepEqual([state.congress.used.C1, state.congress.used.C2, state.congress.used.C3], [true, true, false]);
   // The Miner has no Gunpowder: skipped, and the turn ends.
@@ -385,18 +385,21 @@ suite.check('R10.4, R10.5: an entry costs lobby points equal to its tier AND Coi
   assert.equal(state.players[0].coins, 0);
 });
 
-suite.check("R10.1 C4: a free carriage of the player's choice; the entry cannot be taken with a full train", () => {
+suite.check("R10.1 C4, R10.5: a free carriage of the player's choice; the entry cannot be taken with a full train", () => {
   const state = congressTurn([['financier', 'financier']], 6);
   toWindow(state, 2);
   const events = take(state, 'takeCongressEntry', { entry: 'C4' });
-  assert.equal(topFrame(state).kind, 'addCarriage', 'the choice is its own decision');
+  assert.equal(topFrame(state).kind, 'addCarriage', 'the choice is its own decision, and comes first');
   assert.equal(state.players[0].coins, 6 - K.CONGRESS.tables['design-2026-10'].find((e) => e.id === 'C4').coinCost);
-  assert.deepEqual(types(state), ['addCarriage']);
+  assert.deepEqual(types(state), ['addCarriage'], 'the carriage is required: there is no way to decline it');
   assert.equal(describeDecision(state).prompt, 'Anna: add a carriage, a specialist or a storage carriage, for free');
-  act(state, { type: 'addCarriage', carriage: 'storage' });
+  const after = act(state, { type: 'addCarriage', carriage: 'storage' });
   assert.equal(state.players[0].train.storageCarriages, 2, 'R8.7: a storage carriage');
   assert.equal(state.players[0].resources.wood, 0, 'free: no Wood paid');
   assert.ok(events.some((e) => e.type === 'congressEntry' && e.entry === 'C4'));
+  // Every specialist slot is full and no specialist carriage was added: the optional hire has nowhere to go.
+  assert.equal(eventsOf(after, 'hire').length, 0, 'R8.6.1: no empty slot, no hire');
+  assert.ok(!state.stack.some((f) => f.kind === 'hireSpecialist'), 'the hire closed by itself');
   // A train with 3 of each kind cannot take the entry at all (R10.5).
   const full = congressTurn([['financier', 'financier']], 6);
   full.players[0].train.storageCarriages = K.TRAIN.maxStorageCarriages;
@@ -407,16 +410,52 @@ suite.check("R10.1 C4: a free carriage of the player's choice; the entry cannot 
   ];
   toWindow(full, 2);
   assert.match(getBlockReason(full, { type: 'takeCongressEntry', entry: 'C4' }), /C4 adds a carriage, and your train already has the most it can: 3 specialist carriages and 3 storage carriages/);
-  assert.ok(!getValidActions(full).some((a) => a.entry === 'C4'));
+  assert.ok(!getValidActions(full).some((a) => a.entry === 'C4'), 'empty slots for the hire do not make C4 possible: the carriage is required');
   // With only one kind possible the engine chooses it.
   const one = congressTurn([['financier', 'financier']], 6);
   one.players[0].train.storageCarriages = K.TRAIN.maxStorageCarriages;
   toWindow(one, 2);
   take(one, 'takeCongressEntry', { entry: 'C4' });
   assert.equal(one.players[0].train.specialistCarriages.length, 2, 'only a specialist carriage was possible, so it was added');
+  assert.equal(topFrame(one).kind, 'hireSpecialist', 'then the free hire');
 });
 
-suite.check('R10.1 C5 and C6, R13.6: the tier 3 entries - tiles of choice, then the buildings or 3 VP', () => {
+suite.check('R10.7 C4: the free hire follows R8.6.1 - an earlier empty slot first, else slot 1 of the new carriage; free and optional', () => {
+  // An empty slot in the level 1 carriage: the new carriage does not take the specialist.
+  const early = congressTurn([['financier', null]], 6);
+  toWindow(early, 2);
+  take(early, 'takeCongressEntry', { entry: 'C4' });
+  take(early, 'addCarriage', { carriage: 'specialist' });
+  assert.equal(early.players[0].train.specialistCarriages.length, 2);
+  assert.equal(topFrame(early).kind, 'hireSpecialist');
+  assert.equal(describeDecision(early).prompt, 'Anna: hire 1 specialist for free, or stop');
+  assert.ok(getValidActions(early).some((a) => a.type === 'skipEffect'), 'the hire is optional');
+  const coins = early.players[0].coins;
+  const hired = take(early, 'hireSpecialist', { specialist: 'crew' });
+  assert.deepEqual(early.players[0].train.specialistCarriages.map((c) => c.slots), [['financier', 'crew'], [null, null]]);
+  assert.deepEqual([eventOf(hired, 'hire').level, eventOf(hired, 'hire').slot], [1, 2]);
+  assert.equal(early.players[0].coins, coins, 'R8.6.4: no fee');
+  assert.equal(eventsOf(hired, 'pay').length, 0, 'R8.6.4: no hire cost');
+  assert.equal(early.players[0].bonusActionsUsed.hire, false, 'not the Hire Specialist bonus action');
+  // Every earlier slot full: slot 1 of the new carriage, at no cost although a level 2 hire costs something.
+  const late = congressTurn([['financier', 'financier']], 6);
+  toWindow(late, 2);
+  take(late, 'takeCongressEntry', { entry: 'C4' });
+  take(late, 'addCarriage', { carriage: 'specialist' });
+  const second = take(late, 'hireSpecialist', { specialist: 'miner' });
+  assert.deepEqual(late.players[0].train.specialistCarriages.map((c) => c.slots), [['financier', 'financier'], ['miner', null]]);
+  assert.deepEqual([eventOf(second, 'hire').level, eventOf(second, 'hire').slot], [2, 1]);
+  assert.equal(eventsOf(second, 'pay').length, 0);
+  // Declining the hire keeps the carriage.
+  const no = congressTurn([['financier', 'financier']], 6);
+  toWindow(no, 2);
+  take(no, 'takeCongressEntry', { entry: 'C4' });
+  take(no, 'addCarriage', { carriage: 'specialist' });
+  take(no, 'skipEffect');
+  assert.deepEqual(no.players[0].train.specialistCarriages.map((c) => c.slots), [['financier', 'financier'], [null, null]]);
+});
+
+suite.check('R10.1 C5 and C6, R10.7: the tier 3 entries - 3 built tiles of choice, or 6 resources of choice (never Coins, never a building)', () => {
   // Three lobby points: the Foreman and two level 1 Financiers.
   const mk = () => {
     const state = congressTurn([['financier', 'financier']], 6);
@@ -428,54 +467,46 @@ suite.check('R10.1 C5 and C6, R13.6: the tier 3 entries - tiles of choice, then 
   const c5 = cloneState(state);
   take(c5, 'takeCongressEntry', { entry: 'C5' });
   assert.equal(topFrame(c5).kind, 'chooseBuiltTile');
-  assert.equal(topFrame(c5).remaining, 2);
+  assert.equal(topFrame(c5).remaining, 3);
   assert.deepEqual(types(c5), ['chooseBuiltTile']);
   take(c5, 'chooseBuiltTile', { terrain: 'bridge' });
   take(c5, 'chooseBuiltTile', { terrain: 'ground' });
-  assert.deepEqual(c5.players[0].builtTiles, { ground: 1, tunnel: 0, bridge: 1 });
+  take(c5, 'chooseBuiltTile', { terrain: 'ground' });
+  assert.deepEqual(c5.players[0].builtTiles, { ground: 2, tunnel: 0, bridge: 1 });
   assert.equal(c5.players[0].coins, 6 - 3);
 
-  // C6 with nowhere to build: the 3 VP are all that is left, so the engine takes them.
+  // C6: six resources of choice, mixed, one per action; Coins are refused.
   const c6 = cloneState(state);
+  claim(c6, 1, 'POR-SPO'); // a connected inland city: C6 still places no building
   const events = take(c6, 'takeCongressEntry', { entry: 'C6' });
-  assert.equal(vpBySource(events, 0).congress, 3, 'R20.1: the 3 VP option of C6 is booked to congress');
-  assert.ok(events.some((e) => e.type === 'action' && e.auto && e.action.type === 'chooseOption' && e.action.option === 1));
+  assert.equal(topFrame(c6).kind, 'chooseResource');
+  assert.equal(topFrame(c6).remaining, 6);
+  assert.deepEqual(types(c6), ['chooseResource']);
+  assert.deepEqual(getValidActions(c6).map((a) => a.resource).sort(), ['gunpowder', 'iron', 'wood']);
+  assert.match(getBlockReason(c6, { type: 'chooseResource', resource: 'coins' }), /Coins are not a resource: choose Iron, Wood or Gunpowder/);
+  assert.equal(describeDecision(c6).prompt, 'Anna: take 6 resources of your choice');
+  for (const r of ['iron', 'iron', 'wood', 'gunpowder', 'gunpowder', 'gunpowder']) events.push(...take(c6, 'chooseResource', { resource: r }));
+  assert.deepEqual(c6.players[0].resources, { iron: 2, wood: 1, gunpowder: 3 });
+  assert.equal(c6.players[0].coins, 6 - 3, 'the Coin cost only; no Coin gained');
+  assert.equal(c6.players[0].vp.congress, 0, 'C6 has no VP option');
+  assert.equal(eventsOf(events, 'buildingPlaced').length, 0, 'R13.6 is retired: no building');
+  assert.equal(c6.map.railwayStation.SPO, null);
+  assert.equal(c6.map.telegraphStation.SPO, null);
+  assert.ok(!c6.stack.some((f) => f.kind === 'placeBuildings' || f.kind === 'chooseOption'));
 
-  // C6 with a connected inland city: a real choice, and both buildings may go in the same city.
-  const c6b = cloneState(state);
-  claim(c6b, 1, 'POR-SPO');
-  take(c6b, 'takeCongressEntry', { entry: 'C6' });
-  assert.equal(topFrame(c6b).kind, 'chooseOption');
-  assert.deepEqual(getValidActions(c6b).map((a) => a.option), [0, 1]);
-  assert.match(describeAction(c6b, { type: 'chooseOption', option: 1 }), /Gain 3 VP/);
-  assert.match(describeAction(c6b, { type: 'chooseOption', option: 0 }), /Place up to 1 railway station and up to 1 telegraph station/);
-  take(c6b, 'chooseOption', { option: 0 });
-  assert.equal(topFrame(c6b).kind, 'placeBuildings');
-  const offered = getValidActions(c6b).filter((a) => a.city);
-  assert.ok(offered.every((a) => a.city === 'SPO'), 'only the connected inland city has room');
-  take(c6b, 'placeRailwayStation', { city: 'SPO', houseTrack: 'wood' });
-  take(c6b, 'placeTelegraphStation', { city: 'SPO' });
-  assert.equal(c6b.map.railwayStation.SPO, 0);
-  assert.equal(c6b.map.telegraphStation.SPO, 0);
-  assert.equal(c6b.players[0].vp.telegraph, K.PLAYER_BOARD.telegraphRowVp[0]);
-  assert.equal(c6b.players[0].vp.congress, 0, 'the buildings option scores no Congress VP');
-  assert.equal(c6b.players[0].vp.firstConnection, 0, 'R13.6: no first connection');
-  assert.equal(c6b.players[0].vp.toll, 0, 'R13.6: no toll');
-  // Placing only one of the two is allowed.
-  const c6d = cloneState(state);
-  claim(c6d, 1, 'POR-SPO');
-  take(c6d, 'takeCongressEntry', { entry: 'C6' });
-  take(c6d, 'chooseOption', { option: 0 });
-  take(c6d, 'placeTelegraphStation', { city: 'SPO' });
-  assert.ok(getValidActions(c6d).every((a) => a.type !== 'placeTelegraphStation'), 'the one telegraph station has been placed');
-  take(c6d, 'skipBuilding');
-  assert.equal(c6d.map.railwayStation.SPO, null);
-  // The 3 VP instead:
-  const c6c = cloneState(state);
-  claim(c6c, 1, 'POR-SPO');
-  take(c6c, 'takeCongressEntry', { entry: 'C6' });
-  take(c6c, 'chooseOption', { option: 1 });
-  assert.equal(c6c.players[0].vp.congress, 3);
+  // C6 into nearly full storage: the usual overflow (R8.5.4) once storage is over capacity.
+  const over = cloneState(state);
+  give(over, 0, { resources: { iron: 4, wood: 0, gunpowder: 0 } }); // 4 of 9
+  take(over, 'takeCongressEntry', { entry: 'C6' });
+  for (let i = 0; i < 5; i++) take(over, 'chooseResource', { resource: 'wood' });
+  assert.equal(storageUsed(over.players[0]), 9, 'full, not over: no discard yet');
+  assert.equal(topFrame(over).kind, 'chooseResource');
+  take(over, 'chooseResource', { resource: 'gunpowder' });
+  assert.equal(topFrame(over).kind, 'discard', 'the sixth resource overflows storage');
+  take(over, 'discard', { item: 'iron' });
+  assert.deepEqual(over.players[0].resources, { iron: 3, wood: 5, gunpowder: 1 });
+  assert.equal(storageUsed(over.players[0]), 9);
+  assert.ok(!over.stack.some((f) => f.kind === 'chooseResource' || f.kind === 'discard'));
 });
 
 suite.check('R10.6: Reset needs a used entry, costs a lobby point and a Coin, returns every senator, and scores 1 VP each', () => {
@@ -560,9 +591,9 @@ suite.check('R10.1 congressTable = jan-2026: every entry does what the table say
 
 suite.check('R14.1, R14.3 with C3: a hat at the limit becomes a resource of choice, after any overflow is settled', () => {
   const state = congressTurn([['financier', 'financier']], 9);
-  give(state, 0, { hats: K.HATS.hatLimit, resources: { iron: 4, wood: 3, gunpowder: 1 } }); // 8 of 9
+  give(state, 0, { hats: K.HATS.hatLimit, resources: { iron: 3, wood: 2, gunpowder: 1 } }); // 6 of 9
   toWindow(state, 2);
-  take(state, 'takeCongressEntry', { entry: 'C3' }); // 2 Gunpowder + 1 hat: 10 of 9 once the Gunpowder is in
+  take(state, 'takeCongressEntry', { entry: 'C3' }); // 4 Gunpowder + 1 hat: 10 of 9 once the Gunpowder is in
   assert.equal(state.players[0].hats, K.HATS.hatLimit);
   assert.equal(topFrame(state).kind, 'discard', 'the Gunpowder overflows storage first');
   take(state, 'discard', { item: 'iron' });
@@ -1311,7 +1342,10 @@ suite.check('describeAction and describeDecision speak plainly for every new act
   assert.equal(describeAction(state, { type: 'placeTelegraphStation', city: 'SPO' }), `Place a telegraph station in Spokane (+${K.PLAYER_BOARD.telegraphRowVp[0]} VP)`);
   assert.equal(describeAction(state, { type: 'skipBuilding' }), 'Place no (more) buildings');
   const c = congressTurn([['financier', 'miner']], 4);
-  assert.equal(describeAction(c, { type: 'takeCongressEntry', entry: 'C1' }), 'Take Congress entry C1 (1 lobby point + 1 Coin): Gain 2 Wood');
+  assert.equal(describeAction(c, { type: 'takeCongressEntry', entry: 'C1' }), 'Take Congress entry C1 (1 lobby point + 1 Coin): Gain 3 Wood');
+  assert.equal(describeAction(c, { type: 'takeCongressEntry', entry: 'C4' }), 'Take Congress entry C4 (2 lobby points + 2 Coins): Add 1 carriage, specialist or storage, for free, then hire 1 specialist for free');
+  assert.equal(describeAction(c, { type: 'takeCongressEntry', entry: 'C5' }), 'Take Congress entry C5 (3 lobby points + 3 Coins): Gain 3 built track tiles, any types, same or different');
+  assert.equal(describeAction(c, { type: 'takeCongressEntry', entry: 'C6' }), 'Take Congress entry C6 (3 lobby points + 3 Coins): Gain 6 resources of your choice');
   assert.equal(describeDecision(c).prompt, 'Anna: take Lobby Congress entries with your 1 lobby point, or carry on');
   assert.equal(describeAction(c, { type: 'closeCongress' }), 'Take no (more) Congress entries for now');
   assert.equal(describeAction(c, { type: 'chooseBuiltTile', terrain: 'tunnel' }), 'Take 1 built Tunnel tile');

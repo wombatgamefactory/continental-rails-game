@@ -70,6 +70,12 @@ UNUSED = [
 # The ids listed here lead, in this order, each with its reason; every other placeholder follows in
 # the order of the manifest. An id listed here that is not a placeholder is ignored.
 PRIORITY = [
+    ("congress-benefit-c1-v2", "On screen in every game: the Congress strip shows this hatched picture until it is replaced. Rules spec v8 changed the benefit, so the old picture was wrong."),
+    ("congress-benefit-c2-v2", "As congress-benefit-c1-v2."),
+    ("congress-benefit-c3-v2", "As congress-benefit-c1-v2."),
+    ("congress-benefit-c4-v2", "As congress-benefit-c1-v2."),
+    ("congress-benefit-c5-v2", "As congress-benefit-c1-v2."),
+    ("congress-benefit-c6-v2", "As congress-benefit-c1-v2."),
     ("ui-hero", "The landing page's top picture. Until it exists the page makes do with the district illustrations."),
     ("map-backdrop", "Would sit behind the route map, the largest area of the game screen, which is plain parchment today. Not wired in yet: the map renderer needs one line to show it."),
     ("ui-logo", "The title lettering on the landing page and in the header. Until it exists the title is plain text."),

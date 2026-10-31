@@ -1097,7 +1097,7 @@ suite.check('R17.3 card 20: once per activation, right after an entry, one other
   assert.equal(eventOf(free, 'congressEntry').free, true);
   assert.equal(eventOf(free, 'congressEntry').coins, 0, 'no Coins');
   assert.equal(state.players[0].coins, 4, 'no Coins were paid');
-  assert.equal(state.players[0].resources.iron, 2, 'the benefit of C2');
+  assert.equal(state.players[0].resources.iron, 3, 'the benefit of C2');
   assert.equal(state.congress.used.C2, true);
   // The Financier step: a second paid entry (Reset) in the same activation gets no free one.
   while (kind(state) === 'trainActivation' && !topFrame(state).congress) take(state, 'skipStep');
@@ -1747,10 +1747,10 @@ suite.check('R18.7 cards 13, 24: up to 2 available tier 1 Congress entries, with
     const first = take(state, 'takeCongressEntry', { entry: 'C1' });
     assert.equal(eventOf(first, 'congressEntry').free, true);
     assert.equal(state.players[0].coins, coins, 'no Coins paid');
-    assert.equal(state.players[0].resources.wood, 2);
+    assert.equal(state.players[0].resources.wood, 3);
     assert.deepEqual(keys(state), ['skipEffect', 'takeCongressEntry:C2', 'takeCongressEntry:CR'], 'Reset is a tier 1 entry and now has a senator to return');
     take(state, 'takeCongressEntry', { entry: 'C2' });
-    assert.equal(state.players[0].resources.iron, 2);
+    assert.equal(state.players[0].resources.iron, 3);
     assert.equal(state.turn.player, 1, 'two entries taken: the card is over');
     assert.equal(state.congress.used.C1 && state.congress.used.C2, true);
   }
@@ -2059,21 +2059,30 @@ suite.check('R18.7: cards 3 and 14 are not in a game with claimFrom = network, c
   }
 });
 
-suite.check('R10.1 C6 (the placeBuildings effect, with the chooseOne of cards 8 and 23): buildings in a connected city, or 3 VP', () => {
+suite.check('R10.1 C6, R13.6 retired: 6 resources of choice and no building; chooseOne stays for cards 8 and 23, placeBuildings for arrivals', () => {
   const state = startWith(2);
-  claim(state, 1, 'SEA-SPO'); // Spokane is a connected city
+  claim(state, 1, 'SEA-SPO'); // Spokane is a connected city, which once let C6 build there
   setTrain(state, 0, [['financier', 'financier']]);
   give(state, 0, { coins: 5, resources: {} });
   placeAndChoose(state, 'W2', 'D2'); // the Foreman, then two Financiers: 3 lobby points in all
   take(state, 'closeCongress');
   take(state, 'closeCongress');
   take(state, 'takeCongressEntry', { entry: 'C6' });
-  assert.equal(kind(state), 'chooseOption');
-  assert.deepEqual(keys(state), ['chooseOption:0', 'chooseOption:1']);
-  take(state, 'chooseOption', { option: 0 });
-  assert.equal(kind(state), 'placeBuildings');
-  take(state, 'placeTelegraphStation', { city: 'SPO' });
-  assert.equal(state.map.telegraphStation.SPO, 0);
+  assert.equal(kind(state), 'chooseResource');
+  assert.deepEqual(keys(state), ['chooseResource:gunpowder', 'chooseResource:iron', 'chooseResource:wood']);
+  for (let i = 0; i < 6; i++) take(state, 'chooseResource', { resource: 'gunpowder' });
+  assert.equal(state.players[0].resources.gunpowder, 6);
+  assert.equal(state.map.telegraphStation.SPO, null);
+  assert.equal(state.map.railwayStation.SPO, null);
+  // No Congress entry of either table chooses between options or places a building any more.
+  const words = (list) => list.flatMap((e) => (e.type === 'chooseOne' ? ['chooseOne', ...e.options.flat().map((o) => o.type)] : [e.type]));
+  for (const table of Object.values(K.CONGRESS.tables)) {
+    for (const entry of table) {
+      assert.ok(!words(entry.effects).some((w) => w === 'chooseOne' || w === 'placeBuildings'), `${entry.id}`);
+    }
+  }
+  assert.ok(!('placeBuildings' in EFFECT_HANDLERS), 'the placeBuildings effect type went with C6; the placeBuildings decision of R13.4 and R13.5 stays');
+  assert.ok(K.PONY_CARDS.filter((c) => c.effects.some((e) => e.type === 'chooseOne')).length >= 2, 'cards 8 and 23 still use chooseOne');
 });
 
 // =====================================================================================

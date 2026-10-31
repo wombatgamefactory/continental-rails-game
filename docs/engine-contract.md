@@ -290,7 +290,7 @@ Wherever a rule says "may", the list contains an explicit stop action; a player 
 | `skipStep` | a Crew, Miner or Engineer step of a train activation | R9.4.3 |
 | `closeCongress` | the Congress window after a step, with lobby points in hand and an entry that could be taken | R9.4.3, R9.4.4 |
 | `stopLaying` | after a step of Lay Tracks / Move Train, once at least one step is taken | R11.3 |
-| `skipBuilding` | the optional building after a claim or a move; the second building of C6 | R13.4 to R13.6 |
+| `skipBuilding` | the optional building after a claim or a move | R13.4, R13.5 |
 | `endFreeActions` | a free-action opportunity | R4.4 |
 | `skipEffect` | an optional part of a card: a hire "up to", card 9's two parts, giving resources back (card 11), the free Congress entries of cards 13 and 24 | R18.7 |
 | `declineFreeEntry` | the free entry of Legislative Agenda card 20 | R17.3 |
@@ -323,9 +323,9 @@ Implemented (fields are not binding; `kind`, `player` and what each accepts are)
 | `bonusAction` | `bonus`, `remaining` | the action of that bonus, `skipBonusAction` | R6.6, R7 |
 | `trainActivation` | `foreman`, `steps: [{ type, level }]`, `index`, `lobby`, `built: { ground, tunnel, bridge }`, `congress`, `cause` | `useStep`, `skipStep`; while `congress` is true: `takeCongressEntry`, `closeCongress` | R9.4, R10.4 |
 | `chooseBuiltTile` | `remaining`, `cause` | `chooseBuiltTile` | R10.7 |
-| `chooseOption` | `options: [{ text, effects }]`, `cause`, `vpSource`, `rule` | `chooseOption` | R10.1 C6 |
+| `chooseOption` | `options: [{ text, effects }]`, `cause`, `vpSource`, `rule` | `chooseOption` | R18.7 cards 8, 9, 23 |
 | `addCarriage` | `cause` | `addCarriage` (free) | R8.7, R10.1 C4 |
-| `placeBuildings` | `scope` ('city' or 'connected'), `city`, `cost`, `left`, `allow: { railwayStation, telegraphStation }`, `cause` | `placeRailwayStation`, `placeTelegraphStation`, `skipBuilding` | R13.4 to R13.6 |
+| `placeBuildings` | `scope` ('city'), `city`, `cost`, `left`, `allow: { railwayStation, telegraphStation }`, `cause` | `placeRailwayStation`, `placeTelegraphStation`, `skipBuilding` | R13.4, R13.5 |
 | `layTracks` | `taken`, `totals: { routes, slots }`, and the steps left: `steps`, or `claimsLeft: [a, b]` with `movesLeft` | `claimRoute`, `moveTrain`, `stopLaying`; in network mode also `placeRailwayStation`, `placeTelegraphStation` (the station step) | R11.3, R12, R11.11 |
 
 Module frames (the kinds and what they accept are binding; the fields are as built):
@@ -333,7 +333,7 @@ Module frames (the kinds and what they accept are binding; the fields are as bui
 | kind | fields | accepts | rule |
 |---|---|---|---|
 | `freeActions` | `which` (`'before'` or `'after'`) | `buyPonyCard`, `exchangeToken`, `usePonyCard`, `endFreeActions` | R4.4, R18 |
-| `hireSpecialist` | `cause`, `remaining`, `free`, `mayStop` | `hireSpecialist`, `skipEffect` (only if `mayStop`) | R8.6.4, cards 6, 9, 27 |
+| `hireSpecialist` | `cause`, `remaining`, `free`, `mayStop` | `hireSpecialist`, `skipEffect` (only if `mayStop`) | R8.6.4, R10.7 C4, cards 6, 9, 27 |
 | `chooseForemanType` | `cause`, `foremanTimes` | `chooseForemanType` | R9.2, cards 10, 22, 32 |
 | `chooseSpecialistType` | `cause` | `chooseSpecialistType` | card 33 |
 | `chooseExtraActivation` | `foreman`, `foremanTimes`, `count`, `cause` | `chooseExtraActivation` | card 15 |
@@ -352,11 +352,11 @@ How the larger sequences unfold:
 - At a **Crew, Miner or Engineer** step the frame asks `useStep` or `skipStep`. A step that cannot be paid has only `skipStep`, so the engine applies it with `auto: true`.
 - After **every** step `congress` is set. If `lobby` is at least 1 and some entry can be taken, the frame asks `takeCongressEntry { entry }` for each such entry, or `closeCongress`; taking an entry keeps the window open (several may be taken), `closeCongress` ends the window. If no entry can be taken the engine closes the window by itself.
 - The window after the **last** step is the "last chance" of R9.4.4: R9.4.3 and R9.4.4 describe the same moment, so it is asked once, not twice. Then leftover lobby points are lost (`lobbyPointsLost`), `hookActivationEnd` runs (R9.4.5: the `vpPerBuilt` upgrade tiles read `frame.built`, what the Foreman and the specialists BUILT, not what a Congress entry or a tile gave) and the frame is popped.
-- A benefit that needs a choice pushes its own frame on top (`chooseBuiltTile` for C5, `addCarriage` for C4, `chooseOption` for C6 and then `placeBuildings`, `chooseResource` for a hat at the limit or the `jan-2026` choices); storage overflow pushes `discard` above that. The activation frame resumes when they are done.
+- A benefit that needs a choice pushes its own frame on top (`chooseBuiltTile` for C5, `addCarriage` and then a free, optional `hireSpecialist` for C4, `chooseResource` for C6, for a hat at the limit or for the `jan-2026` choices); storage overflow pushes `discard` above that. The activation frame resumes when they are done.
 
 **Lay Tracks / Move Train (R11.3).** `pushLayTracks` pushes one `layTracks` frame. Its allowance is `steps = M` with `layTrackClaims = per-step`; `claimsLeft = [M, M]` (one per railhead) and `movesLeft = M` with `per-railhead`; `steps = 2 x M` with `per-railhead` in network mode (claims and station steps share the pool). The frame asks `claimRoute { route, from }` for every legal claim, `moveTrain { from, to }` for every legal move, and, once `taken` is at least 1, `stopLaying`. `from` is the city the claim is made from: in railhead mode the city a railhead stands on (not a railhead index; if both stand on the same city the two moves would be the same), in network mode the end of the route that is in the player's network (the route's first end if both are). With `per-railhead` and both railheads on one city, the one with more claims left is used. A claim resolves R11.5 steps 1 to 6 and 8 by itself (`claimRoute` in actions.js, step by step, each commented with its rule), then pushes `placeBuildings` for step 7 **if the player could place a building** (`canPlaceAnyBuilding`); otherwise nothing is asked. A move works out its path and tolls by itself (R12.3) and offers the paid building the same way (R12.4). The frame closes by itself when its allowance is spent (`RESUME`) or by `stopLaying`; `hookLayTracksEnd` then sees `frame.totals` (R11.10).
 
-**Buildings (R13).** `placeRailwayStation { city, houseTrack }` and `placeTelegraphStation { city }` are legal in a `placeBuildings` frame (arrival by a claim: free, in the arrival city; arrival by a move: 2 Coins; Congress C6: any connected inland city, two buildings, one of each kind at most) and, in network mode, directly from the `layTracks` frame as a station step (2 Coins, one step of the action, any inland city of the network). Skipping is the explicit `skipBuilding`.
+**Buildings (R13).** `placeRailwayStation { city, houseTrack }` and `placeTelegraphStation { city }` are legal in a `placeBuildings` frame (arrival by a claim: free, in the arrival city; arrival by a move: 2 Coins) and, in network mode, directly from the `layTracks` frame as a station step (2 Coins, one step of the action, any inland city of the network). Skipping is the explicit `skipBuilding`.
 
 **Free actions (R4.4).** A `freeActions` frame stays on the stack while the player takes any number of free actions and is closed by `endFreeActions`. Buying an immediate card pushes the frames of its effects on top. **The opportunity is offered only when the player has a free action to take** (`hasFreeAction`: a card they can afford and may buy, a token to return, an ability they may use), so the engine never asks an empty question; and a frame whose last free action has been taken closes by itself (`RESUME`) instead of waiting for a lone `endFreeActions`. The two opportunities of a turn are `which: 'before'` and `'after'`.
 
@@ -397,15 +397,15 @@ The twelve core actions (parameters as built; a decision with several legal acti
 | `takeCongressEntry` | `entry` | Take an available Congress entry (`C1`..`C6`, `CR`; `J1`..`J7`, `CR` in the other table): lobby points equal to its tier, Coins equal to its cost, then its benefit. | R10.4, R10.6 |
 | `closeCongress` | | Take no (more) entries for now. | R9.4.3 |
 | `chooseBuiltTile` | `terrain` | Gain 1 built tile of that type. One per action. | R10.7 |
-| `chooseOption` | `option` | Pick option number `option` (from 0) of the choice on offer. An option that could not be carried out (C6's buildings with nowhere to place one) is not offered. | R10.1 C6 |
+| `chooseOption` | `option` | Pick option number `option` (from 0) of the choice on offer. | R18.7 cards 8, 9, 23 |
 | `claimRoute` | `route`, `from` | Claim a route with the railhead standing on `from` (network mode: the end of the route in the network), paying built tiles. | R11.4, R11.5 |
 | `moveTrain` | `from`, `to` | Move the railhead on `from` to `to` along claimed routes; the path and tolls are worked out for the player. | R12.2, R12.3 |
 | `stopLaying` | | End the Lay Tracks / Move Train action. | R11.3 |
 | `placeRailwayStation` | `city`, `houseTrack` | Place a railway station, taking the leftmost house of that track. | R13.2 |
 | `placeTelegraphStation` | `city` | Place the leftmost telegraph station of the row. | R13.3 |
-| `skipBuilding` | | Place no (more) buildings. | R13.4 to R13.6 |
+| `skipBuilding` | | Place no (more) buildings. | R13.4, R13.5 |
 
-`addCarriage` (5.1) is also taken from an `addCarriage` frame (Congress C4): then it is free and does not use up the bonus action (R7.2).
+`addCarriage` (5.1) is also taken from an `addCarriage` frame (Congress C4): then it is free and does not use up the bonus action (R7.2). C4 then pushes a free `hireSpecialist` frame that may be stopped (R10.7): the specialist goes where R8.6.1 puts it, so into the new carriage only when every earlier slot is full, and nothing is paid (R8.6.4).
 
 ### 5.3 Module actions (11)
 
@@ -572,7 +572,7 @@ VP are booked **by source, as they are scored**, in `player.vp`, only through `a
 - Base sources hold base values only. Whatever a Legislative Agenda card or a Pony Express card adds is booked to `legislative` or `ponyCards` (R20.1), even when it rides on a track or telegraph event.
 - The three `final` sources stay 0 until the game ends; `applyFinalScoring` then writes them.
 - The modules book the rest. `upgrades` (R15: the `vp` tiles; the `vpPerBuilt` tiles at the end of the activation; with `upgradeVpTiming = on-install` the three VP tiles once, at installation), `milestones` (R16.8, at the end of a turn), `legislative` (every VP the Legislative Agenda card adds, whatever event it rides on), `ponyCards` (card 7's 5 VP, card 12, the extra of cards 25, 26, 29, 30, 34, 35 - the base stays in `completion`, `toll`, `firstConnection`, `congress`, `telegraph`), and in final scoring `goals` (R16.3, R16.4) and `ponyEnd` (1 VP per token held, cards 31 and 38).
-- The core books the six base play sources: `track` (1 per slot, plus the scoring card's terrain, R11.9; the 3 per slot of the completion bonus is `completion`, not `track`), `firstConnection`, `completion`, `telegraph`, `toll` (both for a claim and for a move) and `congress` (Reset, and the 3 VP option of C6). A `vp` effect inside a Congress benefit is booked to `congress`; the card effects choose their own source through the `vpSource` of the effect context (`applyEffects` in actions.js).
+- The core books the six base play sources: `track` (1 per slot, plus the scoring card's terrain, R11.9; the 3 per slot of the completion bonus is `completion`, not `track`), `firstConnection`, `completion`, `telegraph`, `toll` (both for a claim and for a move) and `congress` (Reset; since spec v8 no other Congress entry scores VP). A `vp` effect inside a Congress benefit is booked to `congress`; the card effects choose their own source through the `vpSource` of the effect context (`applyEffects` in actions.js).
 
 ```js
 scoreGame(state) -> {
@@ -673,6 +673,8 @@ Congress entries, upgrade tiles, Legislative Agenda cards and Pony Express cards
 
 Card effects are data plus a small set of handlers, one per `type`: not one function per card.
 
+Change of 20/10/2026 (rules spec v8): the `placeBuildings` effect type is gone. Its only user was Congress entry C6, which now gives 6 resources of choice (`gainChoice`), and R13.6 is retired. The `placeBuildings` decision of R13.4 and R13.5 is unchanged; its `scope` lost the value 'connected'. Congress C4 is now `addCarriage` (choice, required) followed by `hire { count: 1, free: true, optional: true }`.
+
 Things that happen once, now:
 
 | type | fields | creates |
@@ -690,7 +692,6 @@ Things that happen once, now:
 | `vpPer` | `metric`, `amount` | - |
 | `freeCongress` | `tier`, `count` | `freeCongress` |
 | `chooseOne` | `options: [[effect, ...], ...]` | `chooseOption` |
-| `placeBuildings` | `railwayStation`, `telegraphStation`, `where` | `placeBuildings` |
 | `resetSenators` | | - |
 | `vpPerBuilt` | `terrain`, `amount` | - (scored at the end of the activation, R15.5.2) |
 | `untilEndOfTurn` | `modifier` | `chooseSpecialistType` for card 33 |
@@ -716,7 +717,7 @@ Conditions (`{ metric, op, value, filter? }`) are evaluated by `conditions.js`. 
 - `TRIGGER_SITES` - for each trigger event, where it is fired (exactly `TRIGGER_EVENTS`). `fireTrigger` refuses an unlisted event.
 - `MODIFIER_READERS` - for each modifier, the function that reads it (exactly `MODIFIER_KINDS`).
 
-How the less obvious types behave: `gain` with `hats` obeys the limit of R14.1; `gainBuiltTilesChoice` with `distinct` offers each type once; `addCarriage` with 'specialist' or 'storage' adds at once if the train is under the limit, 'choice' asks (and `optional` may be declined); `hire` asks (`free`, or the table price when `fee` is false; `optional` or `count > 1` may be stopped); `steps` gives a Lay Tracks action of its own limited to moves or to claims; `activateTrain` is `beginActivation` with M = 1; `exchange` returns resources one at a time and then asks for as many of the player's choice; `vpPer` books `amount` x the metric to the card's source; `freeCongress` takes entries without lobby points or Coins; `untilEndOfTurn` asks the type and sets `pony.turn.doubled`; `vpPerBuilt` is run at the end of the activation with the tiles built in it; inside triggers, `gainGathered` adds to the item just gathered, `vpPerSlot` scores per slot of the route just claimed, `extraActivations` asks for the specialist, `freeCongressSameTier` offers one other entry of the tier just taken, `bonusAction` is card 28's free choice. A trigger's `times` (the slots of a terrain on the route just laid) multiplies a `vp` effect.
+How the less obvious types behave: `gain` with `hats` obeys the limit of R14.1; `gainBuiltTilesChoice` with `distinct` offers each type once; `addCarriage` with 'specialist' or 'storage' adds at once if the train is under the limit, 'choice' asks (and `optional` may be declined); `hire` asks (`free` costs nothing at all, neither fee nor hire cost, R8.6.4; otherwise the table price without the fee; `optional` or `count > 1` may be stopped); `steps` gives a Lay Tracks action of its own limited to moves or to claims; `activateTrain` is `beginActivation` with M = 1; `exchange` returns resources one at a time and then asks for as many of the player's choice; `vpPer` books `amount` x the metric to the card's source; `freeCongress` takes entries without lobby points or Coins; `untilEndOfTurn` asks the type and sets `pony.turn.doubled`; `vpPerBuilt` is run at the end of the activation with the tiles built in it; inside triggers, `gainGathered` adds to the item just gathered, `vpPerSlot` scores per slot of the route just claimed, `extraActivations` asks for the specialist, `freeCongressSameTier` offers one other entry of the tier just taken, `bonusAction` is card 28's free choice. A trigger's `times` (the slots of a terrain on the route just laid) multiplies a `vp` effect.
 
 ---
 
@@ -780,7 +781,7 @@ Core event types:
 | `firstConnection` | `player`, `city` | R11.5.4 |
 | `toll` | `player` (the owner paid), `by`, `city` | R13.9 |
 | `railheadMoved` | `player`, `from`, `to`, `cities`, `routes` (the path) | R12 |
-| `buildingPlaced` | `player`, `kind`, `city`, `houseTrack` or `vp`, `cause` (`arrival`, `move`, `stationStep`, `congress:C6`) | R13 |
+| `buildingPlaced` | `player`, `kind`, `city`, `houseTrack` or `vp`, `cause` (`arrival`, `move`, `stationStep`) | R13 |
 | `completion` | `player`, `route`, `bonus` | R19.2 |
 | `roundEnd` | `startPlayer` (the new one) | R4.8.3 |
 
@@ -976,7 +977,7 @@ Places where the rules text is silent or can be read two ways and the engine had
 7. **R9.4.3 with R9.4.4 - one Congress window after the last step, not two.** R9.4.3 lets the player take entries "after the step", R9.4.4 gives "one last chance" when the step list is finished. After the last step these are the same moment, so the engine asks once; asking twice would only repeat the question. (Between two steps the window is asked after each step, whenever lobby points are in hand and some entry could be taken.)
 8. **R11.4 and R11.11 - the `from` of a claim in network mode when both ends are in the network.** The action names the city the claim is made from. In network mode with only one end in the network that end is `from`. When both are, the two names would be the same claim (there is no arrival city), so the engine lists it once, from the route's first end (`route.a` in the map data), and refuses the other name with a sentence saying so.
 9. **R11.3 with R11.11.5 - `per-railhead` in network mode and the station step.** The spec says the action then gives "2 x M claims" and says nothing about the station step of R11.11.5. The engine gives one pool of 2 x M steps, claims and station steps alike. And R4.6.3 lets Lay Tracks / Move Train be chosen only with a legal claim or move, so in network mode a player with Coins but no tiles cannot choose it just to place a station.
-10. **R10.5 and R13.4 to R13.6 - an offer that cannot be carried out is not made.** The spec says the building after a claim or move is optional, and C6's buildings are "up to". The engine does not ask a question whose only answer is "none": after a claim or a move it offers `placeBuildings` only if the player could place a building (a start city, a city with no room, no house, no telegraph station left, too few Coins all mean no offer), and C6's buildings option is not offered when nowhere can take a building, so the 3 VP follow by themselves (R10.5: "the player may always choose the 3 VP"). No rule is changed; it saves a forced `skipBuilding`.
+10. **R10.5, R13.4 and R13.5 - an offer that cannot be carried out is not made.** The spec says the building after a claim or move is optional. The engine does not ask a question whose only answer is "none": after a claim or a move it offers `placeBuildings` only if the player could place a building (a start city, a city with no room, no house, no telegraph station left, too few Coins all mean no offer). The same goes for the optional free hire of C4: with no empty slot or no specialist left in the supply it closes by itself. No rule is changed; it saves a forced `skipBuilding` or `skipEffect`. (Until spec v8, C6 offered buildings or 3 VP and the buildings option was left out when nowhere could take one; R13.6 is retired and C6 now gives 6 resources of choice.)
 11. **R12.3.1 - "first alphabetically" is by city id.** The tie-break compares the lists of city ids (`BOI`, `REN`, `SLC`, ...), as the rule says "list of city ids", not the printed names. With this map the two orders agree on every diamond that exists; a new map could differ.
 12. **R19.2 with R19.6 - the transcontinental bonus after the end was triggered by something else.** The bonus is paid whenever the first line of the game is completed, even after another trigger (the map filling up, the turn limit); the end is not triggered a second time and its reason stays. R19.6 ("everything works normally ... only R19.2 cannot happen again") reads that way.
 13. **R11.3 - both railheads on one city.** The rule lets them share a city (R12.5). A claim or a move from that city moves one railhead: the first one in `player.railheads` (with `per-railhead`, the one with more claims left). The two railheads are interchangeable, so no choice is offered.

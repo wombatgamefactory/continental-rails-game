@@ -207,7 +207,21 @@
     "shows": "White square cell showing the benefit: 2 Wood.",
     "usedFor": "Benefit tile of Congress entry C1 (R10.1). The senator slides onto it when the entry is used.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Square cell cut from the strip, border removed; white background."
+    "notes": "Square cell cut from the strip, border removed; white background.",
+    "unused": true,
+    "unusedNote": "Shows the benefit of rules spec v7 and earlier; spec v8 (20/10/2026) changed it, so the strip shows congress-benefit-c1-v2 instead. Kept so the old picture can be compared and restored."
+  },
+  {
+    "id": "congress-benefit-c1-v2",
+    "file": "congress/congress-benefit-c1-v2.png",
+    "status": "placeholder",
+    "name": "Congress entry C1: benefit (v8)",
+    "width": 128,
+    "height": 128,
+    "shows": "White square cell, in the style of the other Congress cells, showing the benefit: 3 Wood. Gain 3 Wood (rules spec v8).",
+    "usedFor": "Benefit tile of Congress entry C1 (R10.1). The senator slides onto it when the entry is used.",
+    "source": null,
+    "notes": "Replaces congress-benefit-c1, whose picture shows the benefit before rules spec v8. Same size and look as the other cells cut from the Congress strip."
   },
   {
     "id": "congress-cost-c2",
@@ -231,7 +245,21 @@
     "shows": "White square cell showing the benefit: 2 Iron.",
     "usedFor": "Benefit tile of Congress entry C2 (R10.1). The senator slides onto it when the entry is used.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Square cell cut from the strip, border removed; white background."
+    "notes": "Square cell cut from the strip, border removed; white background.",
+    "unused": true,
+    "unusedNote": "Shows the benefit of rules spec v7 and earlier; spec v8 (20/10/2026) changed it, so the strip shows congress-benefit-c2-v2 instead. Kept so the old picture can be compared and restored."
+  },
+  {
+    "id": "congress-benefit-c2-v2",
+    "file": "congress/congress-benefit-c2-v2.png",
+    "status": "placeholder",
+    "name": "Congress entry C2: benefit (v8)",
+    "width": 128,
+    "height": 128,
+    "shows": "White square cell, in the style of the other Congress cells, showing the benefit: 3 Iron. Gain 3 Iron (rules spec v8).",
+    "usedFor": "Benefit tile of Congress entry C2 (R10.1). The senator slides onto it when the entry is used.",
+    "source": null,
+    "notes": "Replaces congress-benefit-c2, whose picture shows the benefit before rules spec v8. Same size and look as the other cells cut from the Congress strip."
   },
   {
     "id": "congress-cost-c3",
@@ -255,7 +283,21 @@
     "shows": "White square cell showing the benefit: 2 Gunpowder and 1 cowboy hat.",
     "usedFor": "Benefit tile of Congress entry C3 (R10.1). The senator slides onto it when the entry is used.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Square cell cut from the strip, border removed; white background."
+    "notes": "Square cell cut from the strip, border removed; white background.",
+    "unused": true,
+    "unusedNote": "Shows the benefit of rules spec v7 and earlier; spec v8 (20/10/2026) changed it, so the strip shows congress-benefit-c3-v2 instead. Kept so the old picture can be compared and restored."
+  },
+  {
+    "id": "congress-benefit-c3-v2",
+    "file": "congress/congress-benefit-c3-v2.png",
+    "status": "placeholder",
+    "name": "Congress entry C3: benefit (v8)",
+    "width": 128,
+    "height": 128,
+    "shows": "White square cell, in the style of the other Congress cells, showing the benefit: 4 Gunpowder and 1 cowboy hat. Gain 4 Gunpowder and 1 cowboy hat (rules spec v8).",
+    "usedFor": "Benefit tile of Congress entry C3 (R10.1). The senator slides onto it when the entry is used.",
+    "source": null,
+    "notes": "Replaces congress-benefit-c3, whose picture shows the benefit before rules spec v8. Same size and look as the other cells cut from the Congress strip."
   },
   {
     "id": "congress-cost-c4",
@@ -279,7 +321,21 @@
     "shows": "White square cell showing the benefit: 1 carriage (a boxcar).",
     "usedFor": "Benefit tile of Congress entry C4 (R10.1). The senator slides onto it when the entry is used.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Square cell cut from the strip, border removed; white background."
+    "notes": "Square cell cut from the strip, border removed; white background.",
+    "unused": true,
+    "unusedNote": "Shows the benefit of rules spec v7 and earlier; spec v8 (20/10/2026) changed it, so the strip shows congress-benefit-c4-v2 instead. Kept so the old picture can be compared and restored."
+  },
+  {
+    "id": "congress-benefit-c4-v2",
+    "file": "congress/congress-benefit-c4-v2.png",
+    "status": "placeholder",
+    "name": "Congress entry C4: benefit (v8)",
+    "width": 128,
+    "height": 128,
+    "shows": "White square cell, in the style of the other Congress cells, showing the benefit: a carriage, then a specialist. Add 1 carriage for free, then hire 1 specialist for free (rules spec v8).",
+    "usedFor": "Benefit tile of Congress entry C4 (R10.1). The senator slides onto it when the entry is used.",
+    "source": null,
+    "notes": "Replaces congress-benefit-c4, whose picture shows the benefit before rules spec v8. Same size and look as the other cells cut from the Congress strip."
   },
   {
     "id": "congress-cost-c5",
@@ -303,7 +359,21 @@
     "shows": "White square cell showing the benefit: 2 track tiles (two rail ladders).",
     "usedFor": "Benefit tile of Congress entry C5 (R10.1). The senator slides onto it when the entry is used.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Square cell cut from the strip, border removed; white background."
+    "notes": "Square cell cut from the strip, border removed; white background.",
+    "unused": true,
+    "unusedNote": "Shows the benefit of rules spec v7 and earlier; spec v8 (20/10/2026) changed it, so the strip shows congress-benefit-c5-v2 instead. Kept so the old picture can be compared and restored."
+  },
+  {
+    "id": "congress-benefit-c5-v2",
+    "file": "congress/congress-benefit-c5-v2.png",
+    "status": "placeholder",
+    "name": "Congress entry C5: benefit (v8)",
+    "width": 128,
+    "height": 128,
+    "shows": "White square cell, in the style of the other Congress cells, showing the benefit: 3 built track tiles. Gain 3 built track tiles, any types (rules spec v8).",
+    "usedFor": "Benefit tile of Congress entry C5 (R10.1). The senator slides onto it when the entry is used.",
+    "source": null,
+    "notes": "Replaces congress-benefit-c5, whose picture shows the benefit before rules spec v8. Same size and look as the other cells cut from the Congress strip."
   },
   {
     "id": "congress-cost-c6",
@@ -327,7 +397,21 @@
     "shows": "White square cell showing the benefit: a railway station and a telegraph station (a station house).",
     "usedFor": "Benefit tile of Congress entry C6 (R10.1). The senator slides onto it when the entry is used.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Square cell cut from the strip, border removed; white background."
+    "notes": "Square cell cut from the strip, border removed; white background.",
+    "unused": true,
+    "unusedNote": "Shows the benefit of rules spec v7 and earlier; spec v8 (20/10/2026) changed it, so the strip shows congress-benefit-c6-v2 instead. Kept so the old picture can be compared and restored."
+  },
+  {
+    "id": "congress-benefit-c6-v2",
+    "file": "congress/congress-benefit-c6-v2.png",
+    "status": "placeholder",
+    "name": "Congress entry C6: benefit (v8)",
+    "width": 128,
+    "height": 128,
+    "shows": "White square cell, in the style of the other Congress cells, showing the benefit: 6 resources of your choice. Gain 6 resources of your choice: Iron, Wood or Gunpowder (rules spec v8).",
+    "usedFor": "Benefit tile of Congress entry C6 (R10.1). The senator slides onto it when the entry is used.",
+    "source": null,
+    "notes": "Replaces congress-benefit-c6, whose picture shows the benefit before rules spec v8. Same size and look as the other cells cut from the Congress strip."
   },
   {
     "id": "congress-cost-reset",

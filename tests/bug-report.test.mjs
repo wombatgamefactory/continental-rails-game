@@ -194,7 +194,7 @@ suite.check('diagnostics: the reporter, the legal list, a reason for an illegal 
 });
 
 suite.check('diagnostics: when a bot is to act the report is about the human who acted last', () => {
-  const { state, actions } = midGame(61);
+  const { state, actions } = midGame(62);
   const seats = state.players.map((p) => (p.id === 0 ? { human: true, level: null } : { human: false, level: 'medium' }));
   assert.notEqual(state.toAct, 0, 'a bot must be to act for this test (seed-dependent: adjust stopAfter)');
   const report = buildReport({ state, seats, replay: { actions, base: null }, lastHumanActor: 0, screen: 'game', words: {} });

@@ -700,7 +700,6 @@ function makeCtx(state, pid, W) {
     _bestBuilding: null,
     _districtValues: null,
     _canLay: undefined,
-    _c6: undefined,
   };
   for (const t of TERRAINS3) {
     let u = 0;
@@ -1799,25 +1798,6 @@ function bonusBest(ctx, h, bonus) {
 
 // --- Congress -----------------------------------------------------------------------------
 
-/** What Congress entry C6's buildings option could place, at its best (R13.6). */
-function c6Value(ctx) {
-  if (ctx._c6 !== undefined) return ctx._c6;
-  const { state, pid, an, V } = ctx;
-  let rail = 0;
-  let tele = 0;
-  const track = bestHouseTrack(ctx);
-  const telesLeft = ctx.player.telegraphsPlaced < ctx.K.PLAYER_BOARD.telegraphStations;
-  for (const city of MAP.inlandCities) {
-    if (an.claimedAt[CI[city]] === 0) continue;
-    const rs = state.map.railwayStation[city];
-    const ts = state.map.telegraphStation[city];
-    if (telesLeft && ts === null && (V.bothBuildingsSameOwner || rs !== pid)) tele = Math.max(tele, buildingValue(ctx, city, 'telegraphStation', null));
-    if (track !== null && rs === null && (V.bothBuildingsSameOwner || ts !== pid)) rail = Math.max(rail, buildingValue(ctx, city, 'railwayStation', track));
-  }
-  ctx._c6 = rail + tele;
-  return ctx._c6;
-}
-
 /**
  * What a list of one-off effects is worth (the effect vocabulary of the
  * contract, section 12). Changes the scratch holdings as the effects would.
@@ -1913,9 +1893,6 @@ function effectsValue(ctx, h, effects) {
         if (best > -INF) v += best;
         break;
       }
-      case 'placeBuildings':
-        v += c6Value(ctx);
-        break;
       case 'resetSenators': {
         let used = 0;
         for (const id in state.congress.used) if (state.congress.used[id]) used += 1;

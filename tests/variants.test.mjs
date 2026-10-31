@@ -277,7 +277,8 @@ suite.check('bonusActionLimit changes how often a bonus action is offered (R7.2)
           onApplied(s, action, events) {
             for (const e of events) {
               if (e.type === 'gather') current = 0;
-              if (e.type === 'action' && ['buyHat', 'addCarriage', 'hireSpecialist'].includes(e.action.type)) {
+              // The bonusAction event, not the action type: Congress C4 also adds a carriage and hires (R10.7), and is no bonus action.
+              if (e.type === 'bonusAction') {
                 current += 1;
                 perGather.push(current);
               }

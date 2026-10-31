@@ -5,6 +5,17 @@
 - Suite: `tests/rules-audit.test.mjs` (checks in `tests/rules-audit/part-1.mjs` to `part-6.mjs`, runner and helpers in `kit.mjs`, the spec's data tables in `spec-tables.mjs`).
 - Result: `rules-audit: 476/476 checks passed (6 skipped)`. `npm test`: 11 suites, 0 failed; smoke 2,934 random games, 0 refusals.
 
+## Update of 20/10/2026: rules spec v8, the Congress table
+
+The designer re-priced the Congress benefits (R10.1, R10.5, R10.7; R13.6 retired). The engine's default table now gives: C1 3 Wood, C2 3 Iron, C3 4 Gunpowder and 1 cowboy hat, C4 a free carriage and then an optional free hire placed by R8.6.1, C5 3 built tiles of choice, C6 6 resources of choice (never Coins, no building, no VP). Tiers, Coin costs, Reset and the `jan-2026` table are unchanged. The checks were changed to the new rule, not the other way round:
+
+- `R10.1`, `R10.1/C1` to `R10.1/C6`, `R10.1/table` (the spec's rows in `spec-tables.mjs` copied from v8), `R10.3`, `R10.5` (the C6 3 VP fallback is gone), `R10.7`, `R9.4.3/overflow`, `R15.5.2`, `R17.3/20`, `R18.7/13`, `R18.7/24` and `E6`: new amounts.
+- `R13.6` now checks that C6 places no building and scores no VP.
+- New: `R10.7/C4` (the hire goes into an earlier empty slot before the new carriage, costs nothing and may be declined) and `R10.7/C6` (Coins refused, storage overflow as usual).
+- The skip `R20.1/free-entries` now concerns Reset only.
+
+Result after the change: `rules-audit: 475/475 checks passed (6 skipped)`. The counts in sections 1 and 2 are those of the audit of 11/10/2026.
+
 ## 1. Verdict in one paragraph
 
 The engine conforms to the spec. Written from the spec's wording, 476 checks found **no rule that the engine plays differently from the spec**. The audit found two tuning numbers written as bare literals in logic, one loose word in a player-facing label, and several constants that are named but never read; the first three are fixed. Six places where the rules text itself can be read two ways are left as the engine has them (their checks are skipped, with the reason). Four small engine additions made during the audit are in and checked.
@@ -113,7 +124,7 @@ Verdict on each: **consistent** means the engine's behaviour agrees with the rul
 | 7 | One Congress window after the last step | Consistent: R9.4.3 and R9.4.4 name the same moment. |
 | 8 | `from` of a network claim with both ends in the network | Consistent (R11.11.4: no arrival city). |
 | 9 | `per-railhead` in network mode: one pool of 2 x M; Lay Tracks needs a legal claim | Pool: consistent with R11.3. Choosability: ambiguous. |
-| 10 | An offer that cannot be carried out is not made | Consistent: no rule is changed; R10.5 gives C6 its 3 VP. |
+| 10 | An offer that cannot be carried out is not made | Consistent: no rule is changed. (Before spec v8, R10.5 gave C6 its 3 VP; C6 now gives 6 resources of choice and R13.6 is retired.) |
 | 11 | "First alphabetically" by city id | Consistent: R12.3.1 says "list of city ids". |
 | 12 | Transcontinental bonus after another trigger | Ambiguous. |
 | 13 | Both railheads on one city: no choice offered | Consistent (R12.5; the two are interchangeable). |
@@ -134,7 +145,7 @@ Verdict on each: **consistent** means the engine's behaviour agrees with the rul
 
 ## 8. Ambiguous wording
 
-The six items marked "ambiguous" in section 7 concern: whether the no-action Remove of R5.4.4 is only for a player with no other move; whether Lay Tracks may be chosen in network mode only to place a building (R4.6.3 with R11.11.5); whether the transcontinental bonus is paid when another end trigger came first (R19.2 with R19.6); whether a hire or carriage taken through Pony Express card 28 counts as the matching bonus action for the Legislative Agenda cards 18 and 19; which source books the VP of a Congress entry taken free through a card (R20.1); and which start player the last tie-break is measured from under `turnStructure = rounds` (R20.5.4). The engine keeps its reading in each and the matching check is skipped. One further note: R18.5 refills the market after the card is resolved and the engine refills before; no card looks at the market, so nothing can tell the difference.
+The six items marked "ambiguous" in section 7 concern: whether the no-action Remove of R5.4.4 is only for a player with no other move; whether Lay Tracks may be chosen in network mode only to place a building (R4.6.3 with R11.11.5); whether the transcontinental bonus is paid when another end trigger came first (R19.2 with R19.6); whether a hire or carriage taken through Pony Express card 28 counts as the matching bonus action for the Legislative Agenda cards 18 and 19; which source books the VP of a Reset taken free through a card (R20.1; before spec v8 this also covered C6's 3 VP); and which start player the last tie-break is measured from under `turnStructure = rounds` (R20.5.4). The engine keeps its reading in each and the matching check is skipped. One further note: R18.5 refills the market after the card is resolved and the engine refills before; no card looks at the market, so nothing can tell the difference.
 
 ## 9. Rules that could not be tested through the public API
 

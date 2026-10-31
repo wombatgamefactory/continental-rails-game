@@ -1,4 +1,4 @@
-// Data tables of the designer's rules text, transcribed mechanically on 11/10/2026 for the rules audit, updated to spec v4 and then to the two specialist rulings of 19/10/2026 (hire cost, activations)
+// Data tables of the designer's rules text, transcribed mechanically on 11/10/2026 for the rules audit, updated to spec v4 and then to the two specialist rulings of 19/10/2026 (hire cost, activations), and R10.1 to spec v8 (the Congress benefits re-priced on 20/10/2026)
 // (R10.1, R15.2, R16.5, R16.8, R17.3, R18.7, R20.3, R21.3, Appendix A.1 and A.2).
 // The rules text is not part of this repository, so its tables are kept here as data.
 // "machine" is the spec's own "Machine form" column, as text. DO NOT edit a value
@@ -114,12 +114,12 @@ export const R18_7 = [
 ];
 
 export const R10_1 = [
-  {"id":"C1","tier":1,"coinCost":1,"benefit":"Gain 2 Wood"},
-  {"id":"C2","tier":1,"coinCost":1,"benefit":"Gain 2 Iron"},
-  {"id":"C3","tier":2,"coinCost":2,"benefit":"Gain 2 Gunpowder and 1 cowboy hat"},
-  {"id":"C4","tier":2,"coinCost":2,"benefit":"Add 1 carriage, specialist or storage, for free (R8.7)"},
-  {"id":"C5","tier":3,"coinCost":3,"benefit":"Gain 2 built track tiles, any types, same or different"},
-  {"id":"C6","tier":3,"coinCost":3,"benefit":"Place up to 1 railway station and up to 1 telegraph station (R13.6), or gain 3 VP"},
+  {"id":"C1","tier":1,"coinCost":1,"benefit":"Gain 3 Wood"},
+  {"id":"C2","tier":1,"coinCost":1,"benefit":"Gain 3 Iron"},
+  {"id":"C3","tier":2,"coinCost":2,"benefit":"Gain 4 Gunpowder and 1 cowboy hat"},
+  {"id":"C4","tier":2,"coinCost":2,"benefit":"Add 1 carriage for free (R8.7), then hire 1 specialist for free (R8.6)"},
+  {"id":"C5","tier":3,"coinCost":3,"benefit":"Gain 3 built track tiles, any types, same or different"},
+  {"id":"C6","tier":3,"coinCost":3,"benefit":"Gain 6 resources of your choice (R1.8), mixed as you like"},
   {"id":"CR","tier":1,"coinCost":1,"benefit":"Return all used senators and gain 1 VP for each (R10.6)"},
 ];
 

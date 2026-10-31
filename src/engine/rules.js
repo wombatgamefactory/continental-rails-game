@@ -283,45 +283,47 @@ export const CONGRESS = {
   /** R10.6. */
   resetVpPerSenator: 1,
   tables: {
-    /** R10.1, the default: the newest art and DESIGN.md agree. */
+    /**
+     * R10.1, the default: the tiers and Coin costs of the newest art and
+     * DESIGN.md, with the benefits re-priced by the ruling of 20/10/2026
+     * (about 3 resources' worth per tier).
+     */
     'design-2026-10': [
-      { id: 'C1', tier: 1, coinCost: 1, text: 'Gain 2 Wood', effects: [{ type: 'gain', items: { wood: 2 } }] },
-      { id: 'C2', tier: 1, coinCost: 1, text: 'Gain 2 Iron', effects: [{ type: 'gain', items: { iron: 2 } }] },
+      { id: 'C1', tier: 1, coinCost: 1, text: 'Gain 3 Wood', effects: [{ type: 'gain', items: { wood: 3 } }] },
+      { id: 'C2', tier: 1, coinCost: 1, text: 'Gain 3 Iron', effects: [{ type: 'gain', items: { iron: 3 } }] },
       {
         id: 'C3',
         tier: 2,
         coinCost: 2,
-        text: 'Gain 2 Gunpowder and 1 cowboy hat',
-        effects: [{ type: 'gain', items: { gunpowder: 2, hats: 1 } }],
+        text: 'Gain 4 Gunpowder and 1 cowboy hat',
+        effects: [{ type: 'gain', items: { gunpowder: 4, hats: 1 } }],
       },
       {
+        // R10.7: the carriage first and required (R10.5: no carriage can be added, no entry);
+        // then a free hire (no fee, no hire cost, R8.6.4) placed by R8.6.1, which the player may decline.
         id: 'C4',
         tier: 2,
         coinCost: 2,
-        text: 'Add 1 carriage, specialist or storage, for free',
-        effects: [{ type: 'addCarriage', carriage: 'choice' }],
+        text: 'Add 1 carriage, specialist or storage, for free, then hire 1 specialist for free',
+        effects: [
+          { type: 'addCarriage', carriage: 'choice' },
+          { type: 'hire', count: 1, free: true, optional: true },
+        ],
       },
       {
         id: 'C5',
         tier: 3,
         coinCost: 3,
-        text: 'Gain 2 built track tiles, any types, same or different',
-        effects: [{ type: 'gainBuiltTilesChoice', count: 2, distinct: false }],
+        text: 'Gain 3 built track tiles, any types, same or different',
+        effects: [{ type: 'gainBuiltTilesChoice', count: 3, distinct: false }],
       },
       {
+        // R10.7, R1.8: Iron, Wood or Gunpowder, mixed as the player likes; never Coins.
         id: 'C6',
         tier: 3,
         coinCost: 3,
-        text: 'Place up to 1 railway station and up to 1 telegraph station, or gain 3 VP',
-        effects: [
-          {
-            type: 'chooseOne',
-            options: [
-              [{ type: 'placeBuildings', railwayStation: 1, telegraphStation: 1, where: 'connectedInlandCity' }],
-              [{ type: 'vp', amount: 3 }],
-            ],
-          },
-        ],
+        text: 'Gain 6 resources of your choice',
+        effects: [{ type: 'gainChoice', count: 6 }],
       },
       {
         id: 'CR',
@@ -1330,14 +1332,13 @@ export const EFFECT_TYPES = [
   'gainBuiltTile', // { terrain, count } built tiles of a fixed type
   'gainBuiltTilesChoice', // { count, distinct } built tiles of the player's choice
   'addCarriage', // { carriage: 'specialist'|'storage'|'choice' } free of charge (R8.7)
-  'hire', // { count, free, fee } hire specialists (R8.6)
+  'hire', // { count, free, fee, optional } hire specialists (R8.6); free = no fee and no hire cost (R8.6.4)
   'steps', // { move: n } or { claim: n } steps of R11 / R12
   'activateTrain', // a train activation with M = 1 (R9.2, R9.3)
   'exchange', // { max } return resources, gain as many of choice
   'vpPer', // { metric, amount } VP now, per unit of a metric
   'freeCongress', // { tier, count } entries without lobby points or Coins
   'chooseOne', // { options: [ [effects], ... ] } the player picks one list
-  'placeBuildings', // { railwayStation, telegraphStation, where } R13.6
   'resetSenators', // R10.6
   'vpPerBuilt', // { terrain, amount } at the end of the train activation (R15.5.2)
   'untilEndOfTurn', // { modifier } a modifier that lasts until the turn ends
