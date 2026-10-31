@@ -47,20 +47,20 @@ const SECONDARY_STOPS = new Set([
   'declineFreeEntry',
 ]);
 
-/** Resource / tile / specialist art ids by engine id. */
+/** Resource / tile / specialist art ids by engine id. A specialist is shown by its face: the picture of what it converts. */
 export const ITEM_ART = {
-  iron: 'resource-iron',
-  wood: 'resource-wood',
-  gunpowder: 'resource-gunpowder',
-  coins: 'resource-coin',
-  hats: 'token-cowboy-hat',
+  iron: 'resource-iron-v2',
+  wood: 'resource-wood-v2',
+  gunpowder: 'resource-gunpowder-v2',
+  coins: 'resource-coin-v2',
+  hats: 'token-cowboy-hat-v2',
   ground: 'terrain-ground',
   tunnel: 'terrain-tunnel',
   bridge: 'terrain-bridge',
-  crew: 'specialist-crew',
-  miner: 'specialist-miner',
-  engineer: 'specialist-engineer',
-  financier: 'specialist-financier',
+  crew: 'specialist-face-crew',
+  miner: 'specialist-face-miner',
+  engineer: 'specialist-face-engineer',
+  financier: 'specialist-face-financier',
 };
 
 /**

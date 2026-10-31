@@ -25,28 +25,23 @@ import {
   GRID,
   MAP,
   NAMES,
-  PLAYER_BOARD,
   DISTRICT_IDS,
   getConstants,
   congressTable,
   congressCoinCost,
   describeDecision,
-  describeStep,
   production,
-  storageUsed,
-  storageCapacity,
   totalVp,
   routeShortfall,
   nextTelegraphVp,
   scoreGame,
-  upgradeTileData,
-  upgradeTileAt,
 } from './active-ruleset.js';
-import { art, hasArt, piece, isRealArt, svgArt, upgradeArtId, trackTile, ponyToken, svgPiece, svgPonyToken, svgTrackTile } from './art.js';
+import { art, hasArt, piece, isRealArt, svgArt, trackTile, ponyToken, svgPiece, svgPonyToken, svgTrackTile } from './art.js';
 import { ITEM_ART, moveTolls, stationEffect, targetState } from './action-targets.js';
 import { entryHtml } from './log-html.js';
 import { variantChips } from './variants-panel.js';
 import { reasonPairForKey, availability } from './explain.js';
+import { renderPlayerBoard } from './cr-player-board.js';
 
 function esc(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -169,9 +164,9 @@ export function renderScores(ctx) {
           ${['ground', 'tunnel', 'bridge'].map((t) => num(trackTile(t, { cls: 'tile--mini' }), p.builtTiles[t], `Built ${NAMES[t]} tiles`, 'pstat--tile')).join('')}
         </span>
         <span class="score__stats">
-          ${num(ic('resource-coin', 'Coins'), p.coins, 'Coins')}
+          ${num(ic('resource-coin-v2', 'Coins'), p.coins, 'Coins')}
           ${['iron', 'wood', 'gunpowder'].map((r) => num(ic(ITEM_ART[r], NAMES[r]), p.resources[r], NAMES[r])).join('')}
-          ${num(ic('token-cowboy-hat', 'Cowboy hats'), p.hats, 'Cowboy hats')}
+          ${num(ic('token-cowboy-hat-v2', 'Cowboy hats'), p.hats, 'Cowboy hats')}
           ${pony ? num(ponyToken({ cls: 'icon--pstat' }), pony.tokensHeld, 'Tokens held', 'pstat--tokens') : ''}
         </span>
       </button>`;
@@ -217,7 +212,7 @@ export function renderPrompt(ctx) {
 
     // Hat toggle for the district choice.
     if (targets.districts.anyDistrict && targets.districts.hatAvailable) {
-      lines.push(`<label class="hat-toggle"><input type="checkbox" data-ui="toggle-hat" ${ctx.hat ? 'checked' : ''}> Spend a cowboy hat for +1 multiplier ${art('token-cowboy-hat', { cls: 'icon icon--inline', label: 'hat' })}</label>`);
+      lines.push(`<label class="hat-toggle"><input type="checkbox" data-ui="toggle-hat" ${ctx.hat ? 'checked' : ''}> Spend a cowboy hat for +1 multiplier ${art('token-cowboy-hat-v2', { cls: 'icon icon--inline', label: 'hat' })}</label>`);
     }
 
     // What each lit district leads to, where the engine will then move by itself.
@@ -435,155 +430,12 @@ export function renderCongress(ctx) {
 }
 
 // ---------------------------------------------------------------------------
-// Train boards
+// The player board
 // ---------------------------------------------------------------------------
 
-function houseTrackRow(ctx, p, track) {
-  const { state } = ctx;
-  const colour = colourOf(ctx, p.id);
-  const prod = production(state, p.id, track);
-  const left = p.houses[track];
-  const slots = [2, 3, 4]
-    .map((n, i) => {
-      const filled = i >= PLAYER_BOARD.houseSlotsPerTrack - left;
-      return `<span class="hslot${filled ? ' has-house' : ''}" title="${filled ? 'A house covers this production number' : 'Empty: this house has left the track (production +1)'}">${filled ? piece('house', colour) : n}</span>`;
-    })
-    .join('');
-  const mine = ctx.interactive && p.id === state.toAct;
-  const ht = mine ? tgt(ctx, 'house', `house:${track}`) : { attrs: '', cls: '' };
-  return `<div class="htrack${ht.cls}" data-track="${track}" ${ht.attrs}>
-    ${art(ITEM_ART[track], { cls: 'icon icon--track', label: NAMES[track] })}
-    <span class="htrack__p" title="Production of ${esc(NAMES[track])}">${prod}</span>${slots}
-  </div>`;
-}
-
-/**
- * The storage: resources, and the stockpile of BUILT track tiles. A built tile
- * is drawn exactly as it will look on the map once laid (art.js trackTile), so
- * the two halves of build-then-lay are visibly the same object in two places.
- */
-function storageChips(ctx, p) {
-  const { state } = ctx;
-  const mine = ctx.interactive && p.id === state.toAct;
-  const chipHtml = (item, n, built) => {
-    const ct = mine ? tgt(ctx, 'store', `store:${item}`) : { attrs: '', cls: '' };
-    const picture = built ? trackTile(item, { label: `${NAMES[item]} track tile` }) : art(ITEM_ART[item], { cls: 'icon icon--stock', label: NAMES[item] });
-    return `<span class="stock stock--${built ? 'tile' : 'res'} stock--${item}${n === 0 ? ' is-zero' : ''}${ct.cls}" data-item="${item}" data-count="${n}" ${ct.attrs} title="${esc(NAMES[item])}${built ? ' (built track tile)' : ''}: ${n}">
-      ${picture}<b>${n}</b></span>`;
-  };
-  const used = storageUsed(p);
-  const cap = storageCapacity(state, p.id);
-  return `<section class="storage${used > cap ? ' is-over' : ''}">
-    <div class="storage__head"><span>Storage</span><span class="storage__cap" data-field="storage" title="Items held of the storage capacity">${used} / ${cap}</span></div>
-    <div class="storage__group"><span class="storage__label">Resources</span>${['iron', 'wood', 'gunpowder'].map((r) => chipHtml(r, p.resources[r], false)).join('')}</div>
-    <div class="storage__group storage__group--tiles" title="Built by train activations. Spent by Lay Tracks to claim a route on the map."><span class="storage__label">Built tiles</span>${['ground', 'tunnel', 'bridge'].map((t) => chipHtml(t, p.builtTiles[t], true)).join('')}</div>
-    <div class="storage__note">Built here by a train activation. Laid on the map by Lay Tracks.</div>
-  </section>`;
-}
-
-function activationStrip(ctx, p) {
-  const frame = ctx.frame;
-  if (!frame || frame.kind !== 'trainActivation' || frame.player !== p.id) return '';
-  const { state } = ctx;
-  const steps = frame.steps
-    .map((s, i) => {
-      const status = i < frame.index ? 'done' : i === frame.index && !frame.congress ? 'current' : i === frame.index ? 'done' : 'todo';
-      if (s.type === 'upgrade') {
-        const tile = state.modules.upgrades ? upgradeTileData(state, upgradeTileAt(state, p.id, s.level)) : null;
-        return `<li class="astep astep--upgrade astep--${status}" data-step="${i}" data-status="${status}" data-step-type="upgrade" title="${esc(tile ? `${tile.name}: ${tile.text}` : describeStep(state, s))}">
-          ${tile ? art(upgradeArtId(tile.id), { cls: 'icon icon--step icon--tile', label: tile.name }) : ''}<span class="astep__t">L${s.level}</span><span class="astep__s">${esc(tile ? tile.name : 'upgrade')}</span></li>`;
-      }
-      const label = s.level === 0 ? `Foreman` : `L${s.level}`;
-      const type = NAMES[s.type] ?? s.type;
-      return `<li class="astep astep--${status}" data-step="${i}" data-status="${status}" title="${esc(describeStep(state, s))}">
-        ${ITEM_ART[s.type] ? art(ITEM_ART[s.type], { cls: 'icon icon--step', label: type }) : ''}<span class="astep__t">${esc(label)}</span><span class="astep__s">${esc(type)}</span></li>`;
-    })
-    .join('');
-  const built = frame.built;
-  const builtText = ['ground', 'tunnel', 'bridge'].filter((t) => built[t] > 0).map((t) => `${built[t]} ${NAMES[t]}`).join(', ') || 'nothing yet';
-  return `<div class="activation" data-field="activation">
-    <div class="activation__head"><b>Train activation</b> <span>Foreman acts as ${esc(NAMES[frame.foreman] ?? frame.foreman)}</span> <span>lobby points <b>${frame.lobby}</b></span> <span>built so far: ${esc(builtText)}</span></div>
-    <ol class="activation__steps">${steps}</ol>
-  </div>`;
-}
-
-function carriageHtml(ctx, p, level) {
-  const { state } = ctx;
-  const slots = p.train.specialistCarriages[level - 1].slots;
-  const frame = ctx.frame;
-  const mineActive = frame && frame.kind === 'trainActivation' && frame.player === p.id && !frame.congress && frame.steps[frame.index];
-  const step = mineActive ? frame.steps[frame.index] : null;
-  const activeLevel = step ? step.level : -1;
-  const upgrades = state.modules.upgrades;
-  const installedId = upgrades ? upgrades.installed[p.id][level - 1] : null;
-  const tile = installedId ? upgradeTileData(state, installedId) : null;
-  // The engine names the carriage a step belongs to, not the slot: the slots holding that specialist type are marked.
-  const actingSlot = (s) => activeLevel === level && step && step.type === s;
-  const upgradeCell = upgrades
-    ? `<span class="cslot cslot--upgrade${tile ? ' has-upgrade' : ''}${activeLevel === level && step && step.type === 'upgrade' ? ' is-acting' : ''}" ${tile ? `data-tip="installed:${esc(tile.id)}" data-installed="${esc(tile.id)}"` : 'title="Carriage upgrade slot: empty"'}>${
-        tile
-          ? `${art(upgradeArtId(tile.id), { cls: 'cslot__tile', label: tile.name })}<small class="cslot__name">${esc(tile.name)}</small><small class="cslot__fx">${esc(tile.text)}</small>`
-          : '<small>upgrade slot</small>'
-      }</span>`
-    : '';
-  return `<section class="car carriage${activeLevel === level ? ' is-active-step' : ''}" data-level="${level}">
-    <div class="carriage__head">Carriage ${level} <small>level ${level} specialists</small></div>
-    <div class="carriage__slots">${slots
-      .map((s) => `<span class="cslot${s ? ' has-spec' : ''}${s && actingSlot(s) ? ' is-acting' : ''}" title="${s ? esc(NAMES[s]) : 'Empty slot'}">${s ? art(ITEM_ART[s], { cls: 'icon icon--spec', label: NAMES[s] }) + `<small>${esc(NAMES[s])}</small>` : '<small>empty</small>'}</span>`)
-      .join('')}${upgradeCell}</div>
-  </section>`;
-}
-
-/**
- * One player's train, drawn as a train: a manifest (who, what they hold, the
- * storage) and then the engine and its carriages coupled in a row.
- */
-function trainFull(ctx, p) {
-  const { state } = ctx;
-  const seat = ctx.seats[p.id];
-  const colour = colourOf(ctx, p.id);
-  const tele = PLAYER_BOARD.telegraphRowVp
-    .map((vp, i) => `<span class="tslot${i >= p.telegraphsPlaced ? ' has-station' : ' is-placed'}${i === p.telegraphsPlaced ? ' is-next' : ''}" title="${i >= p.telegraphsPlaced ? `Telegraph station worth ${vp} VP` : 'Placed on the map'}">${i >= p.telegraphsPlaced ? piece('telegraph-station', colour) : ''}<b>${vp}</b></span>`)
-    .join('');
-  const carriages = [];
-  for (let l = 1; l <= p.train.specialistCarriages.length; l++) carriages.push(carriageHtml(ctx, p, l));
-  const frame = ctx.frame;
-  const foremanActive = frame && frame.kind === 'trainActivation' && frame.player === p.id && !frame.congress && frame.steps[frame.index] && frame.steps[frame.index].level === 0;
-  const pony = state.modules.pony ? state.modules.pony.players[p.id] : null;
-  const heads = p.railheads.filter((c) => c).map((c) => esc(MAP.cityById[c].name)).join(', ');
-  return `<article class="train train--full" data-player="${p.id}" style="--pc:${colour}">
-    <div class="train__manifest">
-      <header class="train__head">
-        <span class="score__dot"></span><b class="train__name">${esc(nameOf(ctx, p.id))}</b>
-        <span class="badge badge--${seat.human ? 'human' : 'bot'}">${esc(seat.label)}</span>
-        <span class="train__vp" data-vp="${p.id}">${totalVp(p)} VP</span>
-      </header>
-      <div class="train__stats">
-        <span class="stat" title="Coins">${art('resource-coin', { cls: 'icon icon--stat', label: 'Coins' })}<b data-stat="coins">${p.coins}</b></span>
-        <span class="stat" title="Cowboy hats (limit ${getConstants(state).HATS.hatLimit})">${art('token-cowboy-hat', { cls: 'icon icon--stat', label: 'Hats' })}<b data-stat="hats">${p.hats}</b></span>
-        <span class="stat" title="Workers in your supply">${piece('worker', colour)}<b data-stat="workers">${p.workersInSupply}</b></span>
-        ${pony ? `<span class="stat stat--tokens" title="Pony Express tokens held">${ponyToken({ cls: 'icon--stat' })}<b data-stat="tokens">${pony.tokensHeld}</b></span>` : ''}
-        <span class="stat stat--heads" title="Railheads">${piece('railhead', colour)}<span>${heads}</span></span>
-      </div>
-      ${storageChips(ctx, p)}
-    </div>
-    <div class="train__consist">
-      ${activationStrip(ctx, p)}
-      <div class="train__cars">
-        <section class="car engine${foremanActive ? ' is-active-step' : ''}">
-          <div class="engine__head">Engine <small>Foreman, house tracks, telegraph row</small></div>
-          <div class="engine__tracks">${getConstants(state).PLAYER_BOARD.houseTracks.map((t) => houseTrackRow(ctx, p, t)).join('')}</div>
-          <div class="engine__tele"><span class="engine__label" title="Telegraph stations still on the player board, with the VP each scores when placed">Telegraph</span>${tele}</div>
-        </section>
-        ${carriages.join('')}
-      </div>
-    </div>
-  </article>`;
-}
-
-/** The train strip under the map: the train of the player to move (or of the player whose card was clicked). */
+/** The player board strip under the map: the player to move (or the one whose card was clicked), drawn on the printed art by cr-player-board.js. */
 export function renderTrains(ctx) {
-  return trainFull(ctx, ctx.state.players[ctx.viewer]);
+  return renderPlayerBoard(ctx, ctx.state.players[ctx.viewer], tgt);
 }
 
 // ---------------------------------------------------------------------------

@@ -447,7 +447,9 @@
     "shows": "A gold coin stamped \"American Railroad\" with a locomotive.",
     "usedFor": "Currency everywhere: counters, costs, Congress.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Cut from the Congress strip (cost cell) with transparent background."
+    "notes": "Cut from the Congress strip (cost cell) with transparent background.",
+    "unused": true,
+    "unusedNote": "Replaced by resource-coin-v2 (the designer's 2026 icon); kept so the old art can be compared."
   },
   {
     "id": "resource-wood",
@@ -459,7 +461,9 @@
     "shows": "A stack of lumber logs.",
     "usedFor": "Wood resource counter, costs and outputs.",
     "source": "TTS/lobby_congress.png",
-    "notes": "Cut from the Congress strip with transparent background."
+    "notes": "Cut from the Congress strip with transparent background.",
+    "unused": true,
+    "unusedNote": "Replaced by resource-wood-v2 (the designer's 2026 icon); kept so the old art can be compared."
   },
   {
     "id": "resource-iron",
@@ -471,7 +475,9 @@
     "shows": "Two iron rail sections / ingots.",
     "usedFor": "Iron resource counter, costs and outputs.",
     "source": "TTS/lobby_congress.png",
-    "notes": "The metal is called Iron; the id stays resource-iron. Cut from the Congress strip with transparent background."
+    "notes": "The metal is called Iron; the id stays resource-iron. Cut from the Congress strip with transparent background.",
+    "unused": true,
+    "unusedNote": "Replaced by resource-iron-v2 (the designer's 2026 icon); kept so the old art can be compared."
   },
   {
     "id": "resource-gunpowder",
@@ -483,7 +489,9 @@
     "shows": "A black powder keg with a red explosives label.",
     "usedFor": "Gunpowder resource counter, costs and outputs.",
     "source": "TTS/lobby_congress.png",
-    "notes": "One of the two kegs in the Congress C3 cell, transparent background."
+    "notes": "One of the two kegs in the Congress C3 cell, transparent background.",
+    "unused": true,
+    "unusedNote": "Replaced by resource-gunpowder-v2 (the designer's 2026 icon); kept so the old art can be compared."
   },
   {
     "id": "token-cowboy-hat",
@@ -495,7 +503,9 @@
     "shows": "A brown Stetson-style cowboy hat.",
     "usedFor": "Cowboy hat token and counter (R14).",
     "source": "TTS/lobby_congress.png",
-    "notes": "Cut from the Congress strip (benefit C3 cell) with transparent background. Serves as both icon and piece."
+    "notes": "Cut from the Congress strip (benefit C3 cell) with transparent background. Serves as both icon and piece.",
+    "unused": true,
+    "unusedNote": "Replaced by token-cowboy-hat-v2 (the designer's 2026 icon); kept so the old art can be compared."
   },
   {
     "id": "icon-carriage",
@@ -2960,5 +2970,137 @@
     "notes": "WebP, 128 px wide, tall. Cropped from the player board; the pole edge and some of the locomotive show at the sides.",
     "unused": true,
     "unusedNote": "Kept on purpose: the telegraph row is part of the player board picture, which the second edition draws whole."
+  },
+  {
+    "id": "board-player-engine",
+    "file": "board/player-engine.webp",
+    "status": "real",
+    "name": "Player board (Continental Rails)",
+    "width": 1500,
+    "height": 636,
+    "shows": "A locomotive with the Foreman in the cab and two cowboy hat spaces on the cab roof, the telegraph pole with seven spaces (9, 6, 5, 4, 3, 2, 1 from the top), and the wagon with the four house tracks (x2, x3, x4 each: Wood top left, Iron top right, Gunpowder bottom left, Coins bottom right) and six storage spaces on its roof.",
+    "usedFor": "The whole player board of Continental Rails (src/ui/cr-player-board.js); houses, telegraph stations, hats and stored items are drawn over its printed spaces.",
+    "source": "images/player-engine.png",
+    "notes": "WebP, 1500 px wide, opaque with a scenery backdrop; the designer's original is 3501 x 1485. The printed hats stay visible: a hat space with no hat is covered. Printed space positions are measured in fractions of the original in cr-player-board.js."
+  },
+  {
+    "id": "board-player-carriage",
+    "file": "board/player-carriage.webp",
+    "status": "real",
+    "name": "Carriage (Continental Rails)",
+    "width": 640,
+    "height": 640,
+    "shows": "A red wooden carriage: three storage spaces on its roof, two windows for specialists and a plate below them for the carriage upgrade tile.",
+    "usedFor": "Each specialist carriage on the Continental Rails player board; specialists, the upgrade tile and stored items are drawn over its printed spaces.",
+    "source": "images/player-carriage.png",
+    "notes": "WebP, 640 px square, opaque with a scenery backdrop; the designer's original is 1134 x 1134."
+  },
+  {
+    "id": "specialist-face-engineer",
+    "file": "board/specialist-face-engineer.webp",
+    "status": "real",
+    "name": "Specialist face: Engineer",
+    "width": 324,
+    "height": 360,
+    "shows": "The Engineer specialist tile, face up: a framed picture of what it does (two Wood become a Bridge tile).",
+    "usedFor": "The Engineer in a carriage window of the Continental Rails player board, and the Engineer choice in hire and Foreman panels.",
+    "source": "images/specialist-back-engineer.png",
+    "notes": "Cropped to the window frame and scaled to 360 px high. The designer's file name says \"back\" but the picture is the tile's face; the portrait on the other side (images/specialist-engineer.png) is not used by any screen."
+  },
+  {
+    "id": "specialist-face-crew",
+    "file": "board/specialist-face-crew.webp",
+    "status": "real",
+    "name": "Specialist face: Crew",
+    "width": 302,
+    "height": 360,
+    "shows": "The Crew specialist tile, face up: a framed picture of what it does (two Iron become a Ground tile).",
+    "usedFor": "The Crew in a carriage window of the Continental Rails player board, and the Crew choice in hire and Foreman panels.",
+    "source": "images/specialist-back-crew.png",
+    "notes": "Cropped to the window frame and scaled to 360 px high. The designer's file name says \"back\" but the picture is the tile's face; the portrait on the other side (images/specialist-crew.png) is not used by any screen."
+  },
+  {
+    "id": "specialist-face-miner",
+    "file": "board/specialist-face-miner.webp",
+    "status": "real",
+    "name": "Specialist face: Miner",
+    "width": 288,
+    "height": 360,
+    "shows": "The Miner specialist tile, face up: a framed picture of what it does (two Gunpowder become a Tunnel tile).",
+    "usedFor": "The Miner in a carriage window of the Continental Rails player board, and the Miner choice in hire and Foreman panels.",
+    "source": "images/specialist-back-miner.png",
+    "notes": "Cropped to the window frame and scaled to 360 px high. The designer's file name says \"back\" but the picture is the tile's face; the portrait on the other side (images/specialist-miner.png) is not used by any screen."
+  },
+  {
+    "id": "specialist-face-financier",
+    "file": "board/specialist-face-financier.webp",
+    "status": "real",
+    "name": "Specialist face: Financier",
+    "width": 291,
+    "height": 360,
+    "shows": "The Financier specialist tile, face up: a framed picture of what it does (one Coin becomes a lobby point at Congress).",
+    "usedFor": "The Financier in a carriage window of the Continental Rails player board, and the Financier choice in hire and Foreman panels.",
+    "source": "images/specialist-back-financier.png",
+    "notes": "Cropped to the window frame and scaled to 360 px high. The designer's file name says \"back\" but the picture is the tile's face; the portrait on the other side (images/specialist-financier.png) is not used by any screen."
+  },
+  {
+    "id": "resource-wood-v2",
+    "file": "icons/resource-wood-v2.webp",
+    "status": "real",
+    "name": "Wood (2026 art)",
+    "width": 160,
+    "height": 122,
+    "shows": "A stack of three lumber logs.",
+    "usedFor": "Wood counters, costs, outputs and stored items, in both rulesets. Replaces resource-wood.",
+    "source": "images/resource-wood.png",
+    "notes": "Cropped to the picture and scaled to 160 px on the long side, transparent background."
+  },
+  {
+    "id": "resource-iron-v2",
+    "file": "icons/resource-iron-v2.webp",
+    "status": "real",
+    "name": "Iron (2026 art)",
+    "width": 160,
+    "height": 148,
+    "shows": "A steel-blue I-beam (the metal is called Iron).",
+    "usedFor": "Iron counters, costs, outputs and stored items, in both rulesets. Replaces resource-iron.",
+    "source": "images/resource-icon.png",
+    "notes": "Cropped to the picture and scaled to 160 px on the long side, transparent background. The designer's file is named resource-icon."
+  },
+  {
+    "id": "resource-gunpowder-v2",
+    "file": "icons/resource-gunpowder-v2.webp",
+    "status": "real",
+    "name": "Gunpowder (2026 art)",
+    "width": 132,
+    "height": 160,
+    "shows": "A brown powder keg with dark hoops.",
+    "usedFor": "Gunpowder counters, costs, outputs and stored items, in both rulesets. Replaces resource-gunpowder.",
+    "source": "images/resource-gunpowder.png",
+    "notes": "Cropped to the picture and scaled to 160 px on the long side, transparent background."
+  },
+  {
+    "id": "resource-coin-v2",
+    "file": "icons/resource-coin-v2.webp",
+    "status": "real",
+    "name": "Coin (2026 art)",
+    "width": 156,
+    "height": 160,
+    "shows": "A gold coin stamped \"American Railroad\" with a locomotive, 1869.",
+    "usedFor": "Coin counters, costs, outputs and stored items, in both rulesets. Replaces resource-coin.",
+    "source": "images/resource-coin.png",
+    "notes": "Cropped to the picture and scaled to 160 px on the long side, transparent background."
+  },
+  {
+    "id": "token-cowboy-hat-v2",
+    "file": "icons/token-cowboy-hat-v2.webp",
+    "status": "real",
+    "name": "Cowboy hat (2026 art)",
+    "width": 160,
+    "height": 117,
+    "shows": "A brown cowboy hat with a black band.",
+    "usedFor": "Cowboy hat counters and the hat toggle, in both rulesets. Replaces token-cowboy-hat.",
+    "source": "images/resource-cowboy-hat.png",
+    "notes": "Cropped to the picture and scaled to 160 px on the long side, transparent background."
   }
 ]

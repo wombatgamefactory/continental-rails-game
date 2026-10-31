@@ -119,9 +119,9 @@ export function renderScores(ctx) {
           ${num(trackTile('ground', { cls: 'tile--mini' }), p.builtTiles.ground + p.builtTiles.tunnel + p.builtTiles.bridge, `Built tiles: ${p.builtTiles.ground} Ground, ${p.builtTiles.tunnel} Tunnel, ${p.builtTiles.bridge} Bridge`, 'pstat--tile')}
         </span>
         <span class="score__stats">
-          ${num(ic('resource-coin', 'Coins'), p.coins, 'Coins')}
+          ${num(ic('resource-coin-v2', 'Coins'), p.coins, 'Coins')}
           ${['iron', 'wood', 'gunpowder'].map((r) => num(ic(ITEM_ART[r], K.NAMES[r]), p.resources[r], K.NAMES[r])).join('')}
-          ${num(ic('token-cowboy-hat', 'Cowboy hats'), p.hats, 'Cowboy hats')}
+          ${num(ic('token-cowboy-hat-v2', 'Cowboy hats'), p.hats, 'Cowboy hats')}
         </span>
       </button>`;
     })
@@ -307,7 +307,7 @@ export function renderPrompt(ctx) {
     if (targets.districts.anyDistrict && targets.districts.maxHats > 0) {
       const chosen = targets.districts.selectedHats ?? 0;
       const buttons = Array.from({ length: targets.districts.maxHats + 1 }, (_, n) => `<button type="button" class="btn btn--small${chosen === n ? ' is-on' : ''}" data-ui="hats:${n}" aria-pressed="${chosen === n}" data-hats="${n}">${n === 0 ? 'No hat' : plural(n, 'hat', 'hats')}</button>`).join('');
-      lines.push(`<div class="hat-pick" data-field="hat-pick" role="group" aria-label="Cowboy hats to spend">${art('token-cowboy-hat', { cls: 'icon icon--inline', label: 'cowboy hat' })}<span>Spend cowboy hats for +1 multiplier each:</span>${buttons}</div>`);
+      lines.push(`<div class="hat-pick" data-field="hat-pick" role="group" aria-label="Cowboy hats to spend">${art('token-cowboy-hat-v2', { cls: 'icon icon--inline', label: 'cowboy hat' })}<span>Spend cowboy hats for +1 multiplier each:</span>${buttons}</div>`);
     }
 
     // What each lit district leads to (for the hats chosen).
@@ -479,7 +479,7 @@ export function renderCongress(ctx) {
         why = reason ? `<span class="pc__why" data-field="congress-why">${esc(reason)}</span>` : '';
       }
       return `<button type="button" class="pc${c.down ? ' is-down' : ''}${ct.cls}${flashCls(ctx, ctx.view.flash.congress, c.id)}" data-entry="${c.id}" data-senator="${c.down ? 'down' : 'up'}" data-cost="${c.cost}" ${ct.attrs} style="${flashDelay(ctx)}" aria-label="Congress column ${c.id}: ${esc(cell.text)}, ${plural(c.cost, 'Coin', 'Coins')}${c.down ? ', senator down' : ''}">
-        <span class="pc__cost pc__cost--${tier}">${art('resource-coin', { cls: 'pc__coin', label: 'Coin' })}<b>${c.cost}</b></span>
+        <span class="pc__cost pc__cost--${tier}">${art('resource-coin-v2', { cls: 'pc__coin', label: 'Coin' })}<b>${c.cost}</b></span>
         <span class="pc__cell pc__cell--top">${art('pr2e-congress-top-1vp', { cls: 'pc__img', label: '1 VP' })}${c.down ? '' : senator}</span>
         <span class="pc__cell pc__cell--reward">${art(cell.art, { cls: 'pc__img', label: cell.text })}${cell.number ? `<span class="pc__number" aria-hidden="true">${cell.number}</span>` : ''}${c.down ? senator : ''}</span>
         <span class="pc__text">${esc(cell.short)}</span>
@@ -699,7 +699,7 @@ function boardHtml(ctx, p) {
     })
     .join('');
   const hats = [0, 1]
-    .map((i) => `<span class="pbhat${p.hats > i ? ' has-hat' : ''}" style="left:${pbx(i === 0 ? 297 : 405)}%;top:${pby(180)}%" title="Cowboy hat space ${i + 1}">${p.hats > i ? art('token-cowboy-hat', { cls: 'pbhat__img', label: 'Cowboy hat' }) : ''}</span>`)
+    .map((i) => `<span class="pbhat${p.hats > i ? ' has-hat' : ''}" style="left:${pbx(i === 0 ? 297 : 405)}%;top:${pby(180)}%" title="Cowboy hat space ${i + 1}">${p.hats > i ? art('token-cowboy-hat-v2', { cls: 'pbhat__img', label: 'Cowboy hat' }) : ''}</span>`)
     .join('');
   const roof = BOARD_ROOF_X.map((x, i) => {
     const u = units[i];
@@ -775,7 +775,7 @@ function playerBoard(ctx, p) {
       <span class="score__dot"></span><b class="pb__name">${esc(nameOf(ctx, p.id))}</b>
       <span class="badge badge--${seat.human ? 'human' : 'bot'}">${esc(seat.label)}</span>
       <span class="pb__vp" data-vp="${p.id}">${E.totalVp(p)} VP</span>
-      <span class="stat" title="Cowboy hats (limit ${K.HATS.hatLimit})">${art('token-cowboy-hat', { cls: 'icon icon--stat', label: 'Hats' })}<b data-stat="hats">${p.hats}</b></span>
+      <span class="stat" title="Cowboy hats (limit ${K.HATS.hatLimit})">${art('token-cowboy-hat-v2', { cls: 'icon icon--stat', label: 'Hats' })}<b data-stat="hats">${p.hats}</b></span>
       <span class="stat" title="Workers in your supply">${piece('worker', colour)}<b data-stat="workers">${p.workersInSupply}</b></span>
       <span class="stat stat--heads" title="Your trains">${piece('railhead', colour)}<span>${p.railheads.filter((c) => c).map((c) => esc(E.MAP.cityById[c].name)).join(', ')}</span></span>
       ${storage}

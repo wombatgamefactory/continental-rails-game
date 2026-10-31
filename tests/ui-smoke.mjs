@@ -149,6 +149,10 @@ function targetSelector(key) {
   const [type, id] = key.split(':');
   if (type === 'route') return `g[data-target="${key}"][data-legal="1"] rect >> nth=0`;
   if (type === 'city') return `g[data-target="${key}"][data-legal="1"] .city__disc`;
+  // Every stored item of a kind is its own space on the printed board, and any of them discards that kind.
+  // A track's overlay covers the whole printed board and takes no click itself; its production number does.
+  if (type === 'house') return `[data-target="${key}"][data-legal="1"] .cb__p`;
+  if (type === 'store') return `[data-target="${key}"][data-legal="1"] >> nth=0`;
   return `[data-target="${key}"][data-legal="1"]`;
 }
 
@@ -2348,7 +2352,7 @@ async function oneScreenAt1440(browser) {
   // Built tiles on the train and laid tiles on the map are the same drawing.
   const same = await page.evaluate(() => {
     const laid = document.querySelector('g.route[data-route="SEA-SPO"] .tile__bed');
-    const built = document.querySelector('.stock--ground .tile__bed');
+    const built = document.querySelector('.cb__u--tile[data-item="ground"] .tile__bed');
     return laid && built ? { laid: getComputedStyle(laid).fill, built: getComputedStyle(built).fill, rails: document.querySelectorAll('g.route[data-route="SEA-SPO"] .tile__rail').length } : null;
   });
   assert(same && same.laid === same.built && same.rails >= 2, `a laid Ground tile and a built Ground tile share one shape and colour (${JSON.stringify(same)})`);
@@ -2509,7 +2513,7 @@ async function contrastCheck(browser) {
   await check('landing page', ['.hero__kicker', '.hero__title', '.hero__hook', '.stat-box dt', '.stat-box dd', '.landing__intro', '.btn--primary', '.btn--ghost', '.setup__panel h2', '.setup__count .btn', '.setup__count .btn.is-on', '.seat__n', '.seat__note', '.seat select', '.setup__bots summary', '.vpanel__summary', '.vpreset .btn__label', '.vpreset .btn__sub', '.vrow__label', '.vrow__desc', '.vgroup legend', '.step__body h3', '.step__body p', '.step__n', '.steps__note', '.pitch h2', '.points li', '.points b', '.credits__main', '.credits__small', '#bug-report-btn']);
   await loadPrepared(page, allOnMidGame(), ['human', 'random', 'random']);
   await waitKind(page, 'workerStep');
-  await check('in play', ['.hdr__title', '.hdr__meta', '.hdr .btn', '.hdr .btn.is-on', '.chip', '.prompt__name', '.prompt__turn', '.prompt__main', '.prompt__hint', '.allmoves summary', '.region__title', '.region__title small', '.cong__cost', '.cong__text', '.cong__senator', '.congress__lobby', '.score__name', '.score__vp', '.score__vp small', '.score__flag', '.badge--human', '.badge--bot', '.pstat b', '.log__head', '.log__entry', '.dock__home', '.dock__tab', '.dock__agenda-label', '.dock__agenda-text', '.train__name', '.storage__head', '.storage__label', '.storage__note', '.engine__head', '.engine__head small', '.htrack__p', '.tslot b', '.cslot small', '#bug-report-btn']);
+  await check('in play', ['.hdr__title', '.hdr__meta', '.hdr .btn', '.hdr .btn.is-on', '.chip', '.prompt__name', '.prompt__turn', '.prompt__main', '.prompt__hint', '.allmoves summary', '.region__title', '.region__title small', '.cong__cost', '.cong__text', '.cong__senator', '.congress__lobby', '.score__name', '.score__vp', '.score__vp small', '.score__flag', '.badge--human', '.badge--bot', '.pstat b', '.log__head', '.log__entry', '.dock__home', '.dock__tab', '.dock__agenda-label', '.dock__agenda-text', '.train__name', '.storage__head', '.cb__p', '.cb__vp', '#bug-report-btn']);
   await page.click('[data-ui="tab:pony"]');
   await check('Pony Express panel', ['.dock__tab.is-active', '.ptok', '.pony__left', '.prank h4', '.pcard__head b', '.pcard__cost', '.pcard__kind', '.pcard__text']);
   await loadPrepared(page, endedState(), ['human', 'random', 'random', 'random']);

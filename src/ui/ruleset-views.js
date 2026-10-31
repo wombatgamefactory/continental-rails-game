@@ -20,6 +20,7 @@ export const VIEWS_BY_RULESET = Object.freeze({
  * ruleset with no entry is not warmed.
  */
 export const ART_PREFIX_BY_RULESET = Object.freeze({
+  continental: ['board-', 'resource-', 'specialist-face-', 'token-cowboy-hat', 'piece-'],
   pr2e: ['pr2e-', 'resource-', 'icon-', 'piece-', 'token-cowboy-hat', 'footprint-marker', 'specialist-'],
 });
 

@@ -79,7 +79,7 @@ PRIORITY = [
     ("ui-hero", "The landing page's top picture. Until it exists the page makes do with the district illustrations."),
     ("map-backdrop", "Would sit behind the route map, the largest area of the game screen, which is plain parchment today. Not wired in yet: the map renderer needs one line to show it."),
     ("ui-logo", "The title lettering on the landing page and in the header. Until it exists the title is plain text."),
-    ("train-engine", "The locomotive of every player board (tinted per player). Not wired in yet: the board draws its engine in code."),
+    ("train-engine", "No longer needed: the player board is now the designer's drawn board (board-player-engine) with the player's colour on the pieces laid over it."),
     ("track-ground", "The three track tiles are drawn in code today (a hatched picture is never shown); art would make the built stockpile read at a glance."),
     ("track-tunnel", "As track-ground."),
     ("track-bridge", "As track-ground."),

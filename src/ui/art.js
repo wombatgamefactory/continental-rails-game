@@ -279,7 +279,7 @@ export function installArtFallback(root = document) {
 
 /** The art ids to fetch before first paint (used on every screen). */
 export function preloadIds() {
-  return ['resource-iron', 'resource-wood', 'resource-gunpowder', 'resource-coin', 'token-cowboy-hat'];
+  return ['resource-iron-v2', 'resource-wood-v2', 'resource-gunpowder-v2', 'resource-coin-v2', 'token-cowboy-hat-v2'];
 }
 
 export const ART_ROOT = ASSET_ROOT;

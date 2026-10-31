@@ -20,11 +20,11 @@ export function nameList(names) {
 
 /** Manifest ids of the shared pictures (the same ones the Continental Rails screens use). */
 export const ITEM_ART = {
-  iron: 'resource-iron',
-  wood: 'resource-wood',
-  gunpowder: 'resource-gunpowder',
-  coins: 'resource-coin',
-  hats: 'token-cowboy-hat',
+  iron: 'resource-iron-v2',
+  wood: 'resource-wood-v2',
+  gunpowder: 'resource-gunpowder-v2',
+  coins: 'resource-coin-v2',
+  hats: 'token-cowboy-hat-v2',
   ground: 'terrain-ground',
   tunnel: 'terrain-tunnel',
   bridge: 'terrain-bridge',

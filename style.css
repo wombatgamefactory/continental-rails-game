@@ -416,7 +416,7 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 /* ---------- the three highlight states ---------- */
 /* legal: lit and pulsing. illegal: in scope but not open to you; plain, and clickable so the click can say why. out: not this decision's business; dimmed. */
 .is-legal { cursor: pointer; }
-.district.is-legal, .wspace.is-legal, .cong.is-legal, .htrack.is-legal, .stock.is-legal, .centre.is-legal, .utile.is-legal, .pcard.is-legal {
+.district.is-legal, .wspace.is-legal, .cong.is-legal, .stock.is-legal, .centre.is-legal, .utile.is-legal, .pcard.is-legal {
   outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge), 0 0 12px 3px var(--hl); animation: pulse 1.4s ease-in-out infinite;
 }
 .district.is-legal { outline-offset: 2px; z-index: 1; }
@@ -432,7 +432,7 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .route--claimed.is-out, .city.is-out { opacity: 1; filter: none; }
 .city.is-out .city__name { opacity: .85; }
 .cong.is-out { filter: saturate(.6); opacity: .85; }
-.htrack.is-out, .stock.is-out { opacity: 1; filter: none; }
+.stock.is-out { opacity: 1; filter: none; }
 .centre.is-out { pointer-events: none; opacity: 1; filter: none; }
 
 /* ---------- the action grid ---------- */
@@ -490,10 +490,8 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .pstat b { font-weight: 700; min-width: .6em; }
 
 /* ---------- the train strip ---------- */
-/* Top to bottom: who and what they hold; the storage with its stockpile of built tiles; then the engine and its carriages coupled in a row. */
+/* The player board strip: its heading classes are here, the board and carriages are drawn by src/ui/cr-board.css. */
 .train--full { display: flex; flex-direction: column; gap: 6px; --piece-size: 18px; border-left: 7px solid var(--pc); padding-left: var(--s2); }
-.train__manifest { display: flex; flex-wrap: wrap; align-items: center; gap: 5px var(--s4); }
-.train__consist { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .train__head { display: flex; align-items: center; gap: 6px; }
 .train__name { font: 700 var(--fs-l) var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .train__vp { font: 700 var(--fs-l) var(--font-display); white-space: nowrap; margin-left: var(--s2); }
@@ -519,36 +517,7 @@ body[data-screen="game"] { overflow: hidden; height: 100vh; }
 .astep--done { opacity: .5; text-decoration: line-through; }
 .astep--current { outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge); background: #fff; font-weight: 700; }
 .astep--upgrade { background: var(--parchment-2); }
-.train__cars { display: flex; flex-wrap: wrap; gap: 14px 12px; align-items: stretch; padding-bottom: 9px; }
-.car { position: relative; background: var(--card); border: 1.5px solid var(--wood-500); border-bottom: 5px solid var(--pc); border-radius: var(--r2) var(--r2) 3px 3px; padding: 4px 8px 8px; }
-/* wheels and couplings: drawn, so the strip reads as a train */
-.car::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -13px; height: 14px; pointer-events: none;
-  background: radial-gradient(circle at 7px 7px, var(--parchment-2) 0 2px, var(--tok-ink) 2.5px 6.5px, transparent 7px) left / 14px 14px no-repeat,
-              radial-gradient(circle at 7px 7px, var(--parchment-2) 0 2px, var(--tok-ink) 2.5px 6.5px, transparent 7px) right / 14px 14px no-repeat; }
-.car + .car::before { content: ''; position: absolute; left: -13px; bottom: 4px; width: 12px; height: 4px; background: var(--tok-ink); border-radius: 2px; pointer-events: none; }
-.engine { border-radius: 22px var(--r2) 3px 3px; padding-left: 12px; }
 .is-active-step, .cslot.is-acting { outline: 3px solid var(--hl); box-shadow: 0 0 0 2px var(--hl-edge); }
-.engine__head, .carriage__head { font-size: var(--fs-s); font-weight: 700; white-space: nowrap; }
-.engine__head small, .carriage__head small { font-weight: 400; color: var(--ink-soft); margin-left: 4px; }
-.engine__tracks { display: grid; grid-template-columns: repeat(2, auto); gap: 1px 14px; justify-content: start; margin-top: 2px; }
-.htrack { display: flex; align-items: center; gap: 3px; padding: 1px 3px; border-radius: var(--r1); }
-.htrack__p { font-weight: 700; width: 16px; text-align: center; }
-.hslot, .tslot { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: var(--r1); background: #fff; font-size: var(--fs-xs); color: var(--ink-soft); }
-.hslot.has-house { background: var(--parchment-2); }
-.tslot { width: 25px; height: 30px; flex-direction: column; font-size: 10px; line-height: 1; gap: 1px; --piece-size: 16px; }
-.tslot b { color: var(--ink); }
-.tslot.is-next { outline: 2px solid var(--wood-500); }
-.tslot.is-placed { background: var(--parchment-3); opacity: .55; }
-.engine__tele { display: flex; align-items: center; gap: 3px; margin-top: 3px; }
-.engine__label { font-size: var(--fs-xs); color: var(--ink-soft); margin-right: 3px; }
-.carriage__slots { display: flex; gap: 5px; margin-top: 3px; }
-.cslot { width: 46px; min-height: 58px; border: 1px dashed var(--line); border-radius: var(--r1); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 10px; line-height: 1.15; background: #fff; padding: 2px; text-align: center; color: var(--ink-soft); }
-.cslot.has-spec { border-style: solid; color: var(--ink); }
-.cslot--upgrade { width: 76px; border-color: var(--brass-dark); }
-.cslot--upgrade.has-upgrade { border-style: solid; background: var(--parchment-2); color: var(--ink); justify-content: flex-start; }
-.cslot__tile { width: 100%; max-width: 70px; height: auto; border-radius: 3px; }
-.cslot__name { font-weight: 700; }
-.cslot__fx { color: var(--ink-soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* ---------- the map ---------- */
 .map { width: 100%; height: 100%; max-height: 100%; display: block; }
