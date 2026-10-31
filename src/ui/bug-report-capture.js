@@ -50,6 +50,7 @@ import {
   cloneState,
   hashState,
   getGameConfig,
+  goalStandings,
   replayGame,
   scoreGame,
   topFrame,
@@ -415,19 +416,40 @@ function actionSpaceReport(state, playerId, relevantTypes) {
   return { total: space.length, byType: out, legalKeysBySpace };
 }
 
+/**
+ * The player board's carriages. Continental Rails: the slots of each specialist carriage and the number of storage
+ * carriages. The second edition: its carriages are numbered, earned from the map, and each may hold an upgrade token
+ * (its `upgrade`), so those are added; it has no storage carriages, so that field is simply absent there.
+ */
+function trainReport(p) {
+  const cars = p.train.specialistCarriages;
+  const out = { specialistCarriages: cars.map((c) => [...c.slots]) };
+  if (p.train.storageCarriages !== undefined) out.storageCarriages = p.train.storageCarriages;
+  if (cars.some((c) => 'upgrade' in c)) out.carriages = cars.map((c) => ({ number: c.number ?? null, slots: [...c.slots], upgrade: c.upgrade ?? null }));
+  return out;
+}
+
+/** The second edition's running board activation, in a line (null when there is none or the ruleset has none). */
+function boardActivationReport(frame) {
+  if (!frame || frame.kind !== 'boardActivation') return null;
+  const step = frame.steps[frame.index];
+  return { cause: frame.cause ?? null, foreman: frame.foreman ?? null, stepIndex: frame.index, steps: frame.steps.length, current: step ? { type: step.type, carriage: step.carriage ?? null, slot: step.slot ?? null, token: step.token ?? null } : null };
+}
+
 /** Per-player numbers a rules question usually turns on. */
 function playerNumbers(state, p, seats) {
   const seat = seats[p.id] ?? {};
   const tracks = Object.keys(p.houses);
   const workers = safe(() => workersOnGrid(state, p.id));
-  const activation = state.stack.find((f) => f.kind === 'trainActivation' && f.player === p.id);
+  // Continental Rails runs a 'trainActivation' frame, the second edition a 'boardActivation' one.
+  const activation = state.stack.find((f) => (f.kind === 'trainActivation' || f.kind === 'boardActivation') && f.player === p.id);
   const out = {
     id: p.id,
     name: p.name,
     seat: { human: seat.human === true, level: seat.level ?? null, label: seat.label ?? null, colour: seat.colour ?? p.colour ?? null },
     coins: p.coins,
     hats: p.hats,
-    hatsGainedThisTurn: state.turn.player === p.id ? p.hats - state.turn.hatsAtStart : null,
+    hatsGainedThisTurn: state.turn.player === p.id && typeof state.turn.hatsAtStart === 'number' ? p.hats - state.turn.hatsAtStart : null,
     resources: { ...p.resources },
     builtTiles: { ...p.builtTiles },
     storage: safe(() => ({ used: storageUsed(p), capacity: storageCapacity(state, p.id) })),
@@ -444,13 +466,21 @@ function playerNumbers(state, p, seats) {
       telegraphStationCities: Object.keys(state.map.telegraphStation).filter((c) => state.map.telegraphStation[c] === p.id),
       telegraphsPlaced: p.telegraphsPlaced,
     })),
-    train: { specialistCarriages: p.train.specialistCarriages.map((c) => [...c.slots]), storageCarriages: p.train.storageCarriages },
+    train: trainReport(p),
     specialists: safe(() => specialistCounts(state, p.id)),
     bonusActionsUsed: { ...p.bonusActionsUsed },
     turnsTaken: p.turnsTaken,
-    lobbyPointsInActivation: activation ? activation.lobby : null,
+    lobbyPointsInActivation: activation && activation.lobby !== undefined ? activation.lobby : null,
     vp: { ...p.vp },
   };
+  // The second edition's own numbers (it has no bonus actions and no lobby points).
+  if (p.layStationsPlaced !== undefined) {
+    delete out.bonusActionsUsed;
+    delete out.lobbyPointsInActivation;
+    out.layStationsPlaced = p.layStationsPlaced;
+    out.districtHouses = safe(() => activeRuleset().engine.districtHouseCount(state, p.id));
+    out.boardActivation = boardActivationReport(activation);
+  }
   if (state.modules.pony) out.pony = safe(() => ({ ...state.modules.pony.players[p.id] }));
   if (state.modules.upgrades) out.upgradesInstalled = safe(() => installedUpgrades(state, p.id).map((t) => (typeof t === 'object' && t !== null ? (t.id ?? t) : t)));
   return out;
@@ -473,6 +503,19 @@ function progressReport(state) {
           const pr = describeProgress(state, p.id, tile);
           return { player: p.id, text: pr.text, met: pr.met, value: pr.value, target: pr.target };
         }),
+      };
+    });
+  }
+  if (state.rules === 'pr2e') {
+    // The second edition's goals are core rules: four tiles in play, 5 VP to the sole leader of each (no `modules`).
+    out.goals = goalsInPlay(state).map((goal) => {
+      const standing = safe(() => goalStandings(state, goal));
+      return {
+        id: goal.id,
+        name: goal.name,
+        metric: goal.metric,
+        soleLeader: standing && Array.isArray(standing.places) ? standing.places.indexOf(0) : null,
+        progress: state.players.map((p) => ({ player: p.id, text: describeProgress(state, p.id, goal).text, value: standing && standing.values ? standing.values[p.id] : null })),
       };
     });
   }
@@ -548,6 +591,17 @@ export function buildDiagnostics(state, seats, lastHumanActor, controls) {
     return { final: s.final, endReason: s.endReason, players: s.players.map((p) => ({ id: p.id, name: p.name, total: p.total, bySource: p.bySource, tieBreak: p.tieBreak, rank: p.rank })) };
   });
   diag.progress = safe(() => progressReport(state));
+  // The second edition's shared Congress panel and the lay being built: what a "why can't I" report about them turns on.
+  const engine = activeRuleset().engine;
+  if (state.rules === 'pr2e' && typeof engine.congressColumns === 'function') {
+    diag.congress = safe(() => engine.congressColumns(state).map((c) => ({ id: c.id, cost: c.cost, reward: c.reward ?? null, down: c.down === true, reset: c.reset === true })));
+  }
+  if (state.rules === 'pr2e' && typeof engine.layPath === 'function') {
+    diag.layPath = safe(() => {
+      const path = engine.layPath(state);
+      return path === null ? null : { path, preview: safe(() => engine.previewLay(state)) };
+    });
+  }
   diag.controls = controls === undefined ? null : controls;
   return diag;
 }

@@ -82,7 +82,7 @@ export const CONGRESS_CELLS = {
   K2: { art: 'pr2e-congress-reward-col2-gunpowder', text: '2 Gunpowder', short: '2 Gunpowder' },
   K3: { art: 'pr2e-congress-reward-col3-iron', text: '2 Iron', short: '2 Iron' },
   K4: { art: 'pr2e-congress-reward-hats-composite', text: '2 cowboy hats', short: '2 hats' },
-  K5: { art: 'pr2e-congress-reward-col4-house-or-upgrade', text: 'A district house or an upgrade token, and 1 VP', short: 'House or token, 1 VP' },
+  K5: { art: 'pr2e-congress-reward-col4-house-or-upgrade', text: 'A district house or an upgrade token, and 1 VP', short: 'District house or token, 1 VP' },
   K6: { art: 'pr2e-congress-reward-col6-three-resources', text: '4 resources of your choice (not Coins)', short: '4 of choice', number: '4' },
   K7: { art: 'pr2e-congress-reward-col5-telegraph-house-map', text: 'A railway station and / or a telegraph station on the map', short: 'Station(s) on the map' },
   K8: { art: 'pr2e-congress-reward-col8-two-tiles', text: '2 built tiles of your choice', short: '2 built tiles' },

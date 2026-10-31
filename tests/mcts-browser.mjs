@@ -5,6 +5,7 @@
 //   node tests/mcts-browser.mjs                  a Hard bot against a Medium bot, whole game
 //   node tests/mcts-browser.mjs --level=expert   the same with Expert (about three minutes)
 //   node tests/mcts-browser.mjs --seed=11
+//   node tests/mcts-browser.mjs --rules=pr2e     the same under the second edition's rules (--rules=continental is the default)
 //
 // It starts tools/serve.mjs on a free port and launches the installed Chrome through
 // playwright-core (channel 'chrome', falling back to 'msedge'; nothing is ever downloaded).
@@ -29,6 +30,7 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => {
 }));
 const LEVEL = args.level || 'hard';
 const SEED = args.seed || '7';
+const RULES = args.rules && args.rules !== true ? String(args.rules) : 'continental';
 const BUDGET = BOT_LEVELS.find((l) => l.id === LEVEL).defaultTimeBudgetMs;
 
 /** Limits. The frame gap allows for the page's own rendering of a move; a blocked main thread would show the whole think time. */
@@ -120,13 +122,13 @@ try {
   await page.addInitScript(`window.__searchLevel = ${JSON.stringify(LEVEL)};`);
   await page.addInitScript(instrument);
 
-  const url = `${server.url}?bots=${LEVEL},medium&seed=${encodeURIComponent(SEED)}&speed=instant&shuffle=0&test=1`;
-  log(`${LEVEL} v medium in the browser (${browser.version()}), seed ${SEED}: ${url}`);
+  const url = `${server.url}?bots=${LEVEL},medium&seed=${encodeURIComponent(SEED)}&speed=instant&shuffle=0&test=1${RULES === 'continental' ? '' : `&rules=${encodeURIComponent(RULES)}`}`;
+  log(`${LEVEL} v medium in the browser (${browser.version()}), rules ${RULES}, seed ${SEED}: ${url}`);
   const started = Date.now();
   await page.goto(url);
   await page.waitForFunction(() => window.__cr && window.__cr.ready && window.__cr.getState(), null, { timeout: 15000 });
 
-  // Click a harmless control (a player's train summary: it only expands or collapses) while the game runs.
+  // Click a harmless control (a player's card: it only chooses whose player board is shown under the map) while the game runs.
   let clicks = 0;
   let ended = false;
   while (!ended && Date.now() - started < LIMITS.gameTimeoutMs) {
@@ -141,7 +143,7 @@ try {
     });
     if (thinking && clicks < 40) {
       try {
-        await page.locator('[data-ui^="expand:"]').first().click({ timeout: 1000 });
+        await page.locator('[data-ui^="focus:"]').last().click({ timeout: 1000 });
         clicks += 1;
       } catch (err) {
         // the control was being redrawn; try again on the next pass

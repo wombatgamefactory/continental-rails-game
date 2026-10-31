@@ -539,7 +539,11 @@ export function computeSections(recs, ctx) {
   // `also`: the same subsystem's action in the second edition (takeCongressColumn), counted with it.
   const ALSO = { takeCongressEntry: 'takeCongressColumn' };
   const actionUse = (type) => recs.filter((r) => r.actions.some((c) => (c[type] ?? 0) > 0 || (ALSO[type] !== undefined && (c[ALSO[type]] ?? 0) > 0))).length;
+  // A subsystem whose action the run's engine does not have (Move Train, claiming, bonus-action hats and carriages
+  // are Continental Rails rules) is left out, not reported as "never used".
+  const existsHere = (type) => ACTIONS[type] !== undefined || (ALSO[type] !== undefined && ACTIONS[ALSO[type]] !== undefined);
   for (const [id, type] of [['congress', 'takeCongressEntry'], ['moveTrain', 'moveTrain'], ['claimRoute', 'claimRoute'], ['railwayStations', 'placeRailwayStation'], ['telegraphStations', 'placeTelegraphStation'], ['hats', 'buyHat'], ['hire', 'hireSpecialist'], ['carriages', 'addCarriage']]) {
+    if (!existsHere(type)) continue;
     const k = actionUse(type);
     out.subsystems.push({ id, kind: 'action', action: type, ...proportion(k, n), games: k });
   }

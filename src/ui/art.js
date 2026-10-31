@@ -31,10 +31,46 @@ export async function loadArt() {
     const list = await res.json();
     entries.clear();
     for (const entry of list) entries.set(entry.id, entry);
+    const waiting = pendingWarm;
+    pendingWarm = [];
+    waiting.forEach((prefixes) => warmArt(prefixes));
     return { ok: true, count: entries.size };
   } catch (err) {
     return { ok: false, count: 0, error: String(err) };
   }
+}
+
+/** Prefixes asked to be warmed before the manifest had arrived, and the pictures held while they load. */
+let pendingWarm = [];
+const warmed = new Set();
+const warmImages = [];
+
+/**
+ * Starts fetching, in the browser's idle time, every real picture (not a placeholder, not marked unused) whose
+ * manifest id starts with one of `prefixes` (a string or a list), so that the first screen of a game finds them in
+ * the cache instead of drawing blank frames while they download. A game's art is otherwise first requested by its
+ * first render. Safe to call before the manifest has loaded (it waits), more than once, and outside a browser
+ * (it does nothing).
+ */
+export function warmArt(prefixes) {
+  if (typeof window === 'undefined' || typeof Image === 'undefined') return;
+  const list = Array.isArray(prefixes) ? prefixes : [prefixes];
+  if (entries.size === 0) {
+    pendingWarm.push(list);
+    return;
+  }
+  const run = () => {
+    for (const [id, entry] of entries) {
+      if (!list.some((prefix) => id.startsWith(prefix)) || entry.unused === true || entry.status !== 'real' || warmed.has(id)) continue;
+      warmed.add(id);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = ASSET_ROOT + entry.file;
+      warmImages.push(img); // held so that the request is not abandoned
+    }
+  };
+  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(run, { timeout: 1500 });
+  else setTimeout(run, 200);
 }
 
 /** Whether the manifest knows this id. */

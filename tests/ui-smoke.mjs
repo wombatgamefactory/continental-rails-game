@@ -190,6 +190,8 @@ async function loadPrepared(page, state, seats = ['human', 'random'], { paused =
 
 async function shot(page, name, w, h) {
   await page.evaluate(() => window.scrollTo(0, 0));
+  // Art is fetched when a screen is first drawn, so a screenshot taken at once can show blank pictures: wait for them.
+  await page.waitForFunction(() => [...document.images].every((i) => i.complete || i.getClientRects().length === 0), null, { timeout: 8000 }).catch(() => {});
   const file = path.join(SHOTS, `${name}-${w}x${h}.png`);
   writeEvidence(file, await page.screenshot());
   if (w < 1300) writeEvidence(path.join(SHOTS, `${name}-${w}x${h}-full-page.png`), await page.screenshot({ fullPage: true }));
@@ -2642,7 +2644,7 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText.replace(/
 async function tap(page, key) {
   const k = await kind(page);
   const [type] = key.split(':');
-  const selector = type === 'route' ? `g[data-target="${key}"][data-legal="1"] rect >> nth=0` : type === 'city' || type === 'train' ? `g[data-target="${key}"][data-legal="1"] ${type === 'city' ? '.city__disc' : 'circle'} >> nth=0` : `[data-target="${key}"][data-legal="1"]`;
+  const selector = type === 'route' ? `g[data-target="${key}"][data-legal="1"] rect >> nth=0` : type === 'city' || type === 'train' ? `g[data-target="${key}"][data-legal="1"] ${type === 'city' ? '.city__disc' : 'circle'} >> nth=0` : type === 'house' ? `[data-target="${key}"][data-legal="1"] .pbp` : `[data-target="${key}"][data-legal="1"]`;
   try {
     await page.locator(selector).first().click({ timeout: 3000, force: type === 'route' || type === 'city' || type === 'train' });
   } catch (err) {
@@ -3156,7 +3158,62 @@ async function pr2eWords(browser) {
   assert(!WRONG_WORDS.test(text), `no Continental Rails vocabulary (${(WRONG_WORDS.exec(text) || [])[0]})`);
   assert(!/train (board|strip|storage|activation|carriage)|train's (storage|board|carriage)|your train's/i.test(text), 'the player board is never called a train (a train is a piece on the map)');
   assert(/player board/i.test(text), 'the player board is called the player board');
+  // The accessible names of the page's regions follow the ruleset too (index.html's are Continental Rails'): no train, Lobby or add-on modules.
+  const labels = await page.$$eval('[aria-label], [title]', (els) => els.map((e) => `${e.getAttribute('aria-label') ?? ''} | ${e.getAttribute('title') ?? ''}`).join(' || '));
+  assert(!/train(?! (on|1|2|moved))|lobby|add-on module/i.test(labels.replace(/(your|its|a|each|any|one of your|other player's|'s) trains?/gi, '')), `no Continental Rails vocabulary in the accessible names (${(/train|lobby|add-on module/i.exec(labels.replace(/(your|its|a|each|any|one of your|other player's|'s) trains?/gi, '')) || [])[0]})`);
+  assert((await page.getAttribute('.region--trains', 'aria-label')) === 'Player board' && (await page.getAttribute('.region--congress', 'aria-label')) === 'Congress', 'the player board and Congress regions are named for the second edition');
   await page.close();
+}
+
+// ---- 21f2 a real mouse click on the player board picks the track under the pointer ------------------------
+
+async function pr2eBoardClicks(browser) {
+  // At the setup draft all four house tracks are lit at once, and each track's overlay covers the whole board: the click
+  // must reach the track it is on, not the last overlay in the page.
+  const page = await newPage(browser);
+  await page.goto(`${BASE}?test=1&rules=pr2e&players=2&bots=human,random&seed=3&speed=instant`);
+  await page.waitForFunction(() => window.__cr && window.__cr.ready && window.__cr.getState());
+  await waitKind(page, 'setupProduction');
+  const hits = await page.evaluate(() => {
+    const out = {};
+    for (const el of document.querySelectorAll('.pbt')) {
+      const r = el.querySelector('.pbp').getBoundingClientRect();
+      const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      out[el.dataset.track] = top && top.closest('[data-target]') ? top.closest('[data-target]').dataset.target : null;
+    }
+    return out;
+  });
+  assert(Object.keys(hits).length === 4 && Object.entries(hits).every(([track, target]) => target === `house:${track}`), `each track's own spaces take the click (${JSON.stringify(hits)})`);
+  // And a real mouse click on the Gunpowder track starts Gunpowder at production 2.
+  const box = await page.locator('.pbt[data-track="gunpowder"] .pbp').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForFunction(() => window.__cr.getState().players.some((p) => p.houses.gunpowder === 2), null, { timeout: 4000 });
+  const mine = await page.evaluate(() => { const s = window.__cr.getState(); const p = s.players.find((q) => window.__cr.seats()[q.configIndex].human); return p.houses; });
+  assert(mine.gunpowder === 2 && mine.wood === 3 && mine.iron === 3 && mine.coins === 3, `clicking the Gunpowder track chose Gunpowder (${JSON.stringify(mine)})`);
+  await page.close();
+}
+
+// ---- 21f3 the player board strip and the side column fit -------------------------------------------------
+
+async function pr2eLayoutFit(browser) {
+  const full = [['crew', 'financier'], ['miner', 'engineer'], ['crew', 'miner']];
+  for (const [w, h, players] of [[1280, 800, 3], [1440, 900, 3], [1440, 900, 4]]) {
+    const s = pr2eState([['SEA', 'OMA'], ['POR', 'KCY'], ['LAX', 'MSP'], ['SFO', 'CHI']], players);
+    R.giveCarriages(s, 0, full);
+    const page = await newPage(browser, w, h);
+    await loadPr2e(page, s, ['human', ...Array(players - 1).fill('random')]);
+    await waitKind(page, 'workerStep');
+    await page.waitForFunction(() => [...document.querySelectorAll('#screen-game img')].every((i) => i.complete));
+    const m = await page.evaluate(() => {
+      const pick = (sel) => { const e = document.querySelector(sel); return e ? { sw: e.scrollWidth, cw: e.clientWidth, sh: e.scrollHeight, ch: e.clientHeight } : null; };
+      return { strip: pick('.region--trains'), pb: pick('.pb'), page: { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }, scores: pick('#region-scores'), cards: document.querySelectorAll('#region-scores .score').length, board: document.querySelectorAll('.pb__car').length };
+    });
+    assert(m.board === 3, `three carriages are drawn (${m.board})`);
+    assert(m.strip.sw <= m.strip.cw + 1 && m.pb.sw <= m.pb.cw + 1, `${w} x ${h}, ${players} players: the board and three carriages fit the strip without sideways scrolling (${m.strip.sw} in ${m.strip.cw})`);
+    assert(m.page.sw <= m.page.cw, `${w} x ${h}: the page does not scroll sideways`);
+    if (w === 1440) assert(m.scores.sh <= m.scores.ch + 1, `1440 x 900, ${players} players: the player cards and the four goals fit the side column without scrolling (${m.scores.sh} in ${m.scores.ch})`);
+    await page.close();
+  }
 }
 
 // ---- 21g full games: hot-seat by clicking, and bots ---------------------------------------------------------
@@ -3235,7 +3292,7 @@ async function clickDecision(page, rnd, seen) {
   if (!chosen) throw new Error(`nothing to click for ${snap.kind}`);
   if (chosen.type === 'target') {
     const [type] = chosen.key.split(':');
-    const selector = type === 'route' ? `g[data-target="${chosen.key}"][data-legal="1"] rect >> nth=0` : type === 'city' ? `g[data-target="${chosen.key}"][data-legal="1"] .city__disc >> nth=0` : type === 'train' ? `g[data-target="${chosen.key}"][data-legal="1"] circle >> nth=0` : `[data-target="${chosen.key}"][data-legal="1"]`;
+    const selector = type === 'route' ? `g[data-target="${chosen.key}"][data-legal="1"] rect >> nth=0` : type === 'city' ? `g[data-target="${chosen.key}"][data-legal="1"] .city__disc >> nth=0` : type === 'train' ? `g[data-target="${chosen.key}"][data-legal="1"] circle >> nth=0` : type === 'house' ? `[data-target="${chosen.key}"][data-legal="1"] .pbp` : `[data-target="${chosen.key}"][data-legal="1"]`;
     await page.locator(selector).first().click({ timeout: 4000, force: type === 'route' || type === 'city' || type === 'train' });
     note('target');
   } else {
@@ -3435,6 +3492,8 @@ async function main() {
     await test('21d pr2e Congress by clicking at a Financier step: columns 4 to 8, the Reset, the senators', () => pr2eCongress(browser, true));
     await test('21e pr2e other decisions by clicking: hire, discard, the free specialist, the four special actions, a displaced owner\'s choice', () => pr2eOtherDecisions(browser));
     await test('21f pr2e tooltips, refusals and vocabulary', () => pr2eWords(browser));
+    await test('21f2 pr2e: a real mouse click on the player board chooses the track under the pointer, not the last lit one', () => pr2eBoardClicks(browser));
+    await test('21f3 pr2e layout: the player board with three carriages fits its strip at 1280 x 800 and 1440 x 900; four players fit the side column at 1440 x 900', () => pr2eLayoutFit(browser));
     await test('21g a whole pr2e hot-seat game played by clicking, to the end screen', () => pr2eHotSeatGame(browser, true));
     await test('21h a whole pr2e bot game: the end screen', () => pr2eBotGameScreens(browser, true));
     await test('21i a shared victory shows several winners', () => pr2eSharedVictory(browser, true));

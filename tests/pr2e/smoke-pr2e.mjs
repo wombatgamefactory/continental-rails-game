@@ -7,7 +7,7 @@
 // Runs:
 //   - random-bot games on default variants, 200 each at 2, 3 and 4 players;
 //   - 30 random games under each non-default value of every variant (P21.1);
-//   - games of the stand-in Medium bot (it takes actions rather than stopping,
+//   - games of the Medium bot (it takes actions rather than stopping,
 //     so it lays, builds, earns carriages and completes the line).
 //
 // Checked: every game ends by itself, ZERO refused proposals, ZERO harness-cap
@@ -251,7 +251,7 @@ export function runSmoke(SCALE = 1) {
     for (const value of values) {
       const variants = { [def.name]: value };
       if (def.name === 'maxTurnsPerPlayer' && value === 0) {
-        // No safety stop: the stand-in Medium bot, which lays and completes the line.
+        // No safety stop: the Medium bot, which lays and completes the line.
         variantRuns.push(run(`${def.name}=${value} (medium)`, variants, [2, 3, 4], scaled(12), `pr2e-smoke-v-${def.name}-${value}`, 'medium'));
       } else {
         variantRuns.push(run(`${def.name}=${value}`, variants, [2, 3, 4], scaled(30), `pr2e-smoke-v-${def.name}-${value}`));
@@ -259,8 +259,8 @@ export function runSmoke(SCALE = 1) {
     }
   }
 
-  // 3. The stand-in Medium bot, which lays track and completes the line.
-  const medium = run('stand-in medium bot', {}, [2, 3, 4], scaled(60), 'pr2e-smoke-medium', 'medium');
+  // 3. The Medium bot, which lays track and completes the line.
+  const medium = run('medium bot', {}, [2, 3, 4], scaled(60), 'pr2e-smoke-medium', 'medium');
 
   suite.check('zero refusals and zero harness-cap hits over the whole run', () => {
     assert.equal(totals.refusals, 0);

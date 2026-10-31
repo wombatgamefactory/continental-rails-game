@@ -3,11 +3,11 @@
 - Date: 31/10/2026. The checks were written from the ruleset's rules text; the engine's own suites were read only to learn how to drive the API. The rules text itself is not part of this repository; rule numbers (`P14.6`) refer to it, and only short descriptions in my own words are given here.
 - Subject: `src/engine-pr2e/` (ruleset id `pr2e`) against that rules text.
 - Suite: `tests/pr2e/rules-audit-pr2e.test.mjs`; the checks are in `tests/rules-audit-pr2e/part-1.mjs` to `part-8.mjs`, the runner and set-up helpers in `kit.mjs`, and the rules that cannot be tested in `untestable.mjs`. The suite is found and run by `tests/run-all.mjs` (`npm test`).
-- Result: `368/368 checks passed (3 known failures, 17 skipped)`.
+- Result when the audit was written: `368/368 checks passed (3 known failures, 17 skipped)`. **Now: `371/371 checks passed (0 known failures, 17 skipped)`: the engine was corrected afterwards for all three (section 6), and the three checks are ordinary checks.**
 
 ## 1. Verdict in one paragraph
 
-The engine conforms to the rules text in everything the audit could reach, with **three small exceptions** (section 6): with the simulator value `arrivalBuilding = optional` a zero-tile lay offers a way to skip the building although the rules say it always ends with one (P14.3.3 b, P21.1), and two constants that P21.2 names as data (`SETUP.housesPerPlayer`, `SUPPLY.senators`) are never read. Beyond the hand-built checks, the audit replays 24 random games (about 9,000 actions, every variant value) against an independent scorer for track VP, tolls, completion VP, buildings owed and carriages, and compares the lay actions on offer with an exhaustive search of all simple paths on the map in 900 random positions. Neither found a divergence. Expected values are the rules' own numbers, not read back from the engine.
+The engine conforms to the rules text in everything the audit could reach, with **three small exceptions** (section 6; all three have since been fixed in the engine): with the simulator value `arrivalBuilding = optional` a zero-tile lay offers a way to skip the building although the rules say it always ends with one (P14.3.3 b, P21.1), and two constants that P21.2 names as data (`SETUP.housesPerPlayer`, `SUPPLY.senators`) are never read. Beyond the hand-built checks, the audit replays 24 random games (about 9,000 actions, every variant value) against an independent scorer for track VP, tolls, completion VP, buildings owed and carriages, and compares the lay actions on offer with an exhaustive search of all simple paths on the map in 900 random positions. Neither found a divergence. Expected values are the rules' own numbers, not read back from the engine.
 
 ## 2. Counts
 
@@ -211,7 +211,7 @@ The special-attention areas of the brief, and where they are checked: lays (P14.
 
 ## 6. Failures (engine against the rules)
 
-These checks are kept in the suite as `knownFailure`: they run, are expected to fail, are listed on every run, and the suite stays green. When the engine is fixed the check passes and the suite goes red until it is moved to `check`, so a fix cannot go unnoticed. The engine was not changed by this audit.
+**Status: all three are fixed in the engine** (a zero-tile lay always ends with a building; the house and senator counts are read from their constants), and the three checks now pass as ordinary checks, so the suite reports 0 known failures. What follows is the record of what the audit found, as written. These checks were kept in the suite as `knownFailure`: they ran, were expected to fail, were listed on every run, and the suite stayed green; when the engine was fixed the check passed and the suite went red until it was moved to `check`, so a fix could not go unnoticed. The engine was not changed by the audit itself.
 
 
 ### F1. `P14.6/optional-zero-tile` - skipBuilding after a zero-tile lay (P14.3.3 b, P14.6.1, P21.1 row 4)

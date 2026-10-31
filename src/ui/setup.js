@@ -39,7 +39,8 @@ import { parseVariantValue, getVariantDef, VARIANTS, useRuleset } from './active
 import { presetsFor } from './presets.js';
 import { renderVariantsPanel, checkVariants, tidy, variantsToQuery } from './variants-panel.js';
 import { CONFIG } from './config.js';
-import { art, realArt, isRealArt } from './art.js';
+import { art, realArt, isRealArt, warmArt } from './art.js';
+import { ART_PREFIX_BY_RULESET } from './ruleset-views.js';
 
 /**
  * Colours for the seats. Each is clear of the UI palette (parchment, brass,
@@ -165,6 +166,8 @@ export function setRules(id) {
   useRuleset(ruleset.id);
   const names = new Set(ruleset.variants.map((v) => v.name));
   form.variants = tidy(Object.fromEntries(Object.entries(form.variants).filter(([name]) => names.has(name))));
+  // The player is about to start a game of these rules: fetch the pictures only its screens use while they read the page.
+  if (ART_PREFIX_BY_RULESET[ruleset.id]) warmArt(ART_PREFIX_BY_RULESET[ruleset.id]);
 }
 
 /** The seats, the engine config and the ruleset id for the form as it stands. */

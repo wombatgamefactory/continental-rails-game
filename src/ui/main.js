@@ -50,13 +50,13 @@ import * as UI from './ui-state.js';
 import { buildTargets, pickDistrictAction } from './action-targets.js';
 import { entriesFromEvents, flashFromEvents, revealsHiddenInformation, VP_LABELS, END_REASON_TEXT, TIE_BREAK_TEXT } from './log.js';
 import { renderHeader, renderScores, renderPrompt, renderGrid, renderCongress, renderTrains, renderMap, renderLog, renderCover, renderEnd, renderToast } from './board-render.js';
-import { applyQuery, renderSetup, handleSetupEvent, buildGame, buildDemoGame, setSetupError, getForm, syncUrl, PLAYER_COLOURS } from './setup.js';
+import { applyQuery, renderSetup, handleSetupEvent, buildGame, buildDemoGame, setSetupError, getForm, setRules, syncUrl, PLAYER_COLOURS } from './setup.js';
 import { createBotDriver } from './bot-driver.js';
 import { renderDock, tabsInPlay, TAB_TITLES } from './module-panels.js';
 import { scoringBreakdown, scoringSummary, renderPopup } from './scoring-popup.js';
 import { tipFor as tipForCR, refusalMessage as refusalMessageCR } from './explain.js';
 import * as PR2E from './pr2e/hooks.js';
-import { viewsFor } from './ruleset-views.js';
+import { viewsFor, REGION_LABELS_BY_RULESET } from './ruleset-views.js';
 // bug reporter and analytics (hooks only: the logic lives in these modules)
 import { CONFIG } from './config.js';
 import { installBugReporter } from './bug-report-ui.js';
@@ -241,7 +241,11 @@ function beginGame(state, seatList, origin = 'created', rules = DEFAULT_RULESET_
   app.incidents = [];
   app.replay = [];
   app.replayBase = origin === 'loaded' ? serialiseState(state) : null;
-  if (origin === 'loaded') app.demo = false;
+  if (origin === 'loaded') {
+    app.demo = false;
+    // "Play again" and "Replay this seed" start from the set-up form: it must follow the loaded game's rules.
+    setRules(app.rules);
+  }
   app.lastHumanActor = null;
   app.startedAt = Date.now();
   app.endTracked = false;
@@ -535,6 +539,18 @@ function buildContext() {
   };
 }
 
+/** The fixed regions' accessible names: index.html's, with the ruleset's own where it names a region differently. */
+function applyRegionLabels(rulesetId) {
+  const overrides = REGION_LABELS_BY_RULESET[rulesetId] ?? {};
+  const selectors = new Set(Object.values(REGION_LABELS_BY_RULESET).flatMap((labels) => Object.keys(labels)));
+  for (const selector of selectors) {
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    if (el.dataset.labelDefault === undefined) el.dataset.labelDefault = el.getAttribute('aria-label') ?? '';
+    el.setAttribute('aria-label', overrides[selector] ?? el.dataset.labelDefault);
+  }
+}
+
 function render() {
   if (!app.state || UI.getView().screen === 'setup') return;
   app.lastRender = performance.now();
@@ -552,6 +568,7 @@ function render() {
   root.dataset.cover = ctx.cover ? '1' : '0';
   root.dataset.turn = String(state.turn.number);
   if (app.test) root.dataset.hash = hashState(state);
+  applyRegionLabels(ctx.ruleset.id);
   const dockEl = $('region-dock');
   const oldBody = dockEl.querySelector('.dock__body');
   const keepScroll = oldBody ? { tab: oldBody.dataset.tab, top: oldBody.scrollTop } : null;

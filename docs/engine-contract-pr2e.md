@@ -6,7 +6,7 @@
 
 `docs/engine-contract.md` is the contract every engine meets. This engine meets all of it as written: the model of section 1 (one plain-JSON state, a stack of pending decisions, atomic actions from `getValidActions`, the auto-advance rule, explicit stop actions, block reasons shared by the list and `applyAction`), the games API and state-as-a-value functions of section 2, hidden information and the RNG (sections 7, 8), events (section 13), bots (section 14), file responsibilities and the import direction (section 15). What this file adds is what is different in this ruleset: its state, its decisions, its action types, its block reasons, its scoring and its variants. The section numbers follow the main contract's.
 
-Every rule of the core rulebook is played, with every value of every variant: the Financier action and the 8-column Congress (P10), cowboy hats from both sources (P11), carriage upgrades (P12) and the goal tiles (P18) included. Only the bots are temporary (section 22).
+Every rule of the core rulebook is played, with every value of every variant: the Financier action and the 8-column Congress (P10), cowboy hats from both sources (P11), carriage upgrades (P12) and the goal tiles (P18) included. The bots are in section 22.
 
 ---
 
@@ -330,4 +330,10 @@ As the main contract (`action` first, then what it caused). The event types of t
 
 ## 22. Bots
 
-Until a pr2e bot is written, Easy, Medium, Hard and Expert use the temporary stand-in policy of `src/rulesets/pr2e.js` (a random choice among the non-stop actions; the search levels run the shared tree search with it as priors and playouts).
+The five levels exist for this ruleset, built by `src/rulesets/pr2e.js`:
+
+- **Random** is the shared random bot over this engine.
+- **Easy and Medium** are the heuristic bot of `src/bots/pr2e/` (`heuristicBot-pr2e.js`, tuning in `weights-pr2e.js`), built by `createPr2eHeuristicPolicies(engine)`; Easy plays the same scores with noise. It plans path lays (tolls, the forced arrival building, the track VP by scoring city), Congress columns and the Reset, goals, upgrade tokens and hiring. The policies have the same shape as the Continental Rails ones (`heuristicBot`, `easyBot`, `heuristicPolicy`, `rolloutPolicy`, `scoreValidActions`, a no-op `repeatGuard`, `decisionShare`, `pipelineValue`).
+- **Hard and Expert** are the shared tree search (`src/bots/mctsBot.js`, unchanged) with those scores as priors and that policy for the playouts. A playout runs to the end of the game (the transcontinental line or the turn limit); the search reads only `determinise`, which here replaces the game RNG, since nothing is hidden.
+
+Strengths, speeds and the tuning record are in `docs/bots.md` (last section). A bot reads the engine it is handed and imports no engine of its own (section 21 of the main contract).

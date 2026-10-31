@@ -7,7 +7,7 @@
 @media (min-width: 1341px) and (min-height: 821px) {
   #app[data-rules="pr2e"] { --col-left: clamp(470px, 37vw, 620px); }
 }
-#app[data-rules="pr2e"] .region--trains { overflow: auto; }
+#app[data-rules="pr2e"] .region--trains { overflow: auto; container-type: inline-size; }
 #app[data-rules="pr2e"] .score { flex-shrink: 0; padding: 3px 8px; gap: 1px; }
 #app[data-rules="pr2e"] .col-side .region--log { flex-basis: 70px; min-height: 70px; }
 @media (min-width: 1101px) {
@@ -15,6 +15,16 @@
   /* the prompt takes what is left and scrolls inside itself; the grid and Congress keep their natural height */
   #app[data-rules="pr2e"] .col-left { grid-template-rows: minmax(0, 1fr) auto auto; }
   #app[data-rules="pr2e"] .region--prompt { max-height: none; min-height: 0; }
+}
+/* Four players: the side column holds four player cards, the four goals and the log, so each is a little tighter. */
+#app[data-rules="pr2e"]:has(#region-scores button.score:nth-of-type(4)) {
+  .col-side .region--log { flex-basis: 48px; min-height: 48px; }
+  .score { padding: 2px 8px; gap: 0; min-height: 0; }
+  .score .icon--pstat { width: 14px; height: 14px; }
+  .pgoals { margin-top: 4px; padding-top: 3px; }
+  .pgoals__title { margin-bottom: 2px; }
+  .pgoals__list { gap: 2px; }
+  .pgoal__img { width: 30px; }
 }
 .congress__head .region__title { flex: 1 1 auto; }
 .congress__head .region__title small b { color: var(--accent-congress); }
@@ -105,8 +115,11 @@
 .railhead.is-illegal { pointer-events: auto; cursor: help; }
 
 /* ---------- the player board on its printed art, and its carriages ---------- */
-.pb { display: flex; flex-direction: column; gap: 4px; border-left: 7px solid var(--pc); padding-left: var(--s2); --pb-h: 160px; --piece-size: 18px; }
-@media (min-width: 1700px) and (min-height: 1000px) { .pb { --pb-h: 200px; } }
+/* The board and three carriages are 5.27 board-heights wide (board 1200:591, carriage 480:444), plus gaps and the colour bar:
+   the height is the printed 160 px (200 px on a big screen) unless the strip is narrower than that needs, so that three
+   carriages never force sideways scrolling. 100cqw is the strip's own width (it is a size container, see above). */
+.pb { display: flex; flex-direction: column; gap: 4px; border-left: 7px solid var(--pc); padding-left: var(--s2); --pb-full: 160px; --pb-h: min(var(--pb-full), calc((100cqw - 62px) / 5.27)); --piece-size: 18px; }
+@media (min-width: 1700px) and (min-height: 1000px) { .pb { --pb-full: 200px; } }
 .pb__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .pb__name { font: 700 var(--fs-l) var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pb__vp { font: 700 var(--fs-l) var(--font-display); white-space: nowrap; }
@@ -117,7 +130,9 @@
 .pb__car { aspect-ratio: 480 / 444; }
 .pb__boardimg, .pb__carimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .pbt { position: absolute; inset: 0; pointer-events: none; }
-.pbt.is-legal { pointer-events: auto; }
+/* Each track's overlay covers the whole board, so the overlay itself must never take a click (the last legal one would
+   win every click, whichever track was meant): only its own house spaces and its production badge do. */
+.pbt.is-legal .pbh, .pbt.is-legal .pbp { pointer-events: auto; cursor: pointer; }
 .pbh, .pbp, .pbs, .pbhat, .pbr, .pbw, .pbk { position: absolute; transform: translate(-50%, -50%); }
 .pbh { width: 5.4%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; --piece-size: 100%; }
 .pbh .piece { width: 100%; height: 100%; }
@@ -146,6 +161,8 @@
 .pb__car.is-illegal { cursor: help; outline: 2px dashed rgba(255, 255, 255, .6); outline-offset: -3px; }
 .pb__ghost { flex: 1 1 140px; min-width: 120px; max-width: 220px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 8px; border: 2px dashed var(--line); border-radius: 6px; background: var(--card); font-size: var(--fs-s); color: var(--ink-soft); }
 .pb__ghost b { color: var(--ink); }
+/* once all three carriages are earned the box only counts railway stations: it gives way to the carriages unless the strip is wide */
+@container (max-width: 1249px) { .pb__ghost--done { display: none; } }
 .pb__count b { color: var(--ink); }
 
 /* ---------- the dock: goals in full, the upgrade supply, the specialists ---------- */

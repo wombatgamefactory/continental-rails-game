@@ -87,7 +87,7 @@ A seat is `level`, `level@N` (N iterations a turn, reproducible) or `level~MS` (
 
 The simulator (`sim/sim.mjs`) accepts `--bots=hard,medium`. With `--iterations=N` every search seat gets the same N per turn (it cannot give Hard and Expert different allowances; use `tests/mcts-strength.mjs` for that); with neither `--iterations` nor `--budget` the search seats use the real clock and the run is not reproducible.
 
-Other tests: `tests/mcts.test.mjs` is part of `npm test` (legality over 20 full games, determinism, hidden information, the fallback, the clock, off-turn decisions; under a minute). `node tests/mcts-browser.mjs` (`--level=expert`) plays a whole game in the installed Chrome and checks that the page stays responsive while the bot thinks.
+Other tests: `tests/mcts.test.mjs` is part of `npm test` (legality over 20 full games, determinism, hidden information, the fallback, the clock, off-turn decisions; under a minute). `node tests/mcts-browser.mjs` (`--level=expert`, `--rules=pr2e`) plays a whole game in the installed Chrome and checks that the page stays responsive while the bot thinks.
 
 ## In the browser
 
@@ -189,7 +189,21 @@ A caution for the designer: the bot found Congress by itself, and the Reset (1 C
 | Hard, 1.5 s (3 games) | 1.88 s / 3.46 s / 4.13 s | 2.24 s / 3.66 s / 5.13 s |
 | Expert, 6 s (2 games) | 4.94 s / 7.51 s / 9.02 s | 4.91 s / 7.45 s / 8.45 s |
 
-A pr2e playout costs about twice a Continental Rails one, and a decision cannot stop in the middle of a playout, so with the Continental Rails shares an Expert turn ran 5.76 s on average, 8.77 s at the 95th percentile. `PR2E_SEARCH_SETTINGS.shareScale` (0.8, in `weights-pr2e.js`) multiplies every share of the turn's allowance; that brought it level. The page's own test of the real browser (`tests/mcts-browser.mjs`) was not run for pr2e (see the report: it needs the pr2e page).
+A pr2e playout costs about twice a Continental Rails one, and a decision cannot stop in the middle of a playout, so with the Continental Rails shares an Expert turn ran 5.76 s on average, 8.77 s at the 95th percentile. `PR2E_SEARCH_SETTINGS.shareScale` (0.8, in `weights-pr2e.js`) multiplies every share of the turn's allowance; that brought it level. The real browser is measured below.
+
+**In the browser** (31/10/2026, the installed Chrome 156, `node tests/mcts-browser.mjs --level=<level> --rules=pr2e`, speed "instant", seed 7, against a Medium bot, on an otherwise idle machine; one game each, so a few dozen turns: read the means as approximate). The same harness under Continental Rails for comparison:
+
+| | pr2e Hard | pr2e Expert | Continental Rails Expert |
+|---|---|---|---|
+| Turns of the search bot | 25 | 26 | 19 |
+| Wall time per turn: mean / median / 95th percentile / maximum | 1.41 s / 1.37 s / 2.02 s / 2.87 s | 4.98 s / 4.93 s / 8.13 s / 8.35 s | 4.50 s / 4.68 s / 7.33 s / 7.33 s |
+| Budget | 1.5 s | 6 s | 6 s |
+| Longest gap between two animation frames while the bot thinks | 217 ms | 33 ms | 117 ms |
+| A click while the bot thinks: handled and painted in (mean / maximum) | 13 ms / 14 ms | 13 ms / 14 ms | 13 ms / 14 ms |
+| "is thinking..." indicator on screen while the bot is to act | every frame | every frame | every frame |
+| Whole game | 37 s, 37 turns | 137 s, 51 turns | 94 s, 36 turns |
+
+Every check of the harness passed in all three runs (the game reaches the end screen, no console or page error, no driver incident, the frame counter keeps ticking, no frame gap over 250 ms, clicks handled within 100 ms, the indicator visible, a turn takes about its budget). The second-edition Expert turn is about a half second longer than the Continental Rails one on average (a playout costs about twice as much and a decision cannot stop in the middle of one), within the limit the harness sets (2.4 to 10.2 s a turn, 95% under 13.2 s) and under the page's driver timeout. The harness's click control was a stale selector (it clicked a control that no longer exists, so no click was measured); it now clicks a player card, and `--rules=` was added.
 
 Where to look: `describePlan(state)` of the policies prints the two targets; `scoreValidActions(state)` gives the scores the search starts from.
 

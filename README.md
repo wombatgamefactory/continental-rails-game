@@ -34,9 +34,24 @@ How each works, how strong each is, what was tried and how to add a level: [docs
 
 ## Two rulesets
 
-The set-up page offers two sets of rules at the top of its panel: **Continental Rails** (the default) and **Pacific Rails, second edition**, the published 2020 rules of the game Continental Rails grew from, adapted to the same map, so a publisher can play and compare the two. Each is a separate engine behind the same engine contract, with its own bots and its own variants. The choice is kept in the address (`?rules=pr2e`; no `rules` means Continental Rails), shown in the game header and recorded in bug reports. On the simulator command line it is `--rules=pr2e`. The second edition's engine plays the whole core rulebook of 2020 (Congress, carriage upgrades and the goal tiles included) and has its own seven variants (Tycoon Mode and the rulings on how a lay works); the page still draws it with the Continental Rails views, and its bots above Random are a temporary stand-in (a random player that prefers to act rather than pass) until a bot is written for these rules. How it fits together: [docs/engine-contract.md](docs/engine-contract.md), section 21, and [docs/engine-contract-pr2e.md](docs/engine-contract-pr2e.md).
+The set-up page offers two sets of rules at the top of its panel, so a publisher can play and compare them on the same map:
+
+| Ruleset | Id (address, simulator, saved games) | Engine | Bots | Screens |
+|---|---|---|---|---|
+| **Continental Rails** (the default) | `continental` | `src/engine/` | `src/bots/` | the page's own (`src/ui/`) |
+| **Pacific Rails, second edition**, the published 2020 rules of the game Continental Rails grew from | `pr2e` | `src/engine-pr2e/` | `src/bots/pr2e/` | `src/ui/pr2e/`, wired in by `src/ui/ruleset-views.js` |
+
+Each is a separate engine behind the same engine contract, with its own bots (Random to Expert, through the registry in `src/rulesets/`), its own variants (25 for Continental Rails, 7 for the second edition: Tycoon Mode and the rulings on how a lay works) and its own presets. The second edition plays the whole core rulebook of 2020 (the Financier and its eight-column Congress, carriage upgrades, cowboy hats and the goal tiles included), and its screens show a player board with a telegraph row and earned carriages, the Congress panel, the goals with their live leaders and route-by-route path lays.
+
+- **Choosing.** On the set-up page, or by address: `?rules=pr2e` (no `rules` means Continental Rails). The choice is kept in the address, shown in the game header, repeated on the end screen, recorded in saved games (a saved game of either ruleset loads into its own), in bug reports (`tools/replay-bug-report.mjs` picks the engine from the report) and in simulator output. "Play again" and "Replay this seed" keep the ruleset.
+- **Simulator.** `--rules=pr2e` (the default is `--rules=continental`); see "Simulate games" below.
+- **Tests.** `npm test` runs both: the Continental Rails suites, the second edition's rule suites in `tests/pr2e/`, and `tests/rulesets.test.mjs`, which runs the contract-level suites against every ruleset other than the default. By hand, one suite against one ruleset: `TEST_RULES=pr2e node tests/contract.test.mjs` (also `determinism`, `purity`, `smoke`); the second edition's own suites with `node tests/pr2e/<name>.test.mjs`. `npm run test:ui` covers the pages of both.
+
+How it fits together: [docs/engine-contract.md](docs/engine-contract.md), section 21, and [docs/engine-contract-pr2e.md](docs/engine-contract-pr2e.md); the second edition's bots, with their strength and speed: [docs/bots.md](docs/bots.md), last section.
 
 ## Rule variants
+
+This section is about Continental Rails; the second edition's seven variants (`tycoonMode`, `layShape`, `newConnectionRule`, `arrivalBuilding`, `upgradePlacement`, `hatOverflow`, `maxTurnsPerPlayer`) are listed in [docs/engine-contract-pr2e.md](docs/engine-contract-pr2e.md), section 10, and on its set-up page, with four presets of their own.
 
 Every rule that was not settled is a switchable **variant**. On the set-up page, "Rules variants" lists all 25 with their choices (and three presets: Full game, Base game, Core only). A variant that differs from the default shows in the game header, on the end screen and in bug reports.
 
@@ -81,11 +96,11 @@ The variants (the engine's table in `src/engine/variants.js` is the one list; th
 ## Tests
 
 ```
-npm test            # 16 suites in Node: rules, data, determinism, bots, simulator, bug reporter, rulesets; no browser needed
+npm test            # 24 suites in Node: the rules of both rulesets, data, determinism, bots, simulator, bug reporter, rulesets; no browser needed
 npm run test:ui     # drives the real page in your installed Chrome or Edge with playwright-core (nothing is downloaded)
 ```
 
-`npm test` takes a minute or two and must always be green. `npm run test:ui` needs Chrome or Edge installed; it plays whole games through the page and fails on any console error, page error or failed request. Temporary files go to the operating system's temp folder, so two runs can overlap. A record of the last full quality check is in [docs/qa-report.md](docs/qa-report.md).
+`npm test` takes about three minutes and must always be green. `npm run test:ui` needs Chrome or Edge installed; it plays whole games through the page and fails on any console error, page error or failed request. Temporary files go to the operating system's temp folder, so two runs can overlap. A record of the last full quality check is in [docs/qa-report.md](docs/qa-report.md).
 
 ## Simulate games
 
@@ -132,8 +147,9 @@ index.html, style.css      the page
 src/engine/                the Continental Rails rules: pure functions over JSON state (no DOM, no clock, seeded randomness)
 src/engine-pr2e/           the Pacific Rails, second edition rules: a separate engine behind the same contract
 src/rulesets/              the ruleset registry: the one place that imports an engine
-src/bots/                  Random, Easy, Medium and the tree-search bot, built per ruleset; run in a Web Worker in the page
-src/ui/                    the screens: set-up page, board, trains, dock, end screen, bug reporter
+src/bots/                  Random, Easy, Medium and the tree-search bot, built per ruleset (src/bots/pr2e/ holds the second edition's heuristic); run in a Web Worker in the page
+src/ui/                    the screens: set-up page, board, player boards, dock, end screen, bug reporter
+src/ui/pr2e/               the second edition's own screens (player board, Congress panel, goals, action grid, path lays), chosen by src/ui/ruleset-views.js
 sim/                       the simulator and its HTML report generator
 tests/                     the Node suites (npm test), the browser tests (test:ui) and hand-run QA scripts (tests/qa)
 tools/                     static server, bug-report replay, art manifest builder, placeholder maker

@@ -34,3 +34,20 @@ What a reader should know before relying on a number:
 ## Rules with nothing to implement
 
 R0 (how to read the spec), R1 (terminology: enforced by identifiers), R2.1 to R2.3 (components: counts are in `rules.js`), R6.7 and R11.7 (older rules that were removed), R19.6 (after the trigger everything works normally: true by construction), R21.1 and R21.2 (defaults; two players have no special rule), R22 (worked examples: all ten are tests - E1, E3, E4, E9 in `contract.test.mjs`, E5 to E8 and E10 in `rules-core.test.mjs`, E2 and E5 with its real tile in `rules-modules.test.mjs`), R23 (material that is out), R24 (standing assumptions).
+
+---
+
+## Pacific Rails, second edition (`pr2e`): what is done and what follows (31/10/2026)
+
+Done: the whole core rulebook is played by `src/engine-pr2e/` (371 audit checks, 0 known failures; `docs/rules-audit-report-pr2e.md`), it has its five bots (`docs/bots.md`, last section), its own screens (`src/ui/pr2e/`), presets, simulator output and bug-report capture, and it is chosen on the set-up page or by `?rules=pr2e`. Continental Rails is unchanged by it (the same seed gives the same 40 games as before the second ruleset was added; `docs/qa-report.md`, section 9).
+
+Follow-ups, none of them a rules change:
+
+- **Balance evidence is bot evidence.** With identical Medium bots seats 3 and 4 win only about 10 to 14% at 3 and 4 players, and Medium leans heavily on Congress Resets fed by Coins (35 columns and Resets a game, 16 Coins collected a player against 1 to 2 of each other resource). Both are in `docs/qa-report.md`, section 9, as observations about the bot, not conclusions about the rules; an archetype bot that plays the other lines (a resource economy, the engine of carriages) would show whether the Reset is as strong for a player who does not play Coins.
+- **The simulator's health table is calibrated on Continental Rails.** Three warnings stay on every second-edition run and are thresholds, not faults: lead changes per game (3.4 to 6.3 against "at least 5"), distinct action types offered at a turn's first decision (2.2 to 2.3 against "at least 2.5"), and, in runs that put different bots in fixed seats, the first-player win rate. The Move Train, claim, hat-purchase and carriage-purchase subsystem rows are no longer reported for an engine that has no such action. The hats of this ruleset are a district-choice parameter, so they have no usage row yet: a row built on `hatsSpent` would give the second edition one.
+- **The Expert bot's turn is about half a second longer than Continental Rails'** in the browser (4.98 s against 4.50 s of a 6 s budget); a playout costs about twice as much. `PR2E_SEARCH_SETTINGS.shareScale` (`src/bots/pr2e/weights-pr2e.js`) is the one number to turn if it matters.
+- **Layout.** At 1280 x 800 the players column (cards and goals) scrolls inside its frame for 3 and 4 players: the four goals do not fit beside the cards at that height. The player board with three carriages and four players at 1440 x 900 fit.
+- **Undo during a path lay** steps back one choice at a time (the unpaid routes of the path, the start of the lay, the district): by design, nothing is paid before the lay ends. See `docs/qa-report.md`, section 9.
+- **A saved game can only be loaded through the test hook** (`?test=1`, `window.__cr.loadState`): the page has no "load a game" control for either ruleset. If one is added, it should go through `beginGame(..., 'loaded', rules)`, which makes the set-up form follow the game's rules (so that "Play again" keeps them).
+- **Art.** Every picture of the second edition's screens is real art (44 `pr2e-` entries, 614 KB); the page asks the browser to fetch them while the player reads the set-up page (`warmArt`). Continental Rails' first screen is not warmed and draws blank pictures for as long as they take to load (about 3.5 s on a 1.6 Mbit/s line, 15 to 35 ms on a local server); the same warm-up would fix that and is a small change if wanted.
+
