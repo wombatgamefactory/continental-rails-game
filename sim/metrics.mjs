@@ -262,6 +262,9 @@ export function finalMetrics(state, tally, engine = getEngine()) {
 
   if (m.upgrades) {
     out.upgrades = m.upgrades.installed.map((slots, p) => slots.filter((id) => id !== null).map((id) => [id, tally ? (tally.upgradeTurn[`${p}:${id}`] ?? null) : null]));
+  } else if (state.players.some((p) => p.train.specialistCarriages.some((c) => c.upgrade !== undefined && c.upgrade !== null))) {
+    // The second edition keeps its upgrade tokens in the carriages themselves (no module).
+    out.upgrades = state.players.map((p) => p.train.specialistCarriages.filter((c) => c.upgrade).map((c) => [c.upgrade, tally ? (tally.upgradeTurn[`${p.id}:${c.upgrade}`] ?? null) : null]));
   }
   if (m.milestones) {
     const claimed = [];
@@ -275,6 +278,11 @@ export function finalMetrics(state, tally, engine = getEngine()) {
     const awards = {};
     for (const goal of goalsInPlay(state)) awards[goal.id] = goalStandings(state, goal).awards.slice();
     out.goals = { inPlay: m.goals.inPlay.slice(), awards };
+  } else if (Array.isArray(state.goals) && state.goals.length > 0) {
+    // The second edition keeps its goal tiles at state.goals (no module).
+    const awards = {};
+    for (const goal of goalsInPlay(state)) awards[goal.id] = goalStandings(state, goal).awards.slice();
+    out.goals = { inPlay: state.goals.slice(), awards };
   }
   if (m.legislative) out.agenda = m.legislative.card;
   if (m.pony) {

@@ -35,7 +35,8 @@ suite.check('P3.1, P3.2: every player starts with no carriage, storage 6, 1 of e
     assert.equal(state.supply.upgrades.length, { 2: 10, 3: 15, 4: 20 }[players], 'P3.1.5');
     assert.deepEqual(Object.values(state.congress.down), new Array(8).fill(false), 'P3.1.3: 8 senators up');
     assert.deepEqual(state.modules, {}, 'no module of Continental Rails');
-    assert.deepEqual(E.goalsInPlay(state), [], 'PART 2: goals');
+    assert.equal(E.goalsInPlay(state).length, 4, 'P3.1.7: 4 goal tiles face up');
+    assert.equal(new Set(state.goals).size, 4);
   }
 });
 

@@ -26,9 +26,7 @@ export const RULESET_ID = 'pr2e';
 /**
  * Variant values that are legal (P21.1) but whose rules are not written yet.
  * createGame refuses them loudly instead of silently playing something else.
- * PART 2: `upgradePlacement` and `hatOverflow` only matter to the upgrade
- * tokens and Congress column K4, which are part 2; their values are accepted
- * because nothing in part 1 reads them.
+ * Empty: every value of every variant is played.
  */
 export const UNIMPLEMENTED_VARIANT_VALUES = {};
 
@@ -352,7 +350,9 @@ export function createInitialState(config, options = {}) {
   for (const column of K.CONGRESS.columns) down[column.id] = false;
   state.congress = { down };
 
-  // P3.1.7 - PART 2: the goal tiles are revealed (and scored) in part 2; none is in play yet.
+  // P3.1.7, P18.1 - shuffle the goal tiles and reveal `goalsInPlay` of them, in the order drawn
+  // (they are scored left to right). The rest go back to the box and are not stored.
+  state.goals = shuffle(rng, K.GOAL_TILES.map((g) => g.id)).slice(0, K.SETUP.goalsInPlay);
 
   // P3.3 then P3.5 - the starting production choice in seat order, then the train draft.
   state.setup = { step: 'production', index: 0 };

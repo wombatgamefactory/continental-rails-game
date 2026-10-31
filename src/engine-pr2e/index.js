@@ -10,9 +10,10 @@
 // except through the ruleset registry (src/rulesets/index.js). Its map data
 // is its own copy in ./data/, loaded by relative module import.
 //
-// Part 1 of 2: the core game. Marked `PART 2:` in the code and not yet
-// played: the Financier action and Congress (P10), the cowboy hats from
-// Congress column K4 (P11.3), carriage upgrades (P12), the goal tiles (P18).
+// The whole core rulebook is played: setup, the action grid, collecting and
+// the special actions, hiring, board activation, the Financier and Congress,
+// cowboy hats, carriage upgrades, the lay, buildings, tolls, the goal tiles,
+// the end and final scoring, and every variant of P21.1.
 //
 // Engine files import each other directly and in one direction:
 //

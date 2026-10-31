@@ -586,9 +586,42 @@ export function totalVp(player) {
 }
 
 // ---------------------------------------------------------------------------
+// Upgrade tokens (P12) and Congress (P10)
+// ---------------------------------------------------------------------------
+
+/** P12.1. The data of an upgrade token id (`{ id, level, gives, minPlayers }`), or null. */
+export function upgradeTileData(state, tileId) {
+  return getConstants(state).SUPPLY.upgradeTokens.find((t) => t.id === tileId) ?? null;
+}
+
+/** The distinct upgrade token ids of the game (identical tokens share an id, P12.1). */
+export function upgradeTokenIds(state) {
+  return [...new Set(getConstants(state).SUPPLY.upgradeTokens.map((t) => t.id))];
+}
+
+/** P12.5. The upgrade token ids installed in a player's carriages, left to right. */
+export function installedUpgrades(state, playerId) {
+  return state.players[playerId].train.specialistCarriages.map((c) => c.upgrade).filter((u) => u !== null);
+}
+
+/** The id of the token in the player's carriage number `level`, or null. */
+export function upgradeTileAt(state, playerId, level) {
+  const c = state.players[playerId].train.specialistCarriages[level - 1];
+  return c && c.upgrade !== null ? c.upgrade : null;
+}
+
+/** P10.1. The Congress panel: each column with its cost, reward and whether its senator is down, then the Reset. */
+export function congressColumns(state) {
+  const K = getConstants(state);
+  return [
+    ...K.CONGRESS.columns.map((c) => ({ ...c, down: state.congress.down[c.id] === true, reset: false })),
+    { id: 'KR', cost: K.CONGRESS.resetCost, reward: 'reset', down: false, reset: true },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Reads the shared page asks of every engine. This ruleset has no cards, no
-// Move Train and (until part 2) no Congress table or upgrade tokens in use,
-// so each answers "nothing".
+// Move Train and no Continental Rails Congress strip, so each answers "nothing".
 // ---------------------------------------------------------------------------
 
 /** No card tables in this ruleset. */
@@ -596,22 +629,6 @@ export function cardIndex(table) {
   const out = {};
   if (Array.isArray(table)) for (const entry of table) out[entry.id] = entry;
   return out;
-}
-
-/** PART 2: upgrade tokens are installed in part 2. The data of a token id, or null. */
-export function upgradeTileData(state, tileId) {
-  return getConstants(state).SUPPLY.upgradeTokens.find((t) => t.id === tileId) ?? null;
-}
-
-/** PART 2: the upgrade tokens installed in a player's carriages (none can be installed yet). */
-export function installedUpgrades(state, playerId) {
-  return state.players[playerId].train.specialistCarriages.map((c) => c.upgrade).filter((u) => u !== null);
-}
-
-/** PART 2: the token in the player's carriage `level`, or null. */
-export function upgradeTileAt(state, playerId, level) {
-  const c = state.players[playerId].train.specialistCarriages[level - 1];
-  return c && c.upgrade !== null ? upgradeTileData(state, c.upgrade) : null;
 }
 
 /** No Pony Express in this ruleset. */

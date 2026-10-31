@@ -34,6 +34,7 @@ import {
   districtHousesOn,
   nextTelegraphVp,
   evaluateLay,
+  upgradeTileData,
 } from './queries.js';
 import { ACTIONS, FRAMES, getBlockReason, describeAction, canPlaceArrivalBuilding, hasLegalLay, canHire } from './legality.js';
 import { addVp, applyFinalScoring, scoreGame } from './scoring.js';
@@ -93,10 +94,13 @@ export function gainBuiltTiles(state, playerId, terrain, amount, cause) {
 
 /**
  * P11.1, P5.5.3. Gives hats up to the holding limit; each hat that does not fit
- * becomes 1 resource of the player's choice (a `chooseResource` frame).
+ * becomes 1 resource of the player's choice (a `chooseResource` frame, Coin
+ * allowed). For a displacement that is always so (P5.5.3); for any other source
+ * (`fromDisplacement` false: Congress column K4) the variant `hatOverflow`
+ * decides, and with `lost` the extra hat is simply not gained.
  * Returns the number of resources owed.
  */
-export function gainHats(state, playerId, amount, cause) {
+export function gainHats(state, playerId, amount, cause, fromDisplacement = true) {
   const K = getConstants(state);
   const player = state.players[playerId];
   const room = Math.max(0, K.HATS.hatLimit - player.hats);
@@ -105,11 +109,10 @@ export function gainHats(state, playerId, amount, cause) {
     player.hats += taken;
     emit({ type: 'gain', player: playerId, item: 'hats', amount: taken, cause });
   }
-  const owed = amount - taken;
-  if (owed > 0) {
-    emit({ type: 'hatLimit', player: playerId, hatsRefused: owed, resourcesOwed: owed, cause });
-    pushFrame(state, { kind: 'chooseResource', player: playerId, remaining: owed, reason: 'hatLimit', allowed: K.CHOICE_RESOURCES.slice() });
-  }
+  const refused = amount - taken;
+  const owed = fromDisplacement || state.variants.hatOverflow === 'resource' ? refused : 0;
+  if (refused > 0) emit({ type: 'hatLimit', player: playerId, hatsRefused: refused, resourcesOwed: owed, cause });
+  if (owed > 0) pushFrame(state, { kind: 'chooseResource', player: playerId, remaining: owed, reason: 'hatLimit', allowed: K.CHOICE_RESOURCES.slice() });
   return owed;
 }
 
@@ -175,13 +178,65 @@ function pushBoardActivation(state, playerId, foremanType, times, cause) {
   const steps = [];
   for (let i = 0; i < times; i++) steps.push({ type: foremanType, carriage: 0, slot: null });
   for (const carriage of state.players[playerId].train.specialistCarriages) {
-    // PART 2: the upgrade token's step (P12.4) goes here, before the carriage's specialists.
+    // P12.4 - the carriage's upgrade token acts after the earlier carriages and before its own specialists.
+    if (carriage.upgrade !== null) steps.push({ type: 'upgrade', carriage: carriage.number, slot: null, token: carriage.upgrade });
     carriage.slots.forEach((specialist, slot) => {
       if (specialist !== null) steps.push({ type: specialist, carriage: carriage.number, slot });
     });
   }
   emit({ type: 'boardActivation', player: playerId, foreman: foremanType, steps: steps.length, cause });
   pushFrame(state, { kind: 'boardActivation', player: playerId, foreman: foremanType, steps, index: 0, cause });
+}
+
+/** P12.4. An upgrade step: a level 1 or 2 token gives its resources at once; a level 3 token asks for its resources one at a time. */
+function upgradeYield(state, playerId, step) {
+  const K = getConstants(state);
+  const data = upgradeTileData(state, step.token);
+  const amount = K.UPGRADES.yield[data.level - 1];
+  emit({ type: 'upgradeStep', player: playerId, tile: step.token, token: step.token, carriage: step.carriage, level: data.level, gives: data.gives, amount });
+  if (data.gives === 'choice') {
+    pushFrame(state, { kind: 'chooseResource', player: playerId, remaining: amount, reason: `upgrade:${step.token}`, allowed: K.CHOICE_RESOURCES.slice() });
+  } else {
+    gainResource(state, playerId, data.gives, amount, `upgrade:${step.token}`);
+  }
+}
+
+/** P12.2, P12.3. Puts `token` from the supply into carriage `number`; a token already there returns to the supply. */
+function putUpgrade(state, playerId, token, number, cause) {
+  const carriage = state.players[playerId].train.specialistCarriages[number - 1];
+  const replaced = carriage.upgrade;
+  const supply = state.supply.upgrades;
+  supply.splice(supply.indexOf(token), 1);
+  if (replaced !== null) supply.push(replaced);
+  carriage.upgrade = token;
+  emit({ type: 'upgradeInstalled', player: playerId, tile: token, token, carriage: number, level: number, replaced, cause });
+  return replaced;
+}
+
+/** P10.3. Resolves the reward of a Congress column (its Coins and senator are done by the caller). */
+function congressReward(state, playerId, column) {
+  const K = getConstants(state);
+  const cause = `congress:${column.id}`;
+  switch (column.reward) {
+    case 'gain':
+      gainItems(state, playerId, column.items, cause);
+      return;
+    case 'hats':
+      gainHats(state, playerId, column.count, cause, false); // P10.3.2, P11.1
+      return;
+    case 'districtHouseOrUpgrade':
+    case 'buildings':
+      pushFrame(state, { kind: 'congressPlacement', player: playerId, column: column.id, placed: { railwayStation: false, telegraphStation: false } });
+      return;
+    case 'choice':
+      pushFrame(state, { kind: 'chooseResource', player: playerId, remaining: column.count, reason: cause, allowed: K.RESOURCES.slice() });
+      return;
+    case 'builtTiles':
+      pushFrame(state, { kind: 'chooseBuiltTile', player: playerId, remaining: column.count, cause });
+      return;
+    default:
+      throw new Error(`Engine bug: unknown Congress reward "${column.reward}".`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +381,12 @@ export const MUTATORS = {
   /** P16.3: on arrival (P14.6) or by the Collect Gunpowder special action (P6.7). */
   placeTelegraphStation(state, frame, a) {
     const K = getConstants(state);
+    if (frame.kind === 'congressPlacement') {
+      // P10.3.4 - K7: the frame stays for the other building; it closes by itself (RESUME).
+      frame.placed.telegraphStation = true;
+      putTelegraphStation(state, frame.player, a.city, 'congress:K7');
+      return;
+    }
     popFrame(state);
     if (frame.kind === 'specialAction') {
       pay(state, frame.player, K.GRID.specialActions.telegraphStation.cost, 'special:telegraphStation');
@@ -338,6 +399,12 @@ export const MUTATORS = {
   /** P16.2: on arrival (P14.6, then P16.5) or by the Collect Coins special action (P6.7). */
   placeRailwayStation(state, frame, a) {
     const K = getConstants(state);
+    if (frame.kind === 'congressPlacement') {
+      // P10.3.4, P16.5 - K7: no carriage; the frame stays for the other building.
+      frame.placed.railwayStation = true;
+      putRailwayStation(state, frame.player, a.city, a.houseTrack, 'congress:K7');
+      return;
+    }
     popFrame(state);
     if (frame.kind === 'specialAction') {
       pay(state, frame.player, K.GRID.specialActions.railwayStation.cost, 'special:railwayStation');
@@ -351,17 +418,67 @@ export const MUTATORS = {
   /** P6.6, P6.7. The Collect Iron special action: pay 1 Wood, a district house on the first empty site, 2 VP. */
   placeDistrictHouse(state, frame, a) {
     const K = getConstants(state);
+    const k5 = frame.kind === 'congressPlacement';
     popFrame(state);
-    pay(state, frame.player, K.GRID.specialActions.districtHouse.cost, 'special:districtHouse');
+    if (!k5) pay(state, frame.player, K.GRID.specialActions.districtHouse.cost, 'special:districtHouse');
     const sites = state.grid.sites[a.district];
     const index = sites.indexOf(null);
     sites[index] = frame.player;
     state.players[frame.player].houses[a.houseTrack] -= 1;
-    emit({ type: 'districtHousePlaced', player: frame.player, district: a.district, site: index, houseTrack: a.houseTrack });
-    addVp(state, frame.player, 'districtHouse', K.SCORING.specialActionVp.districtHouse, 'P6.7');
+    emit({ type: 'districtHousePlaced', player: frame.player, district: a.district, site: index, houseTrack: a.houseTrack, cause: k5 ? 'congress:K5' : 'special' });
+    if (k5) addVp(state, frame.player, 'congress', K.CONGRESS.k5Vp, 'P10.3.3');
+    else addVp(state, frame.player, 'districtHouse', K.SCORING.specialActionVp.districtHouse, 'P6.7');
   },
 
-  /** P14.6.1, with `arrivalBuilding = optional` only. */
+  /** P12.2, P12.3: by the Collect Wood special action (1 Gunpowder; 2 VP, none when replacing) or Congress column K5 (1 VP). */
+  installUpgrade(state, frame, a) {
+    const K = getConstants(state);
+    popFrame(state);
+    if (frame.kind === 'congressPlacement') {
+      putUpgrade(state, frame.player, a.token, a.carriage, 'congress:K5');
+      addVp(state, frame.player, 'congress', K.CONGRESS.k5Vp, 'P10.3.3');
+      return;
+    }
+    pay(state, frame.player, K.GRID.specialActions.upgrade.cost, 'special:upgrade');
+    const replaced = putUpgrade(state, frame.player, a.token, a.carriage, 'special');
+    if (replaced === null) addVp(state, frame.player, 'upgrade', K.SCORING.specialActionVp.upgrade, 'P6.7');
+  },
+
+  /** P10.2.1. One Financier action: pay the column's Coins, its senator goes down, its reward is resolved. */
+  takeCongressColumn(state, frame, a) {
+    const K = getConstants(state);
+    const column = K.CONGRESS.columns.find((c) => c.id === a.column);
+    frame.index += 1;
+    pay(state, frame.player, { coins: column.cost }, `congress:${column.id}`);
+    state.congress.down[column.id] = true;
+    emit({ type: 'congressEntry', player: frame.player, entry: column.id, column: column.id, coins: column.cost });
+    congressReward(state, frame.player, column);
+  },
+
+  /** P10.2.2. One Financier action: pay 1 Coin, every senator returns, 1 VP each. */
+  resetSenators(state, frame) {
+    const K = getConstants(state);
+    frame.index += 1;
+    pay(state, frame.player, { coins: K.CONGRESS.resetCost }, 'congress:KR');
+    let count = 0;
+    for (const id in state.congress.down) {
+      if (state.congress.down[id]) {
+        state.congress.down[id] = false;
+        count += 1;
+      }
+    }
+    emit({ type: 'congressEntry', player: frame.player, entry: 'KR', column: 'KR', coins: K.CONGRESS.resetCost });
+    emit({ type: 'senatorsReset', player: frame.player, count });
+    addVp(state, frame.player, 'congress', K.CONGRESS.resetVpPerSenator * count, 'P10.2.2');
+  },
+
+  /** P10.3.5. */
+  chooseBuiltTile(state, frame, a) {
+    frame.remaining -= 1;
+    gainBuiltTiles(state, frame.player, a.terrain, 1, frame.cause);
+  },
+
+  /** P14.6.1 with `arrivalBuilding = optional`; or the second building of Congress column K7 declined (P10.3.4). */
   skipBuilding(state) {
     popFrame(state);
   },
@@ -480,9 +597,29 @@ export const RESUME = {
     popFrame(state);
     return true;
   },
-  /** P9.4. The activation ends after its last step. */
+  /** P9.4, P12.4. An upgrade step is no decision: its yield is taken here. The activation ends after its last step. */
   boardActivation(state, frame) {
-    if (frame.index < frame.steps.length) return false;
+    if (frame.index < frame.steps.length) {
+      const step = frame.steps[frame.index];
+      if (step.type !== 'upgrade') return false;
+      frame.index += 1;
+      upgradeYield(state, frame.player, step);
+      return true;
+    }
+    popFrame(state);
+    return true;
+  },
+  /** P10.3.4. K7 closes once a building is placed and no other can be (K5 closes in its mutators). */
+  congressPlacement(state, frame) {
+    if (!frame.placed.railwayStation && !frame.placed.telegraphStation) return false;
+    const list = FRAMES.congressPlacement.list(state, frame);
+    if (list.some((a) => !ACTIONS[a.type].stop)) return false;
+    popFrame(state);
+    return true;
+  },
+  /** P10.3.5. */
+  chooseBuiltTile(state, frame) {
+    if (frame.remaining > 0) return false;
     popFrame(state);
     return true;
   },

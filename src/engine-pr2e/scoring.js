@@ -7,6 +7,7 @@
 import { getConstants } from './state.js';
 import { emit } from './events.js';
 import { buildingCount, districtHouseCount } from './queries.js';
+import { metricValue } from './conditions.js';
 
 /**
  * Books VP to one source of one player. THE only way VP change.
@@ -31,19 +32,33 @@ export function buildingTableVp(state, count) {
   return table[Math.min(count, table.length - 1)];
 }
 
-/** PART 2: the goal tiles in play (P18.1). None until part 2. */
+/** P18.1. The goal tiles in play, left to right (the order drawn at setup), as data `{ id, name, metric }`. */
 export function goalsInPlay(state) {
-  void state;
-  return [];
+  const K = getConstants(state);
+  return state.goals.map((id) => K.GOAL_TILES.find((g) => g.id === id));
 }
 
 /**
- * PART 2: how one goal ranks the players (P18.3: 5 VP to a sole leader,
- * nobody on a tie). Until part 2 nobody scores.
+ * P18.3. How one goal ranks the players on the current position:
+ * `{ goal, values, places, awards }`. Exactly one player with the highest
+ * measure (at least 1) scores `SCORING.goalVp`; on a tie for the highest, or
+ * when every measure is 0, nobody scores. `places` is 0 for the sole leader,
+ * -1 for everyone else.
  */
 export function goalStandings(state, goal) {
+  const K = getConstants(state);
   const n = state.players.length;
-  return { goal, values: new Array(n).fill(0), places: new Array(n).fill(-1), awards: new Array(n).fill(0) };
+  const values = state.players.map((p) => metricValue(state, p.id, goal.metric) ?? 0);
+  const best = Math.max(...values);
+  const leaders = values.filter((v) => v === best).length;
+  const places = new Array(n).fill(-1);
+  const awards = new Array(n).fill(0);
+  if (best >= 1 && leaders === 1) {
+    const i = values.indexOf(best);
+    places[i] = 0;
+    awards[i] = K.SCORING.goalVp;
+  }
+  return { goal, values, places, awards };
 }
 
 /**

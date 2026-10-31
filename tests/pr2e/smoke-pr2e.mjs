@@ -51,6 +51,8 @@ const {
   getActionSpace,
   actionKey,
   topFrame,
+  goalsInPlay,
+  goalStandings,
 } = ENGINE;
 
 const FULL_CHECK_GAMES = 3;
@@ -63,6 +65,9 @@ export function runSmoke(SCALE = 1) {
   const taken = {};
   const districtUse = {};
   const kindsSeen = {};
+  const congressUse = {}; // column id (KR = Reset) -> times taken
+  const upgradeUse = {}; // installs by level, replacements, K5 installs, activation yields by level
+  const goalUse = { inPlay: {}, paid: {} }; // goal id -> games in play / games in which it paid somebody
   const report = [];
   const totals = { games: 0, decisions: 0, refusals: 0, capHits: 0, forced: 0 };
   const count = (table, key, n = 1) => {
@@ -74,6 +79,7 @@ export function runSmoke(SCALE = 1) {
     const n = state.players.length;
     const hired = {};
     for (const t of K.SPECIALIST_TYPES) hired[t] = 0;
+    const installed = [];
     for (const p of state.players) {
       assert.ok(p.coins >= 0 && p.hats >= 0 && p.hats <= K.HATS.hatLimit, `${p.name}: coins ${p.coins}, hats ${p.hats}`);
       for (const r of K.RESOURCES) assert.ok(p.resources[r] >= 0, `${p.name}: ${r} ${p.resources[r]}`);
@@ -88,7 +94,12 @@ export function runSmoke(SCALE = 1) {
       assert.equal(carriages.length, Math.min(p.layStationsPlaced, K.MAP_RULES.carriagesForLayStations), `${p.name}: carriages come only from railway stations placed by Lay Track (P16.5)`);
       carriages.forEach((c, i) => {
         assert.equal(c.number, i + 1, 'carriages 1, 2, 3 in order (P7.5)');
-        assert.equal(c.upgrade, null, 'PART 2: no upgrade token can be installed yet');
+        if (c.upgrade !== null) {
+          // P12.2: a token's level equals its carriage's number, in a carriage with a specialist.
+          assert.equal(Number(c.upgrade[1]), c.number, `${p.name}: ${c.upgrade} on carriage ${c.number}`);
+          assert.ok(c.slots.some((s) => s !== null), `${p.name}: a token in a carriage with no specialist`);
+          installed.push(c.upgrade);
+        }
         let empty = false;
         c.slots.forEach((s, slot) => {
           if (s === null) empty = true;
@@ -110,6 +121,11 @@ export function runSmoke(SCALE = 1) {
     for (const t of K.SPECIALIST_TYPES) {
       assert.equal(hired[t] + state.supply.specialists[t], K.SUPPLY.specialistsPerTypeByPlayerCount[n], `${t} specialists lost or invented`);
     }
+    // P3.1.5, P12.5 - upgrade tokens are in the supply or in a carriage, never lost or invented.
+    const tokens = [...state.supply.upgrades, ...installed].sort();
+    assert.deepEqual(tokens, K.SUPPLY.upgradeTokens.filter((t) => t.minPlayers <= n).map((t) => t.id).sort(), 'upgrade tokens lost or invented');
+    // P3.1.7 - four distinct goal tiles.
+    assert.equal(new Set(state.goals).size, K.SETUP.goalsInPlay);
     // P16.1 - never one owner for both buildings of a city.
     for (const city of MAP.inlandCities) {
       const r = state.map.railwayStation[city];
@@ -184,6 +200,9 @@ export function runSmoke(SCALE = 1) {
                 count(usage, e.action.type);
                 if (e.auto) r.forced += 1;
               } else if (e.type === 'districtChosen' && e.district !== 'none') count(districtUse, e.district);
+              else if (e.type === 'congressEntry') count(congressUse, e.entry);
+              else if (e.type === 'upgradeInstalled') count(upgradeUse, `level ${e.level}${e.replaced ? ' (replace)' : ''}${e.cause === 'congress:K5' ? ' (K5)' : ''}`);
+              else if (e.type === 'upgradeStep') count(upgradeUse, `yield level ${e.level}`);
             }
             if (full) checkInvariants(state);
           },
@@ -191,6 +210,10 @@ export function runSmoke(SCALE = 1) {
       );
       r.ms += performance.now() - started;
       const { state } = result;
+      for (const goal of goalsInPlay(state)) {
+        count(goalUse.inPlay, goal.id);
+        if (goalStandings(state, goal).awards.some((a) => a > 0)) count(goalUse.paid, goal.id);
+      }
       suite.check(`${label}: ${players}p game ${g} ends by itself with zero refusals`, () => {
         assert.deepEqual(result.refusals, [], 'the engine refused a proposal taken from getValidActions');
         assert.equal(result.capHit, false, `possible non-termination: ${HARNESS.maxDecisionsPerGame} decisions without an end`);
@@ -260,6 +283,13 @@ export function runSmoke(SCALE = 1) {
   suite.check('every kind of decision was asked at least once', () => {
     assert.deepEqual(Object.keys(FRAMES).filter((k) => !kindsSeen[k]), []);
   });
+  suite.check('usage: every Congress column and the Reset taken, every upgrade level installed and yielding, every goal in play and paid', () => {
+    if (SCALE < 1) return; // a quarter run may miss one; reported below, asserted on the full run
+    const K = getConstants(createGame({ playerCount: 2, seed: 1 }));
+    assert.deepEqual([...K.CONGRESS.columns.map((c) => c.id), 'KR'].filter((id) => !congressUse[id]), [], 'Congress');
+    assert.deepEqual(['level 1', 'level 2', 'level 3', 'yield level 1', 'yield level 2', 'yield level 3'].filter((k) => !upgradeUse[k]), [], 'upgrades');
+    assert.deepEqual(K.GOAL_TILES.map((g) => g.id).filter((id) => !goalUse.paid[id]), [], 'goals paid');
+  });
   suite.check('games end by the transcontinental line, not only by the safety stop', () => {
     assert.ok(medium.completions + variantRuns.reduce((a, r) => a + r.completions, 0) > 0, 'no game completed the line');
     const noLimit = variantRuns.find((r) => r.label.startsWith('maxTurnsPerPlayer=0'));
@@ -292,6 +322,7 @@ export function runSmoke(SCALE = 1) {
   process.stdout.write(`  bare random playouts: ${speed.map((s) => `${s.players}p ${s.gamesPerSecond.toFixed(0)} games/s (${(s.decisionsPerSecond / 1000).toFixed(0)}k decisions/s, ${s.decisionsPerGame.toFixed(0)} per game)`).join(', ')}\n`);
   process.stdout.write(`  action mix (applied, including forced): ${JSON.stringify(usage)}\n`);
   process.stdout.write(`  decisions asked: ${JSON.stringify(kindsSeen)}\n`);
+  process.stdout.write(`  Congress taken: ${JSON.stringify(congressUse)}\n  upgrades: ${JSON.stringify(upgradeUse)}\n  goals in play: ${JSON.stringify(goalUse.inPlay)}\n  goals paid: ${JSON.stringify(goalUse.paid)}\n`);
   process.stdout.write(`  districts chosen: ${JSON.stringify(districtUse)}\n`);
   suite.finish(`${totals.games} games, ${totals.decisions} decisions, ${totals.refusals} refusals, ${totals.capHits} cap hits`);
 }

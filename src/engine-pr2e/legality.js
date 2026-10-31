@@ -50,6 +50,9 @@ import {
   formatRouteCost,
   nextTelegraphVp,
   evaluateLay,
+  isOnNetwork,
+  upgradeTileData,
+  upgradeTokenIds,
 } from './queries.js';
 
 // ---------------------------------------------------------------------------
@@ -616,6 +619,17 @@ function buildingTerms(state, playerId, kind, city) {
       if (city !== top.city) return `Your train arrived in ${cityName(top.city)}: the building of this lay goes there, not in ${cityName(city)}.`;
       return null;
     }
+    if (top.kind === 'congressPlacement' && top.column === 'K7') {
+      // P10.3.4 - one of each kind at most, each under its own city condition.
+      if (top.placed[kind]) return `You have already placed a ${kind === 'railwayStation' ? 'railway station' : 'telegraph station'} with Congress column K7.`;
+      if (kind === 'railwayStation' && !k7RailwayCity(state, playerId, city)) {
+        return `Congress column K7 places a railway station only in a city with no building that a laid route reaches, or in a city with another player's telegraph station; ${cityName(city)} is neither.`;
+      }
+      if (kind === 'telegraphStation' && !k7TelegraphCity(state, playerId, city)) {
+        return `Congress column K7 places a telegraph station only in a city with another player's railway station, and ${cityName(city)} has none.`;
+      }
+      return null;
+    }
     if (top.kind === 'specialAction' && top.special === kind) {
       const map = state.map;
       if (kind === 'telegraphStation' && map.railwayStation[city] === null) {
@@ -628,7 +642,37 @@ function buildingTerms(state, playerId, kind, city) {
     }
   }
   const what = kind === 'railwayStation' ? 'a railway station' : 'a telegraph station';
-  return timingBlock(state, playerId, () => false, `You can place ${what} only at the end of a lay or by a special action that places one.`);
+  return timingBlock(state, playerId, () => false, `You can place ${what} only at the end of a lay, by a special action that places one, or with Congress column K7.`);
+}
+
+/** P10.3.4. Whether `city` meets K7's city condition for this player's railway station (the P16 rules are checked apart). */
+function k7RailwayCity(state, playerId, city) {
+  const rs = state.map.railwayStation[city];
+  const ts = state.map.telegraphStation[city];
+  if (rs !== null) return false;
+  if (ts === null) return isOnNetwork(state, city);
+  return ts !== playerId;
+}
+
+/** P10.3.4. Whether `city` meets K7's city condition for this player's telegraph station. */
+function k7TelegraphCity(state, playerId, city) {
+  const rs = state.map.railwayStation[city];
+  return rs !== null && rs !== playerId && state.map.telegraphStation[city] === null;
+}
+
+/** P10.3.4. Whether this player can place a building of `kind` with K7 anywhere now. */
+function k7Possible(state, playerId, kind) {
+  if (kind === 'railwayStation') {
+    if (housesOnBoard(state.players[playerId]) === 0) return false;
+    return MAP.inlandCities.some((c) => k7RailwayCity(state, playerId, c));
+  }
+  if (telegraphsLeft(state, playerId) <= 0) return false;
+  return MAP.inlandCities.some((c) => k7TelegraphCity(state, playerId, c));
+}
+
+/** P6.6. Whether this player can place a district house anywhere now. */
+function districtHousePossible(state, playerId) {
+  return housesOnBoard(state.players[playerId]) > 0 && emptySites(state).length > 0;
 }
 
 /** P16.2. Why this player cannot place a railway station in `city`, taking the leftmost house of `houseTrack`. */
@@ -679,7 +723,65 @@ export function getPlaceDistrictHouseBlockReason(state, playerId, district, hous
   if (player.houses[houseTrack] <= 0) return `Your ${K.NAMES[houseTrack]} track has no house left; take one from another track.`;
   if (timingSuspended) return null;
   if (pendingSpecial(state, playerId) === 'districtHouse') return specialCostBlock(state, playerId, 'districtHouse');
-  return timingBlock(state, playerId, () => false, 'You can place a district house only with the Collect Iron special action.');
+  // P10.3.3 - Congress column K5: free.
+  const k5 = ownFrame(state, playerId, 'congressPlacement');
+  if (k5 !== null && k5.column === 'K5') return null;
+  return timingBlock(state, playerId, () => false, 'You can place a district house only with the Collect Iron special action or Congress column K5.');
+}
+
+/**
+ * P12.2, P12.3. The structural terms of putting upgrade token `token` in the
+ * player's carriage number `carriage`: null, or why not. With `allowReplace`
+ * a carriage that already holds a token of the same level may have it replaced
+ * (the Collect Wood special action only).
+ */
+function installTerms(state, playerId, token, carriage, allowReplace) {
+  const K = getConstants(state);
+  const data = upgradeTileData(state, token);
+  if (data === null) return `"${token}" is not an upgrade token.`;
+  if (!Number.isInteger(carriage) || carriage < 1 || carriage > K.PLAYER_BOARD.maxCarriages) return `"${carriage}" is not a carriage number: say 1, 2 or 3.`;
+  const carriages = state.players[playerId].train.specialistCarriages;
+  const c = carriages[carriage - 1];
+  if (!c) return `You have no carriage ${carriage}.`;
+  // P12.2.1 - the carriage holds at least one specialist.
+  if (!c.slots.some((s) => s !== null)) return `Carriage ${carriage} holds no specialist, so it cannot take an upgrade token.`;
+  // P12.2.3 - the token's level equals the carriage's number.
+  if (data.level !== carriage) return `A level ${data.level} token goes only on carriage ${data.level}, not on carriage ${carriage}.`;
+  if (c.upgrade !== null) {
+    // P12.3 - replacing, with a token of the same level.
+    if (!allowReplace) return `Carriage ${carriage} already holds an upgrade token${state.toAct === playerId && topFrame(state)?.kind === 'congressPlacement' ? ', and Congress column K5 cannot replace one' : ''}.`;
+    if (c.upgrade === token) return `Carriage ${carriage} already holds that same token; replacing it with an identical one would change nothing.`;
+  } else if (state.variants.upgradePlacement === 'first-free') {
+    // P12.2.4 - the leftmost carriage with a specialist and no token.
+    const first = carriages.find((x) => x.upgrade === null && x.slots.some((s) => s !== null));
+    if (first && first.number !== carriage) return `A new upgrade token goes in your leftmost carriage with a specialist and no token: carriage ${first.number}.`;
+  }
+  // P12.2.5 - the token is in the supply.
+  if (!state.supply.upgrades.includes(token)) return `No ${token} token is left in the upgrade supply.`;
+  return null;
+}
+
+/** P12.2, P12.3. Whether the player could install (or, with `allowReplace`, replace) any upgrade token now. */
+function upgradePossible(state, playerId, allowReplace) {
+  for (const carriage of state.players[playerId].train.specialistCarriages) {
+    for (const token of new Set(state.supply.upgrades)) {
+      if (installTerms(state, playerId, token, carriage.number, allowReplace) === null) return true;
+    }
+  }
+  return false;
+}
+
+/** P12.2, P12.3. Why this player cannot install upgrade token `token` in carriage number `carriage` (or replace the one there). */
+export function getInstallUpgradeBlockReason(state, playerId, token, carriage) {
+  const top = topFrame(state);
+  const atCollectWood = top !== null && top.player === playerId && top.kind === 'specialAction' && top.special === 'upgrade';
+  // Replacing belongs to the Collect Wood special action; asked ahead of time, it is allowed structurally.
+  const terms = installTerms(state, playerId, token, carriage, timingSuspended || atCollectWood);
+  if (terms !== null) return terms;
+  if (timingSuspended) return null;
+  if (atCollectWood) return specialCostBlock(state, playerId, 'upgrade');
+  if (top !== null && top.player === playerId && top.kind === 'congressPlacement' && top.column === 'K5') return null;
+  return timingBlock(state, playerId, () => false, 'You can install an upgrade token only with the Collect Wood special action or Congress column K5.');
 }
 
 /** P6.7. Why this player cannot decline the special action now. */
@@ -693,7 +795,14 @@ export function getSkipBuildingBlockReason(state, playerId) {
   if (top !== null && !top.optional) {
     return `You are able to build in ${cityName(top.city)}, so you must place one building there.`;
   }
-  return timingBlock(state, playerId, isKind('placeBuildings'), 'There is no building to decline: it comes only at the end of a lay.');
+  // P10.3.4 - Congress column K7 places one or both buildings: the second may be declined.
+  const k7 = ownFrame(state, playerId, 'congressPlacement');
+  if (k7 !== null) {
+    if (k7.column !== 'K7') return 'Congress column K5 must be carried out: place a district house or install an upgrade token.';
+    if (!k7.placed.railwayStation && !k7.placed.telegraphStation) return 'Congress column K7 places at least one building: place one before you stop.';
+    return null;
+  }
+  return timingBlock(state, playerId, isKind('placeBuildings'), 'There is no building to decline: it comes only at the end of a lay or after a building of Congress column K7.');
 }
 
 /** The special actions possible for this player now, by kind, for the UI and the bots. */
@@ -769,8 +878,8 @@ export function getUseStepBlockReason(state, playerId) {
     const step = waitingStep(frame);
     if (step === null) return 'Your board activation has no step left.';
     if (!PRODUCING_STEPS.includes(step.type)) {
-      // PART 2: the Financier step offers a Financier action (P10.2); in part 1 it can only be skipped.
-      return `${describeStep(state, step)} cannot be used yet: the Financier action comes with Congress, which is not in this build.`;
+      // P10.2 - a Financier step takes a Congress column or a Reset instead.
+      return `${describeStep(state, step)} takes a Congress column or a Reset (or is skipped); it builds no tile.`;
     }
     const recipe = K.ACTIVATION.recipes[step.type];
     const short = firstShortfall(state.players[playerId], recipe.cost);
@@ -785,19 +894,27 @@ export function getSkipStepBlockReason(state, playerId) {
 }
 
 // ---------------------------------------------------------------------------
-// Congress (P10) - PART 2
+// The Financier and Congress (P10)
 // ---------------------------------------------------------------------------
 
-/** PART 2: the Congress panel the page draws. Empty until the Financier action is written. */
+/**
+ * The Continental Rails Congress strip the shared page draws: empty for this
+ * ruleset, whose panel has another shape (the page's strip reads fields this
+ * state does not have). This ruleset's panel is `congressColumns` (queries.js).
+ */
 export function congressTable(state) {
   void state;
   return [];
 }
 
-/** PART 2: the Coin cost of a Congress column. */
+/** P10.1, P10.2.2. The Coin cost of a Congress column or of the Reset (`{ cost }` or a column id). */
 export function congressCoinCost(state, playerId, entry) {
-  void state;
   void playerId;
+  const K = getConstants(state);
+  const id = typeof entry === 'string' ? entry : entry && entry.id;
+  if (id === 'KR') return K.CONGRESS.resetCost;
+  const column = K.CONGRESS.columns.find((c) => c.id === id);
+  if (column) return column.cost;
   return entry && typeof entry.cost === 'number' ? entry.cost : 0;
 }
 
@@ -805,6 +922,65 @@ export function congressCoinCost(state, playerId, entry) {
 export function anySenatorUsed(state) {
   for (const id in state.congress.down) if (state.congress.down[id]) return true;
   return false;
+}
+
+/** Whether the pending decision is `playerId`'s activation waiting at a Financier step. */
+function atFinancierStep(state, playerId) {
+  const frame = ownFrame(state, playerId, 'boardActivation');
+  const step = waitingStep(frame);
+  return step !== null && step.type === 'financier';
+}
+
+const FINANCIER_OTHERWISE = 'Congress columns and the Reset are taken only at a Financier step of a board activation.';
+
+/** P10.3.6. Why the reward of a column cannot be carried out at all now, or null. */
+function congressRewardBlock(state, playerId, column) {
+  const player = state.players[playerId];
+  if (column.reward === 'hats' && state.variants.hatOverflow === 'lost' && player.hats >= getConstants(state).HATS.hatLimit) {
+    return `You already hold ${player.hats} cowboy hats, and with hatOverflow "lost" column ${column.id} would give you nothing.`;
+  }
+  if (column.reward === 'districtHouseOrUpgrade' && !districtHousePossible(state, playerId) && !upgradePossible(state, playerId, false)) {
+    return `Column ${column.id} needs a district house you can place or an upgrade token you can install, and you can do neither.`;
+  }
+  if (column.reward === 'buildings' && !k7Possible(state, playerId, 'railwayStation') && !k7Possible(state, playerId, 'telegraphStation')) {
+    return `Column ${column.id} needs a railway station or a telegraph station you can place, and there is nowhere you can.`;
+  }
+  return null;
+}
+
+/** P10.2.1. Why this player cannot take Congress column `columnId` (K1 to K8) now. */
+export function getTakeCongressColumnBlockReason(state, playerId, columnId) {
+  const K = getConstants(state);
+  const column = K.CONGRESS.columns.find((c) => c.id === columnId);
+  if (!column) return `"${columnId}" is not a Congress column. The columns are K1 to K8.`;
+  if (state.congress.down[columnId]) return `The senator of column ${columnId} is down: nobody can take it until a Reset.`;
+  const cost = { coins: column.cost };
+  const short = firstShortfall(state.players[playerId], cost);
+  if (short !== null) return shortfallSentence(state, `Column ${columnId}`, cost, short);
+  const reward = congressRewardBlock(state, playerId, column);
+  if (reward !== null) return reward;
+  if (timingSuspended) return null;
+  if (atFinancierStep(state, playerId)) return null;
+  return timingBlock(state, playerId, () => false, FINANCIER_OTHERWISE);
+}
+
+/** P10.2.2. Why this player cannot Reset the senators now. */
+export function getResetSenatorsBlockReason(state, playerId) {
+  const K = getConstants(state);
+  if (!anySenatorUsed(state)) return 'No senator is down, so a Reset would do nothing.';
+  const cost = { coins: K.CONGRESS.resetCost };
+  const short = firstShortfall(state.players[playerId], cost);
+  if (short !== null) return shortfallSentence(state, 'The Reset', cost, short);
+  if (timingSuspended) return null;
+  if (atFinancierStep(state, playerId)) return null;
+  return timingBlock(state, playerId, () => false, FINANCIER_OTHERWISE);
+}
+
+/** P10.3.5. Why this player cannot take 1 built tile of `terrain` now (Congress column K8). */
+export function getChooseBuiltTileBlockReason(state, playerId, terrain) {
+  const K = getConstants(state);
+  if (!K.TERRAINS.includes(terrain)) return `"${terrain}" is not a kind of track tile: choose Ground, Tunnel or Bridge.`;
+  return timingBlock(state, playerId, isKind('chooseBuiltTile'), 'You are not owed a built tile of your choice at the moment.');
 }
 
 // ---------------------------------------------------------------------------
@@ -1136,6 +1312,68 @@ export const ACTIONS = {
     space: () => [{ type: 'stopLaying' }],
     describe: () => 'Stop laying track',
   },
+  takeCongressColumn: {
+    params: ['column'],
+    rule: 'P10.2.1, P10.3',
+    block: (state, pid, a) => getTakeCongressColumnBlockReason(state, pid, a.column),
+    space: (state) => getConstants(state).CONGRESS.columns.map((c) => ({ type: 'takeCongressColumn', column: c.id })),
+    describe: (state, a) => {
+      const column = getConstants(state).CONGRESS.columns.find((c) => c.id === a.column);
+      return column ? `Take Congress column ${a.column} (${formatCost(state, { coins: column.cost })}): ${CONGRESS_TEXT[column.reward](state, column)}` : `Take Congress column ${a.column}`;
+    },
+  },
+  resetSenators: {
+    params: [],
+    rule: 'P10.2.2',
+    block: (state, pid) => getResetSenatorsBlockReason(state, pid),
+    space: () => [{ type: 'resetSenators' }],
+    describe: (state) => {
+      const down = Object.values(state.congress.down).filter(Boolean).length;
+      return `Reset the senators (${formatCost(state, { coins: getConstants(state).CONGRESS.resetCost })}): ${plural(down, 'senator returns', 'senators return')}, ${down} VP`;
+    },
+  },
+  installUpgrade: {
+    params: ['token', 'carriage'],
+    rule: 'P12.2, P12.3, P6.7, P10.3.3',
+    block: (state, pid, a) => getInstallUpgradeBlockReason(state, pid, a.token, a.carriage),
+    space: (state) => {
+      const out = [];
+      for (const token of upgradeTokenIds(state)) for (let carriage = 1; carriage <= getConstants(state).PLAYER_BOARD.maxCarriages; carriage++) out.push({ type: 'installUpgrade', token, carriage });
+      return out;
+    },
+    describe: (state, a) => {
+      const pid = state.toAct ?? 0;
+      const c = state.players[pid].train.specialistCarriages[a.carriage - 1];
+      const verb = c && c.upgrade !== null ? `Replace the ${c.upgrade} token of carriage ${a.carriage} with` : `Install in carriage ${a.carriage}`;
+      return `${verb} the upgrade token ${a.token} (${upgradeText(state, a.token)})`;
+    },
+  },
+  chooseBuiltTile: {
+    params: ['terrain'],
+    rule: 'P10.3.5',
+    block: (state, pid, a) => getChooseBuiltTileBlockReason(state, pid, a.terrain),
+    space: (state) => getConstants(state).TERRAINS.map((terrain) => ({ type: 'chooseBuiltTile', terrain })),
+    describe: (state, a) => `Take 1 built ${getConstants(state).NAMES[a.terrain]} tile`,
+  },
+};
+
+/** What an upgrade token gives, in words (P12.1). */
+function upgradeText(state, token) {
+  const K = getConstants(state);
+  const data = upgradeTileData(state, token);
+  if (data === null) return 'unknown';
+  const n = K.UPGRADES.yield[data.level - 1];
+  return data.gives === 'choice' ? `${n} resources of your choice each activation` : `${formatAmount(K, data.gives, n)} each activation`;
+}
+
+/** P10.1. The reward of a Congress column, in words. */
+const CONGRESS_TEXT = {
+  gain: (state, c) => Object.entries(c.items).map(([k, n]) => formatAmount(getConstants(state), k, n)).join(' + '),
+  hats: (state, c) => `${c.count} cowboy hats`,
+  districtHouseOrUpgrade: (state, c) => `a district house or an upgrade token, and ${c.vp} VP`,
+  choice: (state, c) => `${c.count} resources of your choice (not Coins)`,
+  buildings: () => 'a railway station and / or a telegraph station',
+  builtTiles: (state, c) => `${c.count} built tiles of your choice`,
 };
 
 /**
@@ -1239,7 +1477,12 @@ export const FRAMES = {
           }
         }
       }
-      // PART 2: the Collect Wood special action (install or replace an upgrade token, P12.2, P12.3).
+      else if (frame.special === 'upgrade') {
+        // P12.2, P12.3 - install a token from the supply, or replace one of yours.
+        for (const carriage of state.players[frame.player].train.specialistCarriages) {
+          for (const token of new Set(state.supply.upgrades)) candidates.push({ type: 'installUpgrade', token, carriage: carriage.number });
+        }
+      }
       candidates.push({ type: 'skipSpecialAction' });
       return keepLegal(state, frame.player, candidates);
     },
@@ -1250,7 +1493,50 @@ export const FRAMES = {
       const step = waitingStep(frame);
       return step ? `use or skip ${describeStep(state, step)}` : 'finish your board activation';
     },
-    list: (state, frame) => keepLegal(state, frame.player, [{ type: 'useStep' }, { type: 'skipStep' }]),
+    list: (state, frame) => {
+      const step = waitingStep(frame);
+      if (step !== null && step.type === 'financier') {
+        // P10.2 - one Financier action: a column, a Reset, or skip.
+        return keepLegal(state, frame.player, [...ACTIONS.takeCongressColumn.space(state), { type: 'resetSenators' }, { type: 'skipStep' }]);
+      }
+      return keepLegal(state, frame.player, [{ type: 'useStep' }, { type: 'skipStep' }]);
+    },
+  },
+  /** P10.3.3, P10.3.4. Frame: { column: 'K5' | 'K7', placed: { railwayStation, telegraphStation } }. */
+  congressPlacement: {
+    label: (state, frame) =>
+      frame.column === 'K5'
+        ? 'place a district house or install an upgrade token (Congress column K5)'
+        : frame.placed.railwayStation || frame.placed.telegraphStation
+          ? 'place the other building of Congress column K7, or stop'
+          : 'place a railway station or a telegraph station (Congress column K7)',
+    list: (state, frame) => {
+      const K = getConstants(state);
+      const pid = frame.player;
+      const candidates = [];
+      if (frame.column === 'K5') {
+        for (const { district } of emptySites(state)) {
+          for (const houseTrack of K.PLAYER_BOARD.houseTracks) {
+            if (!candidates.some((c) => c.district === district && c.houseTrack === houseTrack)) candidates.push({ type: 'placeDistrictHouse', district, houseTrack });
+          }
+        }
+        for (const carriage of state.players[pid].train.specialistCarriages) {
+          for (const token of new Set(state.supply.upgrades)) candidates.push({ type: 'installUpgrade', token, carriage: carriage.number });
+        }
+      } else {
+        for (const city of MAP.inlandCities) {
+          for (const houseTrack of K.PLAYER_BOARD.houseTracks) candidates.push({ type: 'placeRailwayStation', city, houseTrack });
+          candidates.push({ type: 'placeTelegraphStation', city });
+        }
+        candidates.push({ type: 'skipBuilding' });
+      }
+      return keepLegal(state, pid, candidates);
+    },
+  },
+  /** P10.3.5. Frame: { remaining, cause }. */
+  chooseBuiltTile: {
+    label: (state, frame) => `choose ${frame.remaining === 1 ? 'a built tile' : `${frame.remaining} built tiles`}`,
+    list: (state, frame) => keepLegal(state, frame.player, ACTIONS.chooseBuiltTile.space(state)),
   },
   /** P8. Frame: { remaining, taken }. */
   hire: {

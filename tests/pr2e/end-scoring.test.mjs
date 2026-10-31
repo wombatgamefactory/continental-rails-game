@@ -99,7 +99,8 @@ suite.check('P20.2, P20.3: buildings from the table (district houses do not coun
   assert.equal(live.final, false);
   assert.equal(live.players[0].bySource.buildingsEnd, table[4]);
   assert.equal(live.players[0].bySource.tilesEnd, 2);
-  assert.equal(live.players[0].bySource.goals, 0, 'PART 2: no goal is in play yet');
+  const goalVp = E.goalsInPlay(state).reduce((a, g) => a + E.goalStandings(state, g).awards[0], 0);
+  assert.equal(live.players[0].bySource.goals, goalVp, 'P20.2.3: the goals as they stand');
   playOut(state, 'p20');
   const score = E.scoreGame(state);
   const p = score.players[0];

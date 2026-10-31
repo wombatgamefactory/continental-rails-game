@@ -386,8 +386,12 @@ export function computeSections(recs, ctx) {
       perPlayer: Object.fromEntries(bonusKinds.map((k) => [k, mean(withEconomy.map((i) => i.r.bonus[i.s][k] ?? 0))])),
       rate: Object.fromEntries(bonusKinds.map((k) => [k, mean(withEconomy.map((i) => ((i.r.bonus[i.s][k] ?? 0) > 0 ? 1 : 0)))])),
     };
-    // (A ruleset without these tables, such as pr2e in part 1, simply reports none.)
-    const table = RULES.CONGRESS?.tables?.[ctx.variants?.congressTable ?? 'design-2026-10'] ?? [];
+    // Continental Rails has Congress tables by variant; the second edition has fixed columns K1 to K8 and the Reset (KR).
+    const table = RULES.CONGRESS?.tables
+      ? (RULES.CONGRESS.tables[ctx.variants?.congressTable ?? 'design-2026-10'] ?? [])
+      : RULES.CONGRESS?.columns
+        ? [...RULES.CONGRESS.columns, { id: 'KR' }]
+        : [];
     const entryIds = table.map((e) => e.id);
     const taken = Object.fromEntries(entryIds.map((id) => [id, sum(withEconomy.map((i) => i.r.congress[i.s][id] ?? 0))]));
     out.congress = {
@@ -403,7 +407,8 @@ export function computeSections(recs, ctx) {
   out.modules = {};
   const smallNote = `Win rates with / without are per player; ${SMALL_N} or fewer on either side is flagged \`small\`.`;
 
-  const upgradeIds = (RULES.UPGRADE_TILES ?? []).map((t) => t.id);
+  // Continental Rails' upgrade tiles, or the second edition's upgrade tokens (identical tokens share an id).
+  const upgradeIds = RULES.UPGRADE_TILES ? RULES.UPGRADE_TILES.map((t) => t.id) : [...new Set((RULES.SUPPLY?.upgradeTokens ?? []).map((t) => t.id))];
   if (recs.some((r) => r.upgrades)) {
     const have = (i) => new Set((i.r.upgrades?.[i.s] ?? []).map((x) => x[0]));
     const counts = Object.fromEntries(upgradeIds.map((id) => [id, 0]));
@@ -449,7 +454,7 @@ export function computeSections(recs, ctx) {
   }
 
   if (recs.some((r) => r.goals)) {
-    const ids = RULES.GOAL_CARDS.map((g) => g.id);
+    const ids = (RULES.GOAL_CARDS ?? RULES.GOAL_TILES).map((g) => g.id);
     const inPlay = Object.fromEntries(ids.map((id) => [id, 0]));
     const paid = Object.fromEntries(ids.map((id) => [id, 0]));
     const vp = Object.fromEntries(ids.map((id) => [id, 0]));
@@ -531,7 +536,9 @@ export function computeSections(recs, ctx) {
     const k = recs.filter(test).length;
     out.subsystems.push({ id, kind: 'module', ...proportion(k, n), games: k });
   }
-  const actionUse = (type) => recs.filter((r) => r.actions.some((c) => (c[type] ?? 0) > 0)).length;
+  // `also`: the same subsystem's action in the second edition (takeCongressColumn), counted with it.
+  const ALSO = { takeCongressEntry: 'takeCongressColumn' };
+  const actionUse = (type) => recs.filter((r) => r.actions.some((c) => (c[type] ?? 0) > 0 || (ALSO[type] !== undefined && (c[ALSO[type]] ?? 0) > 0))).length;
   for (const [id, type] of [['congress', 'takeCongressEntry'], ['moveTrain', 'moveTrain'], ['claimRoute', 'claimRoute'], ['railwayStations', 'placeRailwayStation'], ['telegraphStations', 'placeTelegraphStation'], ['hats', 'buyHat'], ['hire', 'hireSpecialist'], ['carriages', 'addCarriage']]) {
     const k = actionUse(type);
     out.subsystems.push({ id, kind: 'action', action: type, ...proportion(k, n), games: k });

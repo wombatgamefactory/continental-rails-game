@@ -313,10 +313,11 @@ suite.check('P15.4, P15.5: either train can use anybody\'s track; a train with n
   assert.equal(E.topFrame(state).path.cities[0], 'SEA');
 });
 
-suite.check('P10 / E2 (P22) part 1: the Congress panel starts with all senators up; the Financier action is part 2', () => {
+suite.check('P10.1, P3.1.3: the Congress panel starts with all eight senators up', () => {
   const state = start(2);
   assert.deepEqual(state.congress.down, { K1: false, K2: false, K3: false, K4: false, K5: false, K6: false, K7: false, K8: false });
-  assert.deepEqual(E.congressTable(state), []);
+  assert.deepEqual(E.congressColumns(state).map((c) => `${c.id}:${c.cost}`), ['K1:1', 'K2:1', 'K3:1', 'K4:1', 'K5:2', 'K6:2', 'K7:3', 'K8:3', 'KR:1']);
+  assert.deepEqual(E.congressTable(state), [], 'the shared page\'s Continental Rails strip shows nothing for this ruleset');
 });
 
 suite.finish();

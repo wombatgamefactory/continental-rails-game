@@ -114,7 +114,7 @@ suite.check('P6.7: a special action that cannot be paid or carried out is not of
   const events = placeAndChoose(state, 'W3', 'D1');
   const forced = events.filter((e) => e.type === 'action' && e.auto).map((e) => e.action.type);
   assert.ok(forced.includes('skipSpecialAction'));
-  // PART 2: Collect Wood's special action (the upgrade token) is not offered yet.
+  // Collect Wood's special action needs a carriage with a specialist for its token (P12.2.1): without one, declined.
   const s2 = start(2);
   setStorage(s2, 0, { gunpowder: 3 });
   const ev2 = placeAndChoose(s2, 'W8', 'D7');
@@ -262,13 +262,12 @@ suite.check('P9.3, P9.4: a step that cannot be paid is skipped by the engine; a 
   assert.equal(state.players[0].resources.iron, 1);
 });
 
-suite.check('PART 2: a Financier step offers only skip, so the engine skips it', () => {
+suite.check('P10.4: a Financier step with no Coin can only be skipped, so the engine skips it', () => {
   const state = start(2);
   giveCarriages(state, 0, [['financier', null]]);
-  setStorage(state, 0, { coins: 5 });
+  setStorage(state, 0, {});
   const events = placeAndChoose(state, 'W1', 'D2');
   assert.equal(events.filter((e) => e.type === 'action' && e.auto && e.action.type === 'skipStep').length, 2);
-  assert.match(E.getStructuralBlockReason(state, { type: 'useStep' }) ?? 'none', /none|Financier|board activation/);
   assert.deepEqual(Object.values(state.congress.down), new Array(8).fill(false));
 });
 

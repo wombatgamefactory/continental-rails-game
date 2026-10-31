@@ -70,7 +70,7 @@ export const SETUP = {
   startingHats: 0,
   /** P3.3. Houses on the player board: one +1 space is left empty. */
   housesPerPlayer: 11,
-  /** P3.1.7. Goal tiles revealed (P18; scored in part 2). */
+  /** P3.1.7. Goal tiles revealed at setup (P18). */
   goalsInPlay: 4,
 };
 
@@ -83,7 +83,7 @@ export const SUPPLY = {
   specialistsPerTypeByPlayerCount: { 2: 4, 3: 5, 4: 6 },
   /**
    * P12.1, P3.1.5. The 20 upgrade tokens: level, what they give, and the lowest
-   * player count they are used with. Limited. (Installing and using them is part 2.)
+   * player count they are used with. Limited. Identical tokens share an id.
    */
   upgradeTokens: [
     { id: 'U1-wood', level: 1, gives: 'wood', minPlayers: 2 },
@@ -251,11 +251,15 @@ export const HIRING = {
 };
 
 // ---------------------------------------------------------------------------
-// Congress (P10) - data only; the Financier action is part 2
+// Congress (P10)
 // ---------------------------------------------------------------------------
 
 export const CONGRESS = {
-  /** P10.1. The eight columns: Coin cost and reward (the rewards are resolved in part 2). */
+  /**
+   * P10.1. The eight columns: Coin cost and reward. `reward` is resolved by
+   * actions.js: gain (items), hats (count), districtHouseOrUpgrade (vp),
+   * choice (count resources of choice, not Coins), buildings, builtTiles (count).
+   */
   columns: [
     { id: 'K1', cost: 1, reward: 'gain', items: { wood: 2 } },
     { id: 'K2', cost: 1, reward: 'gain', items: { gunpowder: 2 } },
@@ -274,11 +278,11 @@ export const CONGRESS = {
 };
 
 // ---------------------------------------------------------------------------
-// Upgrade yields (P12.4) - data only; part 2
+// Upgrade yields (P12.4)
 // ---------------------------------------------------------------------------
 
 export const UPGRADES = {
-  /** P12.1. What a token gives at its step, by level (level 3: resources of the player's choice). */
+  /** P12.1. What a token gives at its step, by level - 1 (level 3: that many resources of the player's choice). */
   yield: [1, 2, 3],
 };
 
@@ -307,7 +311,7 @@ export const MAP_RULES = {
 // ---------------------------------------------------------------------------
 
 export const SCORING = {
-  /** P18.3. To the sole leader of a goal only (part 2). */
+  /** P18.3. To the sole leader of a goal only. */
   goalVp: 5,
   /** P20.2.2. */
   builtTileEndVp: 1,
@@ -340,22 +344,23 @@ export const VP_SOURCES = [
 export const END_REASONS = ['transcontinental', 'turn-limit'];
 
 /**
- * P18.2. The 12 goal tiles: id and what each measures. PART 2: goals are not
- * revealed or scored yet (`goalsInPlay` is an empty list).
+ * P18.2. The 12 goal tiles: id, a short name, and the measure (a METRICS name
+ * in conditions.js) that ranks the players at the end. Each goal pays the sole
+ * player with the highest measure (P18.3).
  */
 export const GOAL_TILES = [
-  { id: 'G1', measure: 'railwayStations' },
-  { id: 'G2', measure: 'crew' },
-  { id: 'G3', measure: 'financiers' },
-  { id: 'G4', measure: 'ironStored' },
-  { id: 'G5', measure: 'telegraphStations' },
-  { id: 'G6', measure: 'engineers' },
-  { id: 'G7', measure: 'coinsStored' },
-  { id: 'G8', measure: 'gunpowderStored' },
-  { id: 'G9', measure: 'districtHouses' },
-  { id: 'G10', measure: 'miners' },
-  { id: 'G11', measure: 'woodStored' },
-  { id: 'G12', measure: 'upgradesInstalled' },
+  { id: 'G1', name: 'Most railway stations', metric: 'railwayStations' },
+  { id: 'G2', name: 'Most Crew', metric: 'crew' },
+  { id: 'G3', name: 'Most Financiers', metric: 'financiers' },
+  { id: 'G4', name: 'Most Iron in storage', metric: 'ironStored' },
+  { id: 'G5', name: 'Most telegraph stations', metric: 'telegraphStations' },
+  { id: 'G6', name: 'Most Engineers', metric: 'engineers' },
+  { id: 'G7', name: 'Most Coins in storage', metric: 'coinsStored' },
+  { id: 'G8', name: 'Most Gunpowder in storage', metric: 'gunpowderStored' },
+  { id: 'G9', name: 'Most district houses', metric: 'districtHouses' },
+  { id: 'G10', name: 'Most Miners', metric: 'miners' },
+  { id: 'G11', name: 'Most Wood in storage', metric: 'woodStored' },
+  { id: 'G12', name: 'Most upgrade tokens', metric: 'upgradesInstalled' },
 ];
 
 // ---------------------------------------------------------------------------
