@@ -347,7 +347,10 @@ export function createInitialState(config, options = {}) {
 
   // P3.1.3 - a senator on the top space of every Congress column.
   const down = {};
-  for (const column of K.CONGRESS.columns) down[column.id] = false;
+  // SUPPLY.senators: one senator per column, so the senator count is the number of columns on the
+  // panel - the first `senators` of CONGRESS.columns (8 of 8 by the printed rules).
+  const senators = Math.max(0, Math.min(K.CONGRESS.columns.length, K.SUPPLY.senators));
+  for (const column of K.CONGRESS.columns.slice(0, senators)) down[column.id] = false;
   state.congress = { down };
 
   // P3.1.7, P18.1 - shuffle the goal tiles and reveal `goalsInPlay` of them, in the order drawn

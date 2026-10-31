@@ -538,12 +538,12 @@ export default function part6() {
     assert.notEqual(frame(arrive({ MAP_RULES: { freeSpecialistsWithCarriage1: 0 } })), 'chooseFreeSpecialist');
   });
 
-  knownFailure('P21.2/housesPerPlayer', 'SETUP.housesPerPlayer is named in P21.2 as data but the engine never reads it: 3 slots x 4 tracks less one gives 11 whatever it says', () => {
+  check('P21.2/housesPerPlayer', 'SETUP.housesPerPlayer is named in P21.2 as data but the engine never reads it: 3 slots x 4 tracks less one gives 11 whatever it says', () => {
     const s = start(2, { constants: { SETUP: { housesPerPlayer: 10 } } });
     assert.equal(E.housesOnBoard(s.players[0]), 10);
   });
 
-  knownFailure('P21.2/senators', 'SUPPLY.senators is named in P21.2 as data but the engine never reads it: the senators are the Congress columns', () => {
+  check('P21.2/senators', 'SUPPLY.senators is named in P21.2 as data but the engine never reads it: the senators are the Congress columns', () => {
     const s = start(2, { constants: { SUPPLY: { senators: 6 } } });
     assert.equal(Object.keys(s.congress.down).length, 6);
   });

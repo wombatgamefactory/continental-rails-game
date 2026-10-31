@@ -614,7 +614,7 @@ export function upgradeTileAt(state, playerId, level) {
 export function congressColumns(state) {
   const K = getConstants(state);
   return [
-    ...K.CONGRESS.columns.map((c) => ({ ...c, down: state.congress.down[c.id] === true, reset: false })),
+    ...K.CONGRESS.columns.filter((c) => c.id in state.congress.down).map((c) => ({ ...c, down: state.congress.down[c.id] === true, reset: false })),
     { id: 'KR', cost: K.CONGRESS.resetCost, reward: 'reset', down: false, reset: true },
   ];
 }

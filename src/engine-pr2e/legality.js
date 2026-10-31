@@ -953,6 +953,7 @@ export function getTakeCongressColumnBlockReason(state, playerId, columnId) {
   const K = getConstants(state);
   const column = K.CONGRESS.columns.find((c) => c.id === columnId);
   if (!column) return `"${columnId}" is not a Congress column. The columns are K1 to K8.`;
+  if (!(columnId in state.congress.down)) return `Column ${columnId} is not on the Congress panel in this game: it has ${Object.keys(state.congress.down).length} senators.`;
   if (state.congress.down[columnId]) return `The senator of column ${columnId} is down: nobody can take it until a Reset.`;
   const cost = { coins: column.cost };
   const short = firstShortfall(state.players[playerId], cost);

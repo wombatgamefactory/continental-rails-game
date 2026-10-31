@@ -502,7 +502,7 @@ export default function part4() {
     assert.equal(s.turn.player, 1);
   });
 
-  knownFailure('P14.6/optional-zero-tile', 'with arrivalBuilding = optional a zero-tile lay still ends with a building (P14.3.3 b, P21.1 row 4): skipBuilding must not be offered', () => {
+  check('P14.6/optional-zero-tile', 'with arrivalBuilding = optional a zero-tile lay still ends with a building (P14.3.3 b, P21.1 row 4): skipBuilding must not be offered', () => {
     const t = scene({ trains: ['SEA', 'MIN'], tiles: {}, laid: ['SEA-SPO'], variants: { arrivalBuilding: 'optional' } });
     layNow(t, ['SEA-SPO']);
     assert.equal(frame(t), 'placeBuildings');

@@ -221,6 +221,15 @@ suite.check('P14.6 with arrivalBuilding = optional: the building may be skipped'
   assert.ok(types(state).includes('skipBuilding'));
   act(state, { type: 'skipBuilding' });
   assert.equal(state.map.railwayStation.REN, null);
+  // P14.3.3 b: a zero-tile lay always ends with a building, even with `optional`.
+  const zero = start(2, { variants: { arrivalBuilding: 'optional' } });
+  layRoutes(zero, ['SEA-SPO']);
+  setTrains(zero, 0, ['SEA', 'MIN']);
+  setStorage(zero, 0, {});
+  chooseLay(zero);
+  assert.equal(E.topFrame(zero).kind, 'placeBuildings');
+  assert.ok(!types(zero).includes('skipBuilding'));
+  assert.match(E.getBlockReason(zero, { type: 'skipBuilding' }), /must place one building/);
 });
 
 suite.check('P14.1: M lays, each resolved before the next; the first is required, later ones optional; either train', () => {

@@ -256,7 +256,18 @@ export const MUTATORS = {
 
   /** P3.3. One house leaves that track, so its +1 space starts empty (production 2). */
   chooseStartingProduction(state, frame, a) {
-    state.players[frame.player].houses[a.track] -= 1;
+    // P3.3, SETUP.housesPerPlayer: the board starts full and loses (spaces - houses) houses, 1 by the
+    // printed rules. They leave the chosen track first; any more (a lower housesPerPlayer) leave the
+    // other tracks in board order, always from the leftmost space.
+    const K = getConstants(state);
+    const houses = state.players[frame.player].houses;
+    const spaces = K.PLAYER_BOARD.houseSlotsPerTrack * K.PLAYER_BOARD.houseTracks.length;
+    let remove = Math.max(0, Math.min(spaces, spaces - K.SETUP.housesPerPlayer));
+    for (const track of [a.track, ...K.PLAYER_BOARD.houseTracks.filter((t) => t !== a.track)]) {
+      const n = Math.min(remove, houses[track]);
+      houses[track] -= n;
+      remove -= n;
+    }
     emit({ type: 'startingProduction', player: frame.player, track: a.track });
     popFrame(state);
   },
@@ -568,7 +579,9 @@ export const MUTATORS = {
     frame.remaining -= 1;
     // 6. The arrival building (P14.6): asked only if the player is able.
     if (canPlaceArrivalBuilding(state, pid, to)) {
-      pushFrame(state, { kind: 'placeBuildings', player: pid, city: to, optional: state.variants.arrivalBuilding === 'optional', cause: 'arrival' });
+      // P14.3.3 b - a zero-tile lay always ends with a building, whatever `arrivalBuilding` says.
+      const optional = state.variants.arrivalBuilding === 'optional' && laid.length > 0;
+      pushFrame(state, { kind: 'placeBuildings', player: pid, city: to, optional, cause: 'arrival' });
     }
     // 7. The carriage reward follows from placeRailwayStation (P16.5).
   },

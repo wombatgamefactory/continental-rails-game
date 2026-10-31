@@ -68,7 +68,7 @@ export const SETUP = {
   startingResources: { wood: 1, iron: 1, gunpowder: 1 },
   startingCoins: 1,
   startingHats: 0,
-  /** P3.3. Houses on the player board: one +1 space is left empty. */
+  /** P3.3. Houses on the player board after setup (of 12 spaces): one +1 space, on the chosen track, is left empty. */
   housesPerPlayer: 11,
   /** P3.1.7. Goal tiles revealed at setup (P18). */
   goalsInPlay: 4,
@@ -107,7 +107,7 @@ export const SUPPLY = {
     { id: 'U3-choice', level: 3, gives: 'choice', minPlayers: 3 },
     { id: 'U3-choice', level: 3, gives: 'choice', minPlayers: 4 },
   ],
-  /** P2.1. */
+  /** P2.1. One senator per Congress column: the panel has the first `senators` columns of CONGRESS.columns (at most 8). */
   senators: 8,
   hats: 8,
   /** P2.4. For display only: track tiles and resources are treated as unlimited. */

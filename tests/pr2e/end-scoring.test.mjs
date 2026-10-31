@@ -179,6 +179,17 @@ suite.check('P21.2: every constant is named data; overrides are recorded and rea
   assert.equal(r.tollVp, 5);
 });
 
+suite.check('P21.2: SETUP.housesPerPlayer and SUPPLY.senators drive the setup (houses left after the +1 choice; columns on the Congress panel)', () => {
+  const ten = start(2, { constants: { SETUP: { housesPerPlayer: 10 } }, production: 'wood' });
+  assert.equal(E.housesOnBoard(ten.players[0]), 10);
+  assert.equal(ten.players[0].houses.wood, 1, 'both houses leave the chosen track first');
+  assert.equal(E.housesOnBoard(start(2).players[0]), 11, 'the printed 11');
+  const six = start(2, { constants: { SUPPLY: { senators: 6 } } });
+  assert.deepEqual(Object.keys(six.congress.down), ['K1', 'K2', 'K3', 'K4', 'K5', 'K6']);
+  assert.deepEqual(E.congressColumns(six).map((c) => c.id), ['K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'KR']);
+  assert.match(E.getStructuralBlockReason(six, { type: 'takeCongressColumn', column: 'K7', player: 0 }), /not on the Congress panel in this game: it has 6 senators/);
+});
+
 suite.check('serialised states name their ruleset: a pr2e save is refused by nothing else and refuses a foreign state', () => {
   const state = start(2);
   assert.equal(state.rules, 'pr2e');
