@@ -5,10 +5,10 @@
 // file says what is next to what.
 //
 // The map comes from data/route-map.js, generated from data/route-map.json
-// (a copy of route-map-v2-solved.json) by tools/build-route-map-module.mjs.
-// To swap the map, replace the JSON and regenerate.
+// (a copy of route-map-v3-solved.json). To swap the map, replace the JSON and
+// regenerate the module (it is the JSON as one `export const ROUTE_MAP`).
 
-import { GRID, TERRAIN_BY_LETTER, TERRAINS } from './rules.js';
+import { GRID, TERRAIN_BY_LETTER, TERRAINS, WILD } from './rules.js';
 import { ROUTE_MAP } from './data/route-map.js';
 
 // ---------------------------------------------------------------------------
@@ -75,9 +75,18 @@ export function buildMap(data) {
       if (!t) throw new Error(`Route ${r.a}-${r.b}: unknown terrain letter "${letter}"`);
       return t;
     });
-    /** P14.3.2. Built tiles needed to lay the route, by terrain. */
+    /**
+     * P14.3.2. The FIXED slots of the route, by terrain: the built tiles of that
+     * terrain it needs. A wild slot (P1.16) is not here: `cost` keeps exactly the
+     * three tile types, so loops over its keys are loops over tile types. The
+     * wild slots are counted in `wild`.
+     */
     const cost = { ground: 0, tunnel: 0, bridge: 0 };
-    for (const t of terrains) cost[t] += 1;
+    let wild = 0;
+    for (const t of terrains) {
+      if (t === WILD) wild += 1;
+      else cost[t] += 1;
+    }
     return {
       id: `${r.a}-${r.b}`,
       index,
@@ -87,7 +96,11 @@ export function buildMap(data) {
       terrains,
       length: terrains.length,
       cost,
-      /** For the UI only: where each slot is drawn. */
+      /** P1.16. How many of the route's slots are wild (the data allows at most one per route, P13.1). Each takes one built tile of any terrain (P14.9). */
+      wild,
+      /** For the UI only: whether the art draws a black line between the two cities. */
+      line: r.line !== false,
+      /** For the UI only: where each slot is drawn. `terrain` is `ground`, `tunnel`, `bridge` or `wild`. */
       slots: r.slots.map((s, i) => ({ x: s.x, y: s.y, angle: s.angle, terrain: terrains[i] })),
     };
   });
@@ -109,8 +122,12 @@ export function buildMap(data) {
   return {
     title: data.title,
     board: { w: data.board.w, h: data.board.h },
-    slotSize: { l: data.slot.l, w: data.slot.w },
+    slotSize: { l: data.slot.l, w: data.slot.w, outline: data.slot.outline ?? 0 },
     cityRadius: data.city_r,
+    /** For the UI only: how the art draws a city (`{ inland: { r, fill_r }, start: { r, fill_r } }`). */
+    cityStyle: data.city_style ?? null,
+    /** For the UI only: where the art puts each city's name, `[{ city, text, x, y, x0, y0, x1, y1, colour }]`. */
+    labels: (data.labels ?? []).map((l) => ({ ...l })),
     cities,
     cityById,
     routes,
@@ -144,10 +161,11 @@ export function startSide(cityId) {
   return kind === 'inland' ? null : kind;
 }
 
-/** Slot counts of the whole map by terrain. For tests and reports. */
+/** Slot counts of the whole map by printed kind: the three terrains and `wild` (P1.16). For tests and reports. */
 export function mapSlotTotals() {
   const totals = {};
   for (const t of TERRAINS) totals[t] = 0;
+  totals[WILD] = 0;
   for (const r of MAP.routes) for (const t of r.terrains) totals[t] += 1;
   return totals;
 }

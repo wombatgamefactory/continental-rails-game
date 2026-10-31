@@ -1,6 +1,6 @@
 # Pacific Rails, second edition - engine contract supplement
 
-- Ruleset id `pr2e`, engine `src/engine-pr2e/`. Supplement version 2 (31/10/2026): the whole core rulebook (version 1 covered part 1, the game without Congress, upgrades and goals).
+- Ruleset id `pr2e`, engine `src/engine-pr2e/`. Supplement version 3 (31/10/2026): the engine is on route map v3 (35 cities, 65 routes, 134 slots) and a lay can include wild slots (the `wildSlot` decision, the `fillWildSlot` action, the variant `wildSlotTerrain`). Version 2 covered the whole core rulebook; version 1 part 1, the game without Congress, upgrades and goals.
 - Rules: the engine follows the ruleset's rules text, which is not part of this repository. Rule numbers (`P14.6`) refer to it and are cited here and in code comments.
 - Status: **binding** for the pr2e engine, its bots and the page's pr2e views, together with `docs/engine-contract.md`.
 
@@ -23,8 +23,8 @@ Every function of sections 2.1 to 2.3 is exported with the same signature. Diffe
 
 Reads added by this ruleset (all exported from `index.js`):
 
-- `legality.js`: `hasLegalLay(state, playerId)` (P4.4.3, P15.5), `canFinishLay(state, playerId, cities, routes)` (P4.7: can a lay begun along this path still be finished), `isLegalLay(state, playerId, cities, routes)` (P14.3: is this path a complete legal lay), `canPlaceArrivalBuilding(state, playerId, city)` (P14.6.2), `canHire(state, playerId)` (P4.4.4, P8.2), `layPath(state)` (the path being built, or null), `previewLay(state)` (what the lay being built would score and pay if ended now), `specialActionPossible(state, playerId, special)`, `waitingStep(frame)`, `describeStep(state, step)`, `anySenatorUsed(state)` (P10.2.2), and the block reasons of section 6.
-- `queries.js`: `evaluateLay(state, playerId, cities, routes)` (P14.7, P17, P19.2: `{ tiles, segments: [{ route, scoringCity, perSlot, slots }], slots, trackVp, completes, completionVp, tolls: [{ owner, city, kind }], tollVp }`), `scoringCityIndex`, `tilesForRoutes`, `holdsTiles`, `laidComponents`, `hasTranscontinentalLine(state)` (any owner, P19.1), `isLaid`, `laidRouteCount`, `isEmptyInlandCity`, `isOnNetwork` (P13.5), `routeBetween`, `districtHousesOn`, `districtHouseCount`, `emptySites`, `tracksWithHouses`, `telegraphsLeft`, `usedWorkerAt`, `carriageCount`, `congressColumns(state)` (P10.1: the eight columns `{ id, cost, reward, ..., down }` and the Reset `{ id: 'KR', cost, reset: true }`: this ruleset's Congress panel), `upgradeTokenIds(state)` (the distinct token ids, P12.1).
+- `legality.js`: `hasLegalLay(state, playerId)` (P4.4.3, P15.5), `canFinishLay(state, playerId, cities, routes)` (P4.7: can a lay begun along this path still be finished), `isLegalLay(state, playerId, cities, routes)` (P14.3: is this path a complete legal lay), `canPlaceArrivalBuilding(state, playerId, city)` (P14.6.2), `canHire(state, playerId)` (P4.4.4, P8.2), `layPath(state)` (the path being built or, while its wild slots are asked, being resolved; or null), `previewLay(state)` (what the lay being built would score and pay if ended now), `wildSlotSpare(state)` (`{ terrain: spare count }` for each tile type the pending `wildSlot` decision can be filled with, or null), `getFillWildSlotBlockReason`, `specialActionPossible(state, playerId, special)`, `waitingStep(frame)`, `describeStep(state, step)`, `anySenatorUsed(state)` (P10.2.2), and the block reasons of section 6.
+- `queries.js`: `evaluateLay(state, playerId, cities, routes)` (P14.7, P17, P19.2: `{ tiles, segments: [{ route, scoringCity, perSlot, slots, wild }], slots, trackVp, completes, completionVp, tolls: [{ owner, city, kind }], tollVp }`; `tiles` is `{ ground, tunnel, bridge, wild }`: the fixed slots by terrain and the number of wild slots, section 4.7), `scoringCityIndex`, `tilesForRoutes` (the same shape), `holdsTiles(player, tiles)` (each terrain's fixed tiles, then at least `wild` tiles of any kind left over, P14.9.2), `wildSlotsOnPath(state, cities, routes)` (`[{ route, slot }]`, the wild slots of a path's unlaid routes in the order the train passes them), `routeShortfall` (`{ ground, tunnel, bridge, wild }`: `wild` is the tiles of any kind still missing after the fixed slots are paid), `canAffordRoute`, `laidComponents`, `hasTranscontinentalLine(state)` (any owner, P19.1), `isLaid`, `laidRouteCount`, `isEmptyInlandCity`, `isOnNetwork` (P13.5), `routeBetween`, `districtHousesOn`, `districtHouseCount`, `emptySites`, `tracksWithHouses`, `telegraphsLeft`, `usedWorkerAt`, `carriageCount`, `congressColumns(state)` (P10.1: the eight columns `{ id, cost, reward, ..., down }` and the Reset `{ id: 'KR', cost, reset: true }`: this ruleset's Congress panel), `upgradeTokenIds(state)` (the distinct token ids, P12.1).
 - `conditions.js`: `METRICS` (the twelve goal measures of P18.2), `metricValue`, `describeProgress(state, playerId, goal)` (`{ known: true, value, target: null, met: false, text: '3 railway stations' }`).
 - `scoring.js`: `goalsInPlay(state)` (the 4 goal tiles `{ id, name, metric }`, left to right), `goalStandings(state, goal)` (`{ goal, values, places, awards }`: 5 VP to a sole leader with at least 1, nobody on a tie, P18.3).
 
@@ -81,9 +81,10 @@ state = {
     sites:  { D1: [null, null, null], D3: [...], D7: [...], D9: [...] }   // P6.6: district houses
   },
   map: {
-    routeOwner: { 'SEA-SPO': null | playerId },   // a laid route records who laid it (statistics only, P13.4)
-    railwayStation: { SPO: null | playerId },
-    telegraphStation: { SPO: null | playerId }
+    routeOwner: { 'SEA-YAK': null | playerId },   // a laid route records who laid it (statistics only, P13.4)
+    railwayStation: { TDL: null | playerId },
+    telegraphStation: { TDL: null | playerId },
+    wildFill: { 'SPO-HEL': [{ slot: 2, terrain: 'ground' }] }   // P14.9.5: the terrain of the tile on each laid wild slot; a route with no wild slot has no entry
   },
   supply: { specialists: { crew, miner, engineer, financier },   // P3.1.6: 4 / 5 / 6 per type
             upgrades: ['U1-wood', ...] },                        // P3.1.5: the upgrade supply, filtered by player count; identical tokens share an id
@@ -97,6 +98,17 @@ state = {
 ```
 
 Nothing is hidden (P2.5): `hiddenDecks` is empty and `determinise` only replaces the game RNG.
+
+`config.mapId` is `route-map-v3`: a save made on another map is refused by `deserialiseState`.
+
+### 3.1 The map (P13, route map v3)
+
+`MAP` (board.js) is built from `data/route-map.json` (the generated module `data/route-map.js` holds the same data): a 600 x 350 board, 35 cities (4 west and 4 east start cities, 27 inland), 65 routes of 1 to 4 slots, 134 slots: Ground 46, Tunnel 44, Bridge 41, wild 3. Route ids are `a-b` as the data gives them (`SEA-YAK`, `TDL-POR`, `SPO-HEL`); the full table is in the ruleset's rules text and the data file. A route record is `{ id, index, a, b, terrains, length, cost, wild, line, slots }`:
+
+- `terrains`: one entry per slot from `a` to `b`: `ground`, `tunnel`, `bridge` or `wild`.
+- `cost`: **only the fixed slots**, `{ ground, tunnel, bridge }` (always exactly these three keys, so a loop over them is a loop over tile types), and `wild`: how many of the route's slots are wild (P1.16; the data has at most one per route: `SPO-HEL`, `BIL-DEN`, `BIL-BIS`). `wild` is a kind of slot, never a tile type or a storage item (`TERRAINS` and `STORAGE_ITEMS` do not have it; `NAMES.wild` is "any tile", the words a screen shows).
+- For the page only: `line` (whether the art draws a black line between the two cities) and `slots: [{ x, y, angle, terrain }]` (where each slot is drawn). `MAP` also carries `cityStyle` (how the art draws a city), `labels` (`[{ city, text, x, y, x0, y0, x1, y1, colour }]`, where the art puts each city's name), `slotSize` (`{ l, w, outline }`) and `board` (`{ w, h }`).
+- `mapSlotTotals()` returns `{ ground, tunnel, bridge, wild }`.
 
 ---
 
@@ -119,7 +131,7 @@ The end by the transcontinental line is triggered inside the lay that completes 
 
 ### 4.3 Auto-advance
 
-As the main contract. In this ruleset the forced actions are mostly: a Crew, Miner or Engineer step that cannot be paid (`skipStep`), a Financier step with no affordable column and no possible Reset (`skipStep`, P10.4), an upgrade step (no decision at all: its yield is taken by `RESUME`; a level 3 token then asks `chooseResource` three times), a special action that cannot be paid or carried out (`skipSpecialAction`), a district choice with one legal answer, a lay step with one way on (`startLay`, `extendPath`, `endLay`), and an arrival building with one legal answer (one kind possible and, for a railway station, one track with a house).
+As the main contract. In this ruleset the forced actions are mostly: a Crew, Miner or Engineer step that cannot be paid (`skipStep`), a Financier step with no affordable column and no possible Reset (`skipStep`, P10.4), an upgrade step (no decision at all: its yield is taken by `RESUME`; a level 3 token then asks `chooseResource` three times), a special action that cannot be paid or carried out (`skipSpecialAction`), a district choice with one legal answer, a lay step with one way on (`startLay`, `extendPath`, `endLay`), a wild slot with one terrain to spare (`fillWildSlot`, section 4.7), and an arrival building with one legal answer (one kind possible and, for a railway station, one track with a house).
 
 ### 4.4 Granularity
 
@@ -158,7 +170,8 @@ A lay is built one route at a time (`extendPath`), so no action lists a whole pa
 | `chooseBuiltTile` | `remaining`, `cause` | `chooseBuiltTile` | P10.3.5 |
 | `hire` | `remaining`, `taken` | `hireSpecialist`, `stopHiring` (once `taken` is at least 1) | P8 |
 | `chooseFreeSpecialist` | | `chooseFreeSpecialist` | P16.5.1 |
-| `lay` | `remaining`, `taken`, `path: null \| { train, cities, routes }` | with no path: `startLay`, `stopLaying` (once `taken` is at least 1); with a path: `extendPath`, `endLay` | P14 |
+| `lay` | `remaining`, `taken`, `path: null \| { train, cities, routes }`; `wildFills` only while the lay's wild slots are being asked | with no path: `startLay`, `stopLaying` (once `taken` is at least 1); with a path: `extendPath`, `endLay` | P14 |
+| `wildSlot` | `route` (the route id), `slot` (the index of the wild slot in the route's terrain string, counted from the route's first city `a`), `remaining` (how many more wild slots this lay asks about after this one), `cause: 'lay'` | `fillWildSlot` | P14.9 |
 | `placeBuildings` | `city`, `optional`, `cause` (`arrival`) | `placeRailwayStation { city, houseTrack }`, `placeTelegraphStation { city }`; `skipBuilding` only when `optional` | P14.6 |
 
 The frame names of the setup draft are Continental Rails' (`setupRailhead`, `placeRailhead`): P24.1 keeps the draft unchanged and P1.22 lets code keep `railhead`.
@@ -170,6 +183,8 @@ The frame names of the setup draft are Continental Rails' (`setupRailhead`, `pla
 **Upgrades (P12).** `installUpgrade { token, carriage }` puts a token from the supply into one of the player's carriages: the carriage holds a specialist, has no token, the token's level equals the carriage number, and with `upgradePlacement = first-free` it is the leftmost such carriage (P12.2). At the Collect Wood special action (1 Gunpowder, 2 VP) the same action on a carriage that already holds a token of that level replaces it (P12.3: no VP, the old token returns to the supply; not with an identical token). Congress column K5 installs (1 VP) but never replaces.
 
 **The lay (P14).** `lay` gives M lays. `startLay { train }` begins a path at a train (with both trains on one city only the first index is offered: the two would be the same lay). `extendPath { route }` adds a printed route from the path's last city to a city not yet on it: laid routes are travelled, unlaid ones will be laid. `endLay` resolves P14.5 in order: pay the tiles and lay the unlaid routes; the transcontinental check; track VP by scoring city (or the completion VP instead); tolls; the train moves; then, if the player is able (`canPlaceArrivalBuilding`), `placeBuildings` is pushed (P14.6), and a railway station placed there counts towards carriages (P16.5, pushing `chooseFreeSpecialist` with carriage 1). Between lays the frame offers the next `startLay` or `stopLaying`, and closes by itself when the lays are used up or no further lay is possible. The shapes of `layShape` and the rule of `newConnectionRule` are applied by `isLegalLay` and `canFinishLay`.
+
+**Wild slots in a lay (P14.9).** A wild slot takes one built tile of any terrain, on top of the fixed slots: a path whose unlaid routes have the fixed slots `cost` (by terrain) and `wild` wild slots is payable when each `builtTiles[t] >= cost[t]` and `(builtTiles.ground - cost.ground) + (builtTiles.tunnel - cost.tunnel) + (builtTiles.bridge - cost.bridge) >= wild`. That one test (`holdsTiles` on `tilesForRoutes`) is used by `isLegalLay`, `canFinishLay`, `hasLegalLay` and `getExtendPathBlockReason`, so `extendPath` is offered only when some finished lay can still pay, and the block reason when only the second part fails reads "This lay also needs N more built tile(s) of any type for a wild slot: after the fixed slots you have S spare." `startLay`, `extendPath` and `endLay` are unchanged. `endLay` on a path whose unlaid routes include wild slots does **not** resolve the lay: it sets `wildFills: []` on the `lay` frame and pushes one `wildSlot` frame per wild slot, in the order the train passes them (route by route from the path's first city; within a route in the direction of travel), the first on top, each with its `remaining`. `fillWildSlot { terrain }` is offered for each tile type with a spare tile: held, minus the lay's fixed slots, minus the tiles already chosen for earlier wild slots of this lay (`wildSlotSpare`). There is no stop action. By the auto-advance rule a frame with exactly one legal terrain is applied by the engine (`auto: true`), so the choice reaches the player only when two or more kinds are spare; up to three questions in a row on map v3 (Spokane - Helena - Denver - Billings - Bismarck). The last answer resolves P14.5 (pay the fixed tiles and the chosen ones, the line check, track VP, tolls, the train, the building); nothing of it happens earlier, and the choices cannot be undone. `layPath(state)` and `previewLay(state)` keep answering while the `wildSlot` frames are on top. A wild slot scores like any slot (P14.7, P19.2) and no rule of this ruleset reads the terrain of a laid slot, so the variant `wildSlotTerrain` (section 10) changes nothing here.
 
 **Hiring (P8).** `hire` gives M hires into the leftmost empty space, the first required; Tycoon Mode charges the table of P8.5; a specialist hired into carriage 3 scores 2 or 5 VP. The frame closes by itself when the hires are used up or no further hire is possible.
 
@@ -203,6 +218,7 @@ An action is `{ type, ...params }`, plain JSON; `player` is optional as in the m
 | `extendPath` | `route` | Extend the lay along a route from its last city. | P14.2, P14.3, P4.7 |
 | `endLay` | | End the lay at its last city and resolve it. | P14.5 |
 | `stopLaying` | | Make no further lay this action. | P14.1 |
+| `fillWildSlot` | `terrain` (`ground`, `tunnel` or `bridge`) | Put a spare built tile of that terrain on the wild slot being asked (a `wildSlot` frame). | P14.9 |
 | `takeCongressColumn` | `column` (`K1`..`K8`) | At a Financier step: pay the column's Coins, its senator goes down, take its reward. | P10.2.1, P10.3 |
 | `resetSenators` | | At a Financier step: pay 1 Coin, every senator that is down returns, 1 VP each. | P10.2.2 |
 | `installUpgrade` | `token` (an id such as `U2-coins`), `carriage` (1 to 3) | Install that token from the supply in that carriage, or (Collect Wood only) replace the token there. | P12.2, P12.3, P6.7, P10.3.3 |
@@ -236,6 +252,7 @@ The same shape and the same rules for writing them as section 6 of the main cont
 | `getHireSpecialistBlockReason(state, playerId, specialist)`, `getStopHiringBlockReason` | P8 |
 | `getChooseFreeSpecialistBlockReason(state, playerId, specialist)` | P16.5.1 |
 | `getStartLayBlockReason(state, playerId, train)`, `getExtendPathBlockReason(state, playerId, route)`, `getEndLayBlockReason`, `getStopLayingBlockReason` | P14 |
+| `getFillWildSlotBlockReason(state, playerId, terrain)` | P14.9: a tile type, a spare tile of it, then the wild-slot decision |
 | `getTakeCongressColumnBlockReason(state, playerId, column)` | P10.2.1, P10.3.6: the senator, the Coins, the reward, then the Financier step |
 | `getResetSenatorsBlockReason(state, playerId)` | P10.2.2: a senator down, 1 Coin, then the Financier step |
 | `getInstallUpgradeBlockReason(state, playerId, token, carriage)` | P12.2 items 1 to 5 in order, P12.3 (replacing at Collect Wood only), then the Gunpowder or the K5 frame |
@@ -282,7 +299,7 @@ Ranks are shared by players tied on VP, district houses and buildings (1, 1, 3).
 
 ## 10. Variants and constants
 
-`VARIANTS` holds the 7 variants of P21.1, each with the ruled default; the functions of section 10 of the main contract work unchanged.
+`VARIANTS` holds the 8 variants of P21.1, each with its default; the functions of section 10 of the main contract work unchanged.
 
 | Variant | Values (default first) | Rule | Read by |
 |---|---|---|---|
@@ -293,6 +310,7 @@ Ranks are shared by players tied on VP, district houses and buildings (1, 1, 3).
 | `upgradePlacement` | `first-free`, `any-carriage` | P12.2.4 | `installTerms` (legality.js) |
 | `hatOverflow` | `resource`, `lost` | P11.1 | `gainHats` for Congress column K4 (a displacement always gives a resource) and K4's feasibility |
 | `maxTurnsPerPlayer` | 80, integer 0 to 500 (0 = off) | P19.5 | `endTurn` |
+| `wildSlotTerrain` | `tile-terrain`, `no-terrain` | P14.9.6 | nothing: no rule of this ruleset reads the terrain of a laid slot, so both values play the same game; it exists so that both rulesets accept the same switch |
 
 `UNIMPLEMENTED_VARIANT_VALUES` is empty: every value is played.
 
@@ -302,7 +320,7 @@ Constants are in `rules.js` by group (`SETUP`, `SUPPLY`, `PLAYER_BOARD`, `HATS`,
 
 ## 13. Events
 
-As the main contract (`action` first, then what it caused). The event types of this ruleset: `action`, `startingProduction`, `railheadPlaced`, `setupComplete`, `turnStart`, `turnEnd`, `workerReturned`, `districtChosen` (`district`, `tile`, `mode`, `multiplier`, `adjacent`, `hats`, `hat`), `gather` (`item`, `production`, `districtHouses`, `multiplier`, `amount`), `gain`, `pay`, `hatLimit`, `discard`, `boardActivation` (`foreman`, `steps`, `cause`), `build` (`terrain`, `specialist`, `carriage`), `hire` (`specialist`, `carriage`, `slot`, `cause`: `hire` or `carriage1`), `carriageAdded` (`carriage`), `districtHousePlaced` (`district`, `site`, `houseTrack`), `buildingPlaced` (`kind`, `city`, `houseTrack` or `vp`, `cause`: `arrival` or `special`), `routeLaid` (`route`, `slots`, `cost`), `toll` (`player` = the owner paid, `by`, `city`, `kind`), `railheadMoved` (`railhead`, `from`, `to`, `cities`, `routes`), `lay` (a summary: `cities`, `routes`, `laid`, `segments`, `trackVp`, `completes`), `completion` (`route`, `routes`, `bonus`), `congressEntry` (`entry` / `column`: `K1`..`K8`, or `KR` for the Reset; `coins`), `senatorsReset` (`count`), `upgradeInstalled` (`tile` = `token`, `carriage`, `level`, `replaced` (the token returned, or null), `cause`: `special` or `congress:K5`), `upgradeStep` (`token`, `carriage`, `level`, `gives`, `amount`), `vp`, `gameEndTriggered`, `gameOver` (adds `winners`). `districtHousePlaced` and `buildingPlaced` take the cause `congress:K5` / `congress:K7`.
+As the main contract (`action` first, then what it caused). The event types of this ruleset: `action`, `startingProduction`, `railheadPlaced`, `setupComplete`, `turnStart`, `turnEnd`, `workerReturned`, `districtChosen` (`district`, `tile`, `mode`, `multiplier`, `adjacent`, `hats`, `hat`), `gather` (`item`, `production`, `districtHouses`, `multiplier`, `amount`), `gain`, `pay`, `hatLimit`, `discard`, `boardActivation` (`foreman`, `steps`, `cause`), `build` (`terrain`, `specialist`, `carriage`), `hire` (`specialist`, `carriage`, `slot`, `cause`: `hire` or `carriage1`), `carriageAdded` (`carriage`), `districtHousePlaced` (`district`, `site`, `houseTrack`), `buildingPlaced` (`kind`, `city`, `houseTrack` or `vp`, `cause`: `arrival` or `special`), `routeLaid` (`route`, `slots`, `cost`: the tiles actually paid for the route by terrain, wild fills included; `wild`: `[{ slot, terrain }]`, empty for a route with no wild slot), `toll` (`player` = the owner paid, `by`, `city`, `kind`), `railheadMoved` (`railhead`, `from`, `to`, `cities`, `routes`), `lay` (a summary: `cities`, `routes`, `laid`, `segments`, `trackVp`, `completes`, `wild`: every fill of the lay, `[{ route, slot, terrain }]`), `completion` (`route`, `routes`, `bonus`), `congressEntry` (`entry` / `column`: `K1`..`K8`, or `KR` for the Reset; `coins`), `senatorsReset` (`count`), `upgradeInstalled` (`tile` = `token`, `carriage`, `level`, `replaced` (the token returned, or null), `cause`: `special` or `congress:K5`), `upgradeStep` (`token`, `carriage`, `level`, `gives`, `amount`), `vp`, `gameEndTriggered`, `gameOver` (adds `winners`). Each `fillWildSlot` is an `action` event like any other (`auto: true` when the engine applied it), placed between the `endLay` action event (or the previous `fillWildSlot`) and the events of the lay it lets resolve. `districtHousePlaced` and `buildingPlaced` take the cause `congress:K5` / `congress:K7`.
 
 ---
 
@@ -325,6 +343,9 @@ As the main contract (`action` first, then what it caused). The event types of t
 15. **Tycoon Mode** (P8.5) charges the table; the free specialist of carriage 1 never costs anything.
 16. **The upgrade tokens** in the supply (P3.1.5) are stored by id with duplicates (`U1-iron` twice at 3 players); identical tokens are interchangeable.
 17. **The goal tiles** are drawn from the game RNG in `createGame`, after the seats, and stored in the order drawn; the eight left in the box are not stored (nothing is hidden).
+18. **Wild slots are paid from what is left over** (P14.9.2): the fixed slots of the whole path are paid by terrain first, and each wild slot then takes one spare tile of any terrain. The fill is asked of the player, when the lay ends, only when two or more terrains are spare; the engine never picks between real alternatives. Wild slots on routes the path only travels over are already filled and are not asked about.
+19. **`layPath` and `previewLay` while wild slots are asked**: they keep returning the path of the lay being resolved (the `lay` frame under the `wildSlot` frames), so a page can keep drawing it; `getValidActions` offers only `fillWildSlot` then.
+20. **Saved games**: a save of this ruleset made on another map is refused (`config.mapId`), and a state with `wildSlot` frames on its stack loads and goes on exactly as it was.
 
 ---
 
@@ -333,7 +354,7 @@ As the main contract (`action` first, then what it caused). The event types of t
 The five levels exist for this ruleset, built by `src/rulesets/pr2e.js`:
 
 - **Random** is the shared random bot over this engine.
-- **Easy and Medium** are the heuristic bot of `src/bots/pr2e/` (`heuristicBot-pr2e.js`, tuning in `weights-pr2e.js`), built by `createPr2eHeuristicPolicies(engine)`; Easy plays the same scores with noise. It plans path lays (tolls, the forced arrival building, the track VP by scoring city), Congress columns and the Reset, goals, upgrade tokens and hiring. The policies have the same shape as the Continental Rails ones (`heuristicBot`, `easyBot`, `heuristicPolicy`, `rolloutPolicy`, `scoreValidActions`, a no-op `repeatGuard`, `decisionShare`, `pipelineValue`).
+- **Easy and Medium** are the heuristic bot of `src/bots/pr2e/` (`heuristicBot-pr2e.js`, tuning in `weights-pr2e.js`), built by `createPr2eHeuristicPolicies(engine)`; Easy plays the same scores with noise. It plans path lays (tolls, the forced arrival building, the track VP by scoring city, wild slots), Congress columns and the Reset, goals, upgrade tokens and hiring. A candidate path's need is its fixed tiles by terrain plus a count of wild slots; it is payable by the engine's own test (fixed tiles, then enough tiles of any kind left over), and for planning the wild tiles are given first to the terrains with the most spare tiles in storage and then to the terrain whose resource is most plentiful. The `wildSlot` decision is scored by keeping what the plan's other targets still need and spending the terrain with the most spare tiles beyond that (every built tile left at the end is worth 1 VP whatever its type, so the choice matters only for the next lays); ties go to Ground, then Tunnel. The policies have the same shape as the Continental Rails ones (`heuristicBot`, `easyBot`, `heuristicPolicy`, `rolloutPolicy`, `scoreValidActions`, a no-op `repeatGuard`, `decisionShare`, `pipelineValue`).
 - **Hard and Expert** are the shared tree search (`src/bots/mctsBot.js`, unchanged) with those scores as priors and that policy for the playouts. A playout runs to the end of the game (the transcontinental line or the turn limit); the search reads only `determinise`, which here replaces the game RNG, since nothing is hidden.
 
 Strengths, speeds and the tuning record are in `docs/bots.md` (last section). A bot reads the engine it is handed and imports no engine of its own (section 21 of the main contract).

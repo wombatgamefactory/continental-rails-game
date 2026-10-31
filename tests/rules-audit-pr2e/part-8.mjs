@@ -3,7 +3,7 @@
 // For hundreds of random positions (trains, laid routes, buildings, built tiles, house and
 // telegraph pieces left, and every value of layShape and newConnectionRule) the set of
 // extendPath / startLay / endLay actions on offer is compared with an exhaustive search of
-// the simple paths of the route map, written from P14.2 to P14.4 and P4.7: an extension is
+// the simple paths of the route map, written from P14.2 to P14.4, P14.9.2 and P4.7: an extension is
 // offered exactly when some complete legal lay still has the path so far as its prefix.
 
 import { assert, E, check, start, act, setTrains, setStorage, layRoutes, build, setHouses, placeAndChoose } from './kit.mjs';
@@ -42,23 +42,39 @@ function able(state, p, c) {
   return (rs === null && ts !== p && houses > 0) || (ts === null && rs !== p && left > 0);
 }
 
+/**
+ * P14.3.2, P14.9.2, written here from the rules text: can `have` pay the unlaid routes among `routes`?
+ * Each Ground, Tunnel and Bridge slot takes one tile of its own terrain; each wild slot takes one more
+ * tile of any terrain, from what is left over.
+ */
+function payable(state, have, routes) {
+  const need = { ground: 0, tunnel: 0, bridge: 0 };
+  let wild = 0;
+  for (const id of routes) {
+    if (state.map.routeOwner[id] !== null) continue;
+    for (const t of E.MAP.routeById[id].terrains) {
+      if (t === 'wild') wild += 1;
+      else need[t] += 1;
+    }
+  }
+  if (need.ground > have.ground || need.tunnel > have.tunnel || need.bridge > have.bridge) return false;
+  return have.ground - need.ground + (have.tunnel - need.tunnel) + (have.bridge - need.bridge) >= wild;
+}
+
 /** The oracle: is the path (cities, routes) a complete legal lay (P14.3)? */
 function complete(state, p, comp, cities, routes) {
   const k = routes.length;
   if (k === 0) return false;
-  const need = { ground: 0, tunnel: 0, bridge: 0 };
   let unlaid = 0;
   for (const id of routes) {
     if (state.map.routeOwner[id] !== null) continue;
     unlaid += 1;
-    for (const t of E.MAP.routeById[id].terrains) need[t] += 1;
     if (state.variants.newConnectionRule === 'must-join-unjoined') {
       const r = E.MAP.routeById[id];
       if (comp[r.a] === comp[r.b]) return false;
     }
   }
-  const have = state.players[p].builtTiles;
-  if (need.ground > have.ground || need.tunnel > have.tunnel || need.bridge > have.bridge) return false;
+  if (!payable(state, state.players[p].builtTiles, routes)) return false;
   const shape = state.variants.layShape;
   const lastUnlaid = state.map.routeOwner[routes[k - 1]] === null;
   if (lastUnlaid) {
@@ -88,15 +104,9 @@ function finishable(state, p, comp, cities, routes, budget) {
 /** Prunes the search: the tiles and the shape rules that no longer-path can undo. */
 function extensionAllowed(state, p, comp, cities, routes, id) {
   const all = routes.concat([id]);
-  const need = { ground: 0, tunnel: 0, bridge: 0 };
   let unlaid = 0;
-  for (const r of all) {
-    if (state.map.routeOwner[r] !== null) continue;
-    unlaid += 1;
-    for (const t of E.MAP.routeById[r].terrains) need[t] += 1;
-  }
-  const have = state.players[p].builtTiles;
-  if (need.ground > have.ground || need.tunnel > have.tunnel || need.bridge > have.bridge) return false;
+  for (const r of all) if (state.map.routeOwner[r] === null) unlaid += 1;
+  if (!payable(state, state.players[p].builtTiles, all)) return false;
   const shape = state.variants.layShape;
   if (shape === 'adjacent-only' && (all.length > 1 || unlaid !== 1)) return false;
   if (shape === 'one-new-route' && unlaid > 1) return false;
@@ -141,7 +151,7 @@ function runOracle() {
     if (bad.get(id).length < 3) bad.get(id).push(message);
   };
   const rng = E.makeRng('lay-oracle');
-  const stats = { positions: 0, withLay: 0, steps: 0, offers: 0, forced: 0 };
+  const stats = { positions: 0, withLay: 0, steps: 0, offers: 0, forced: 0, wildSteps: 0 };
   const shapes = ['path', 'one-new-route', 'adjacent-only'];
   const joins = ['any-unlaid-route', 'must-join-unjoined'];
   for (let i = 0; i < 900; i++) {
@@ -179,6 +189,7 @@ function runOracle() {
       const offered = new Set(E.getValidActions(s).filter((a) => a.type === 'extendPath').map((a) => a.route));
       const expected = new Set();
       const last = cities[cities.length - 1];
+      if (E.MAP.cityRoutes[last].some((id) => E.MAP.routeById[id].terrains.includes('wild') && s.map.routeOwner[id] === null)) stats.wildSteps += 1;
       for (const id of E.MAP.cityRoutes[last]) {
         const o = E.otherEnd(E.MAP.routeById[id], last);
         if (cities.includes(o)) continue;
@@ -215,9 +226,12 @@ export default function part8() {
       assert.deepEqual(bad.get(id) ?? [], []);
     });
   }
-  check('P14.3/oracle-coverage', 'the oracle compared many positions with a lay and many path steps', () => {
+  check('P14.3/oracle-coverage', 'the oracle compared many positions with a lay and many path steps, a good many of them beside a wild slot', () => {
     assert.ok(stats.withLay >= 400, `positions with a lay: ${stats.withLay}`);
     assert.ok(stats.steps >= 600, `steps: ${stats.steps}`);
+    assert.ok(stats.wildSteps >= 50, `path steps beside an unlaid wild route: ${stats.wildSteps}`);
+    if (process.env.AUDIT_STATS) process.stderr.write(`lay-oracle stats ${JSON.stringify(stats)}
+`);
   });
   void placeAndChoose;
 }

@@ -1,5 +1,5 @@
 // Rules audit (pr2e), part 6: P18 goal tiles, P19 the end of the game, P20 final scoring and
-// tie-breaks, P21 variants and tuning constants, and the worked examples E1 to E8 of P22.
+// tie-breaks, P21 variants and tuning constants, and the worked examples E1 to E8 of P22 (E9 is in part 9).
 
 import {
   assert, E, NAMES, start, act, put, setStorage, layRoutes, build, giveCarriages, setTrains, types, check, knownFailure, refused, has, offers,
@@ -8,6 +8,9 @@ import {
 
 const INLAND = () => E.MAP.inlandCities.map((c) => c.id ?? c);
 const take = (state, column) => act(state, { type: 'takeCongressColumn', column });
+
+/** Seattle to Bismarck, laid: the last two routes (Bismarck - Fargo - Minneapolis, 3 slots) complete a transcontinental line. */
+const LINE_A = ['SEA-YAK', 'YAK-SPO', 'SPO-GFA', 'GFA-BIS'];
 
 function scene({ players = 3, trains = ['SEA', 'MIN'], tiles = {}, laid = [], buildings = [], variants = {}, constants } = {}) {
   const s = start(players, { variants, constants });
@@ -154,73 +157,73 @@ export default function part6() {
   });
 
   check('P19.1/negative', 'a chain joining two west start cities, or two east ones, is not a transcontinental line', () => {
-    const s = scene({ trains: ['SPO', 'MIN'], tiles: { ground: 2, bridge: 2 }, laid: ['SEA-SPO'] });
-    layNow(s, ['POR-SPO']);
+    const s = scene({ trains: ['TDL', 'MIN'], tiles: { bridge: 1 }, laid: ['SEA-TDL'] });
+    layNow(s, ['TDL-POR']);
     assert.equal(s.gameEnd, null);
-    const t = scene({ trains: ['SXF', 'SEA'], tiles: { tunnel: 2, bridge: 2 }, laid: ['MIN-SXF'] });
-    layNow(t, ['OMA-SXF']);
+    const t = scene({ trains: ['SXC', 'SEA'], tiles: { bridge: 1 }, laid: ['MIN-SXC'] });
+    layNow(t, ['SXC-OMA']);
     assert.equal(t.gameEnd, null);
   });
 
   check('P19.1/checked-after-every-lay', 'it is checked after every lay: the second lay of one action can complete it', () => {
-    const s = scene({ trains: ['BIS', 'HEL'], tiles: { ground: 5, tunnel: 1, bridge: 3 }, laid: ['SEA-HEL'] });
+    const s = scene({ trains: ['BIS', 'GFA'], tiles: { ground: 4, bridge: 3 }, laid: ['SEA-YAK', 'YAK-SPO', 'SPO-GFA'] });
     setHats(s, 0, 1);
     chooseLay(s, 1);
-    doLay(s, ['HEL-BIS'], 1);
+    doLay(s, ['GFA-BIS'], 1);
     assert.equal(s.gameEnd, null, 'the first lay does not complete the line');
     while (frame(s) === 'placeBuildings' || frame(s) === 'chooseFreeSpecialist') act(s, E.getValidActions(s)[0]);
     assert.equal(frame(s), 'lay');
-    doLay(s, ['BIS-MIN'], 0);
+    doLay(s, ['FAR-BIS', 'FAR-MIN'], 0);
     assert.equal(s.gameEnd.reason, 'transcontinental');
   });
 
   check('P19.2/once', 'completing the first line scores 3 VP for every slot of the lay instead of the normal VP; a later line scores nothing extra', () => {
-    const s = scene({ trains: ['BIS', 'LAX'], tiles: { ground: 5 }, laid: ['SEA-HEL', 'HEL-BIS'] });
-    layNow(s, ['BIS-MIN']);
-    assert.equal(vp(s, 0, 'completion'), 15);
+    const s = scene({ trains: ['BIS', 'LAX'], tiles: { ground: 2, bridge: 1 }, laid: LINE_A });
+    layNow(s, ['FAR-BIS', 'FAR-MIN']);
+    assert.equal(vp(s, 0, 'completion'), 9);
     assert.equal(vp(s, 0, 'track'), 0);
-    // A second chain, laid later, earns nothing extra: lay another crossing's last route.
-    const t = scene({ trains: ['BIS', 'LAX'], tiles: { ground: 5 }, laid: ['SEA-HEL', 'HEL-BIS', 'BIS-MIN'] });
+    // A second chain, laid later, earns nothing extra: lay another route once a line exists.
+    const t = scene({ trains: ['BIS', 'LAX'], tiles: { tunnel: 1, bridge: 1 }, laid: [...LINE_A, 'FAR-BIS', 'FAR-MIN'] });
     assert.equal(E.hasTranscontinentalLine(t), true);
-    layNow(t, ['BIS-SXF']);
+    layNow(t, ['BIS-SXC']);
     assert.equal(vp(t, 0, 'completion'), 0);
-    assert.equal(vp(t, 0, 'track'), 3 * 2, 'normal VP: Sioux Falls is empty, 3 slots x 2');
+    assert.equal(vp(t, 0, 'track'), 2 * 2, 'normal VP: Sioux City is empty, 2 slots x 2');
   });
 
   check('P19.2/second-lay', 'a later lay of the same action, after the completing one, scores normally', () => {
-    const s = scene({ trains: ['BIS', 'MIN'], tiles: { ground: 8 }, laid: ['SEA-HEL', 'HEL-BIS'] });
+    const s = scene({ trains: ['BIS', 'BIS'], tiles: { ground: 2, bridge: 2, tunnel: 1 }, laid: LINE_A });
     setHats(s, 0, 1);
     chooseLay(s, 1);
-    doLay(s, ['BIS-MIN'], 0);
-    assert.equal(vp(s, 0, 'completion'), 15);
-    doLay(s, ['BIS-SXF'], 0);
-    assert.equal(vp(s, 0, 'completion'), 15, 'no second bonus');
-    assert.equal(vp(s, 0, 'track'), 3 * 2);
+    doLay(s, ['FAR-BIS', 'FAR-MIN'], 0);
+    assert.equal(vp(s, 0, 'completion'), 9);
+    doLay(s, ['BIS-SXC'], 1);
+    assert.equal(vp(s, 0, 'completion'), 9, 'no second bonus');
+    assert.equal(vp(s, 0, 'track'), 2 * 2);
   });
 
   check('P19.2/whole-lay', 'the 3 VP apply to every slot of the completing lay, including earlier routes of the same lay, and a lay ending in an inland city', () => {
-    const s = scene({ trains: ['SEA', 'MIN'], tiles: { bridge: 4, tunnel: 5, ground: 5 } });
-    layNow(s, ['SEA-HEL', 'HEL-BIS', 'BIS-MIN']);
+    const s = scene({ trains: ['SEA', 'MIN'], tiles: { bridge: 6, tunnel: 6, ground: 6 } });
+    layNow(s, ['SEA-YAK', 'YAK-SPO', 'SPO-GFA', 'GFA-BIS', 'FAR-BIS', 'FAR-MIN']);
     assert.equal(vp(s, 0, 'completion'), 14 * 3);
     assert.equal(vp(s, 0, 'track'), 0);
-    const t = scene({ trains: ['HEL', 'LAX'], tiles: { bridge: 3, tunnel: 1 }, laid: ['SEA-HEL', 'BIS-MIN'] });
-    layNow(t, ['HEL-BIS']);
+    const t = scene({ trains: ['GFA', 'LAX'], tiles: { ground: 2, bridge: 2 }, laid: ['SEA-YAK', 'YAK-SPO', 'SPO-GFA', 'FAR-BIS', 'FAR-MIN'] });
+    layNow(t, ['GFA-BIS']);
     assert.equal(vp(t, 0, 'completion'), 4 * 3, 'ending in Bismarck, an inland city: still 3 per slot');
   });
 
   check('P19.3/rest-of-action', 'once triggered the current action finishes normally, further lays of the same action included', () => {
-    const s = scene({ trains: ['BIS', 'MIN'], tiles: { ground: 7 }, laid: ['SEA-HEL', 'HEL-BIS'] });
+    const s = scene({ trains: ['BIS', 'MIN'], tiles: { ground: 7, bridge: 3 }, laid: LINE_A });
     setHats(s, 0, 1);
     chooseLay(s, 1);
-    doLay(s, ['BIS-MIN'], 0);
+    doLay(s, ['FAR-BIS', 'FAR-MIN'], 0);
     assert.equal(s.gameEnd.reason, 'transcontinental');
     assert.equal(frame(s), 'lay');
     assert.ok(has(s, 'startLay'), 'the second lay of the action is still available');
   });
 
   check('P19.3/equal-turns', 'play continues until every player has had the same number of turns: the game ends after the last seat\'s turn', () => {
-    const s = scene({ trains: ['BIS', 'MIN'], tiles: { ground: 5 }, laid: ['SEA-HEL', 'HEL-BIS'] });
-    layNow(s, ['BIS-MIN']); // seat 1 completes on turn 1
+    const s = scene({ trains: ['BIS', 'MIN'], tiles: { ground: 2, bridge: 1 }, laid: LINE_A });
+    layNow(s, ['FAR-BIS', 'FAR-MIN']); // seat 1 completes on turn 1
     assert.equal(E.isGameOver(s), false);
     assert.equal(s.turn.player, 1);
     playOut(s, 'tail');
@@ -229,32 +232,32 @@ export default function part6() {
     assert.equal(sc.endReason, 'transcontinental');
     assert.equal(sc.final, true);
     for (const p of sc.players) assert.equal(p.total, Object.values(s.players[p.id].vp).reduce((a, b) => a + b, 0), 'the final sources are booked');
-    assert.ok(sc.players[0].bySource.completion >= 15);
+    assert.ok(sc.players[0].bySource.completion >= 9);
   });
 
   check('P19.3/last-seat', 'if the trigger happens on the last seat\'s own turn the game ends when that turn ends', () => {
     const s = scene({ players: 2, trains: ['SEA', 'MIN'], tiles: {} });
     // Seat 2 (Ben) completes. Give Ben the position and tiles.
     s.turn.player = 0;
-    layRoutes(s, ['SEA-HEL', 'HEL-BIS'], 0);
+    layRoutes(s, LINE_A, 0);
     // Anna takes a harmless turn first.
     act(s, { type: 'placeWorker', space: 'W12' });
     act(s, { type: 'chooseDistrict', district: 'D9', hats: 0 });
     while (s.turn.player === 0) act(s, E.getValidActions(s).find((a) => a.type === 'skipSpecialAction') ?? E.getValidActions(s)[0]);
     assert.equal(s.turn.player, 1);
     setTrains(s, 1, ['BIS', 'LAX']);
-    setStorage(s, 1, { ground: 5 });
+    setStorage(s, 1, { ground: 2, bridge: 1 });
     act(s, { type: 'placeWorker', space: 'W4' });
     act(s, { type: 'chooseDistrict', district: 'D5', hats: 0, mode: 'lay' });
-    doLay(s, ['BIS-MIN'], 0);
+    doLay(s, ['FAR-BIS', 'FAR-MIN'], 0);
     assert.equal(s.gameEnd.reason, 'transcontinental');
     assert.equal(E.isGameOver(s), true, 'the last seat triggered: over when the turn ends');
     assert.deepEqual(s.players.map((p) => p.turnsTaken), [1, 1]);
   });
 
   check('P19.4', 'after the trigger everything works as before (laying continues, buildings, scoring)', () => {
-    const s = scene({ trains: ['BIS', 'MIN'], tiles: { ground: 5 }, laid: ['SEA-HEL', 'HEL-BIS'] });
-    layNow(s, ['BIS-MIN']);
+    const s = scene({ trains: ['BIS', 'MIN'], tiles: { ground: 2, bridge: 1 }, laid: LINE_A });
+    layNow(s, ['FAR-BIS', 'FAR-MIN']);
     const rng = E.makeRng('after');
     while (!E.isGameOver(s)) assert.doesNotThrow(() => act(s, E.rngPick(rng, E.getValidActions(s))));
   });
@@ -414,14 +417,16 @@ export default function part6() {
     hatOverflow: [['resource', 'lost'], 'resource'],
   };
 
-  check('P21.1/table', 'the seven variants, their allowed values and the ruled defaults', () => {
-    assert.deepEqual(E.VARIANT_NAMES, ['tycoonMode', ...Object.keys(VARIANTS).slice(1), 'maxTurnsPerPlayer']);
-    for (const [name, [values, def]] of Object.entries(VARIANTS)) {
+  check('P21.1/table', 'the eight variants, their allowed values and the ruled defaults', () => {
+    assert.deepEqual(E.VARIANT_NAMES, ['tycoonMode', ...Object.keys(VARIANTS).slice(1), 'maxTurnsPerPlayer', 'wildSlotTerrain']);
+    for (const [name, [values, def]] of Object.entries({ ...VARIANTS, wildSlotTerrain: [['tile-terrain', 'no-terrain'], 'tile-terrain'] })) {
       const v = E.VARIANTS.find((x) => x.name === name);
       assert.deepEqual(v.values.slice().sort(), values.slice().sort(), name);
       assert.equal(v.default, def, name);
     }
-    assert.deepEqual(E.defaultVariants(), { tycoonMode: false, layShape: 'path', newConnectionRule: 'any-unlaid-route', arrivalBuilding: 'compulsory-if-able', upgradePlacement: 'first-free', hatOverflow: 'resource', maxTurnsPerPlayer: 80 });
+    assert.deepEqual(E.defaultVariants(), { tycoonMode: false, layShape: 'path', newConnectionRule: 'any-unlaid-route', arrivalBuilding: 'compulsory-if-able', upgradePlacement: 'first-free', hatOverflow: 'resource', maxTurnsPerPlayer: 80, wildSlotTerrain: 'tile-terrain' });
+    assert.equal(E.VARIANTS.length, 8);
+    assert.throws(() => E.resolveVariants({ wildSlotTerrain: 'any' }), /Illegal value "any" for variant "wildSlotTerrain"/);
   });
 
   check('P21.1/rejects', 'unknown variant names and values outside "Allowed" are rejected', () => {
@@ -525,10 +530,10 @@ export default function part6() {
 
   check('P21.2/carriages', 'MAP_RULES.carriagesForLayStations, MAP_RULES.freeSpecialistsWithCarriage1 and PLAYER_BOARD.maxCarriages are read', () => {
     const arrive = (constants, pre) => {
-      const s = scene({ trains: ['SEA', 'MIN'], tiles: { ground: 2 }, buildings: [['telegraphStation', 'SPO', 1]], constants });
+      const s = scene({ trains: ['SEA', 'MIN'], tiles: { tunnel: 1 }, buildings: [['telegraphStation', 'YAK', 1]], constants });
       if (pre) pre(s);
-      layNow(s, ['SEA-SPO']);
-      act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' });
+      layNow(s, ['SEA-YAK']);
+      act(s, { type: 'placeRailwayStation', city: 'YAK', houseTrack: 'wood' });
       return s;
     };
     const two = (st) => { giveCarriages(st, 0, [[null, null], [null, null]]); st.players[0].layStationsPlaced = 2; };
@@ -549,21 +554,21 @@ export default function part6() {
   });
 
   check('P21.2/tollVp', 'MAP_RULES.tollVp: the toll amount is data', () => {
-    const s = scene({ trains: ['SEA', 'MIN'], tiles: { ground: 2 }, buildings: [['railwayStation', 'SPO', 1]], constants: { MAP_RULES: { tollVp: 7 } } });
-    layNow(s, ['SEA-SPO']);
+    const s = scene({ trains: ['SEA', 'MIN'], tiles: { tunnel: 1 }, buildings: [['railwayStation', 'YAK', 1]], constants: { MAP_RULES: { tollVp: 7 } } });
+    layNow(s, ['SEA-YAK']);
     assert.equal(vp(s, 1, 'toll'), 7);
   });
 
   check('P21.2/track-vp', 'MAP_RULES.vpPerSlotUnconnected / vpPerSlotConnected / completionVpPerSlot are data', () => {
-    const s = scene({ trains: ['SEA', 'MIN'], tiles: { ground: 2 }, constants: { MAP_RULES: { vpPerSlotUnconnected: 5 } } });
-    layNow(s, ['SEA-SPO']);
-    assert.equal(vp(s, 0, 'track'), 10);
-    const t = scene({ trains: ['SEA', 'MIN'], tiles: { ground: 2 }, buildings: [['railwayStation', 'SPO', 1]], constants: { MAP_RULES: { vpPerSlotConnected: 4 } } });
-    layNow(t, ['SEA-SPO']);
-    assert.equal(vp(t, 0, 'track'), 8);
-    const u = scene({ trains: ['BIS', 'LAX'], tiles: { ground: 5 }, laid: ['SEA-HEL', 'HEL-BIS'], constants: { MAP_RULES: { completionVpPerSlot: 4 } } });
-    layNow(u, ['BIS-MIN']);
-    assert.equal(vp(u, 0, 'completion'), 20);
+    const s = scene({ trains: ['SEA', 'MIN'], tiles: { tunnel: 1 }, constants: { MAP_RULES: { vpPerSlotUnconnected: 5 } } });
+    layNow(s, ['SEA-YAK']);
+    assert.equal(vp(s, 0, 'track'), 5);
+    const t = scene({ trains: ['SEA', 'MIN'], tiles: { tunnel: 1 }, buildings: [['railwayStation', 'YAK', 1]], constants: { MAP_RULES: { vpPerSlotConnected: 4 } } });
+    layNow(t, ['SEA-YAK']);
+    assert.equal(vp(t, 0, 'track'), 4);
+    const u = scene({ trains: ['BIS', 'LAX'], tiles: { ground: 2, bridge: 1 }, laid: LINE_A, constants: { MAP_RULES: { completionVpPerSlot: 4 } } });
+    layNow(u, ['FAR-BIS', 'FAR-MIN']);
+    assert.equal(vp(u, 0, 'completion'), 12);
   });
 
   check('P21.2/goalVp', 'SCORING.goalVp and SCORING.builtTileEndVp are data', () => {
@@ -692,13 +697,15 @@ export default function part6() {
     assert.equal(Object.values(s.congress.down).filter(Boolean).length, 0);
   });
 
-  check('E3', 'A lay that travels, lays two routes and earns a carriage: 10 VP, Ben +3, a free specialist, storage 9', () => {
-    const s = scene({ trains: ['POR', 'MIN'], tiles: { tunnel: 3, ground: 2, coins: 1 }, laid: ['POR-SPO', 'SEA-SPO'], buildings: [['railwayStation', 'SPO', 1]] });
-    layNow(s, ['POR-SPO', 'HEL-SPO', 'HEL-BIL']);
+  check('E3', 'A lay that travels, lays two routes (the second with a wild slot) and earns a carriage: 10 VP, Ben +3, a free specialist, storage 9', () => {
+    const s = scene({ trains: ['POR', 'MIN'], tiles: { ground: 3, tunnel: 1, bridge: 1, coins: 1 }, laid: ['TDL-POR', 'SEA-TDL'], buildings: [['railwayStation', 'TDL', 1]] });
+    layNow(s, ['TDL-POR', 'SPO-TDL', 'SPO-HEL']);
     assert.equal(vp(s, 0, 'track'), 10);
     assert.equal(vp(s, 1, 'toll'), 3);
-    assert.equal(s.players[0].railheads[0], 'BIL');
-    act(s, { type: 'placeRailwayStation', city: 'BIL', houseTrack: 'wood' });
+    assert.equal(s.players[0].railheads[0], 'HEL');
+    assert.deepEqual(s.map.wildFill, { 'SPO-HEL': [{ slot: 2, terrain: 'ground' }] }, 'her only spare tile was Ground: the engine filled the wild slot');
+    assert.deepEqual(s.players[0].builtTiles, { ground: 0, tunnel: 0, bridge: 0 });
+    act(s, { type: 'placeRailwayStation', city: 'HEL', houseTrack: 'wood' });
     assert.equal(E.production(s, 0, 'wood'), 2);
     act(s, { type: 'chooseFreeSpecialist', specialist: 'crew' });
     assert.deepEqual(s.players[0].train.specialistCarriages[0].slots, ['crew', null]);
@@ -706,42 +713,42 @@ export default function part6() {
   });
 
   check('E3/variants', 'E3 with one-new-route is refused (two unlaid routes); with adjacent-only only a route from Portland can be laid', () => {
-    const cities = ['POR', 'SPO', 'HEL', 'BIL'];
-    const routes = ['POR-SPO', 'HEL-SPO', 'HEL-BIL'];
-    const mk = (variants) => scene({ trains: ['POR', 'MIN'], tiles: { tunnel: 3, ground: 2 }, laid: ['POR-SPO', 'SEA-SPO'], buildings: [['railwayStation', 'SPO', 1]], variants });
+    const cities = ['POR', 'TDL', 'SPO', 'HEL'];
+    const routes = ['TDL-POR', 'SPO-TDL', 'SPO-HEL'];
+    const mk = (variants) => scene({ trains: ['POR', 'MIN'], tiles: { ground: 3, tunnel: 1, bridge: 1 }, laid: ['TDL-POR', 'SEA-TDL'], buildings: [['railwayStation', 'TDL', 1]], variants });
     assert.equal(E.isLegalLay(mk({ layShape: 'one-new-route' }), 0, cities, routes), false);
     assert.equal(E.isLegalLay(mk({ layShape: 'adjacent-only' }), 0, ['POR', 'REN'], ['POR-REN']), true);
     assert.equal(E.isLegalLay(mk({ layShape: 'adjacent-only' }), 0, cities, routes), false);
   });
 
-  check('E3/stop', 'E3 with Cara\'s telegraph station in Helena: Helena is a stop, 3 x 1 + 2 x 2 = 7 VP and Cara also gains 3', () => {
-    const s = scene({ trains: ['POR', 'MIN'], tiles: { tunnel: 3, ground: 2 }, laid: ['POR-SPO', 'SEA-SPO'], buildings: [['railwayStation', 'SPO', 1], ['telegraphStation', 'HEL', 2]] });
-    layNow(s, ['POR-SPO', 'HEL-SPO', 'HEL-BIL']);
-    assert.equal(vp(s, 0, 'track'), 7);
+  check('E3/stop', 'E3 with Cara\'s telegraph station in Spokane: Spokane is a stop, 2 x 1 + 3 x 2 = 8 VP and Cara also gains 3', () => {
+    const s = scene({ trains: ['POR', 'MIN'], tiles: { ground: 3, tunnel: 1, bridge: 1 }, laid: ['TDL-POR', 'SEA-TDL'], buildings: [['railwayStation', 'TDL', 1], ['telegraphStation', 'SPO', 2]] });
+    layNow(s, ['TDL-POR', 'SPO-TDL', 'SPO-HEL']);
+    assert.equal(vp(s, 0, 'track'), 8);
     assert.equal(vp(s, 2, 'toll'), 3);
     assert.equal(vp(s, 1, 'toll'), 3);
   });
 
-  check('E4', 'A zero-tile lay to a bypassed city: no track VP, Spokane\'s toll, a compulsory building (here the first telegraph station, 1 VP)', () => {
+  check('E4', 'A zero-tile lay to a bypassed city: no track VP, The Dalles\' toll, a compulsory building (here the first telegraph station, 1 VP)', () => {
     const s = start(4);
-    layRoutes(s, ['POR-SPO', 'SEA-SPO', 'HEL-SPO', 'HEL-BIL'], 1);
-    build(s, 'railwayStation', 'SPO', 1);
-    build(s, 'railwayStation', 'BIL', 2);
+    layRoutes(s, ['TDL-POR', 'SEA-TDL', 'SPO-TDL', 'SPO-HEL'], 1);
+    build(s, 'railwayStation', 'TDL', 1);
+    build(s, 'railwayStation', 'HEL', 2);
     setTrains(s, 0, ['SEA', 'MIN']);
     setStorage(s, 0, {});
-    layNow(s, ['SEA-SPO', 'HEL-SPO']);
+    layNow(s, ['SEA-TDL', 'SPO-TDL']);
     assert.equal(vp(s, 0, 'track'), 0);
     assert.equal(vp(s, 1, 'toll'), 3);
     assert.equal(frame(s), 'placeBuildings');
-    act(s, { type: 'placeTelegraphStation', city: 'HEL' });
+    act(s, { type: 'placeTelegraphStation', city: 'SPO' });
     assert.equal(vp(s, 0, 'telegraph'), 1);
-    assert.equal(E.isCityConnected(s, 'HEL'), true);
+    assert.equal(E.isCityConnected(s, 'SPO'), true);
   });
 
-  check('E5', 'Completing the line: Bismarck - Minneapolis, 5 slots x 3 = 15 VP instead of 5, the end is triggered, no building owed in a start city', () => {
-    const s = scene({ trains: ['BIS', 'LAX'], tiles: { ground: 5 }, laid: ['SEA-HEL', 'HEL-BIS'] });
-    layNow(s, ['BIS-MIN']);
-    assert.equal(vp(s, 0, 'completion'), 15);
+  check('E5', 'Completing the line: Bismarck - Fargo - Minneapolis, 3 slots x 3 = 9 VP instead of 3, the end is triggered, no building owed in a start city', () => {
+    const s = scene({ trains: ['BIS', 'LAX'], tiles: { ground: 2, bridge: 1 }, laid: LINE_A });
+    layNow(s, ['FAR-BIS', 'FAR-MIN']);
+    assert.equal(vp(s, 0, 'completion'), 9);
     assert.equal(s.gameEnd.reason, 'transcontinental');
     assert.equal(s.turn.player, 1, 'no building owed');
   });
@@ -791,29 +798,29 @@ export default function part6() {
 
   check('E8', 'When the arrival building is compulsory: a railway station that must be placed brings carriage 2; both buildings taken, own building, or out of pieces: nothing owed', () => {
     const one = start(4);
-    build(one, 'telegraphStation', 'HEL', 3);
+    build(one, 'telegraphStation', 'SPO', 3);
     giveCarriages(one, 0, [['crew', null]]);
     setTrains(one, 0, ['BOI', 'MIN']);
-    setStorage(one, 0, { bridge: 3 });
-    layNow(one, ['HEL-BOI']);
-    assert.equal(vp(one, 0, 'track'), 3);
+    setStorage(one, 0, { tunnel: 1 });
+    layNow(one, ['SPO-BOI']);
+    assert.equal(vp(one, 0, 'track'), 1);
     assert.equal(vp(one, 3, 'toll'), 3);
     assert.deepEqual(types(one), ['placeRailwayStation']);
-    act(one, { type: 'placeRailwayStation', city: 'HEL', houseTrack: 'coins' });
+    act(one, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'coins' });
     assert.equal(one.players[0].train.specialistCarriages.length, 2);
     assert.equal(E.storageCapacity(one, 0), 12);
     const arrangements = {
-      both: (s) => { build(s, 'telegraphStation', 'HEL', 3); build(s, 'railwayStation', 'HEL', 1); },
-      own: (s) => build(s, 'telegraphStation', 'HEL', 0),
+      both: (s) => { build(s, 'telegraphStation', 'SPO', 3); build(s, 'railwayStation', 'SPO', 1); },
+      own: (s) => build(s, 'telegraphStation', 'SPO', 0),
       pieces: (s) => { setHouses(s, 0, 0); s.players[0].telegraphsPlaced = 7; },
     };
     for (const [name, arrange] of Object.entries(arrangements)) {
       const s = start(4);
       arrange(s);
       setTrains(s, 0, ['BOI', 'MIN']);
-      setStorage(s, 0, { bridge: 3 });
-      layNow(s, ['HEL-BOI']);
-      assert.equal(s.map.routeOwner['HEL-BOI'], 0, `${name}: the lay stands`);
+      setStorage(s, 0, { tunnel: 1 });
+      layNow(s, ['SPO-BOI']);
+      assert.equal(s.map.routeOwner['SPO-BOI'], 0, `${name}: the lay stands`);
       assert.equal(s.turn.player, 1, `${name}: nothing owed`);
     }
   });

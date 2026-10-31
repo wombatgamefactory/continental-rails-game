@@ -93,6 +93,8 @@ export function createPr2eHeuristicPolicies(engine) {
     districtHousesOn,
     emptySites,
     canPlaceArrivalBuilding,
+    wildSlotSpare,
+    layPath,
     usedWorkerAt,
     scoreGame,
     metricValue,
@@ -341,6 +343,65 @@ export function createPr2eHeuristicPolicies(engine) {
 
   const ZERO_H = { iron: 0, wood: 0, gunpowder: 0, coins: 0, ground: 0, tunnel: 0, bridge: 0, hats: 0 };
 
+  // ---- wild slots (P14.9) ----------------------------------------------------------------------
+  // A candidate's `need` is `{ ground, tunnel, bridge, wild }`: the fixed slots by terrain, and the number of wild
+  // slots, each of which takes one MORE built tile of any terrain, from what is left over (P14.9.2). The planning
+  // maths (turns to go, what a target still needs) works by terrain, so `resolveNeed` gives the wild tiles to
+  // terrains first.
+
+  /** P14.9.2. Whether built tiles `tiles` pay `need`: each terrain's fixed tiles, then a spare tile for each wild slot. */
+  function payable(tiles, need) {
+    if (tiles.ground < need.ground || tiles.tunnel < need.tunnel || tiles.bridge < need.bridge) return false;
+    const w = need.wild;
+    return w === 0 || tiles.ground - need.ground + (tiles.tunnel - need.tunnel) + (tiles.bridge - need.bridge) >= w;
+  }
+
+  /** The tiles left after paying `need` from `tiles` (changes `tiles`): each wild slot is paid from the terrain with the most spare tiles. */
+  function payFrom(tiles, need) {
+    for (const t of TERRAINS) tiles[t] -= need[t];
+    for (let i = 0; i < need.wild; i++) {
+      let best = 'ground';
+      for (const t of TERRAINS) if (tiles[t] > tiles[best]) best = t;
+      tiles[best] -= 1;
+    }
+  }
+
+  /**
+   * A need by terrain only: the wild tiles go first to the terrains with the most spare tiles in `tiles` (a held tile
+   * costs nothing to take), then, for those still to be built, to the terrain whose resource is plentiful (held plus
+   * what a Collect brings).
+   */
+  function resolveNeed(ctx, need, tiles) {
+    const out = { ground: need.ground, tunnel: need.tunnel, bridge: need.bridge };
+    let left = need.wild;
+    if (left === 0) return out;
+    const spare = {};
+    for (const t of TERRAINS) spare[t] = Math.max(0, tiles[t] - need[t]);
+    while (left > 0) {
+      let best = null;
+      for (const t of TERRAINS) if (spare[t] > 0 && (best === null || spare[t] > spare[best])) best = t;
+      if (best === null) break;
+      spare[best] -= 1;
+      out[best] += 1;
+      left -= 1;
+    }
+    while (left > 0) {
+      let best = 'ground';
+      let bestScore = -INF;
+      for (const t of TERRAINS) {
+        const k = RES_OF[t];
+        const score = ctx.h[k] + ctx.yield[k] - (out[t] - Math.min(out[t], tiles[t]));
+        if (score > bestScore) {
+          bestScore = score;
+          best = t;
+        }
+      }
+      out[best] += 1;
+      left -= 1;
+    }
+    return out;
+  }
+
   /** Targets 1 and 2: the paths worth planning for (they need not be affordable yet). */
   function ensureTargets(ctx) {
     if (ctx._targets !== null) return ctx._targets;
@@ -351,12 +412,13 @@ export function createPr2eHeuristicPolicies(engine) {
     let bestScore = 0;
     for (const c of sorted) {
       if (c.net <= 0 || c.net / bound <= bestScore) break;
-      if (c.need.ground + c.need.tunnel + c.need.bridge > ctx.cap) continue;
-      const T = turnsToGo(ctx, c.need, ctx.h);
+      if (c.need.ground + c.need.tunnel + c.need.bridge + c.need.wild > ctx.cap) continue;
+      const rn = resolveNeed(ctx, c.need, ctx.h);
+      const T = turnsToGo(ctx, rn, ctx.h);
       const score = c.net / (T + W.targetRound);
       if (score > bestScore) {
         bestScore = score;
-        best = { c, T, net: c.net };
+        best = { c, T, net: c.net, rn };
       }
     }
     let second = null;
@@ -365,17 +427,18 @@ export function createPr2eHeuristicPolicies(engine) {
       let secondScore = 0;
       for (const c of sorted) {
         if (c.net <= 0 || c.net / bound <= secondScore) break;
-        if (c === best.c || c.need.ground + c.need.tunnel + c.need.bridge > ctx.cap) continue;
+        if (c === best.c || c.need.ground + c.need.tunnel + c.need.bridge + c.need.wild > ctx.cap) continue;
         if (c.unlaid.some((id) => used.has(id))) continue;
-        const T = turnsToGo(ctx, c.need, ctx.h);
+        const rn = resolveNeed(ctx, c.need, ctx.h);
+        const T = turnsToGo(ctx, rn, ctx.h);
         const score = c.net / (T + W.targetRound);
         if (score > secondScore) {
           secondScore = score;
-          second = { c, T, net: c.net };
+          second = { c, T, net: c.net, rn };
         }
       }
     }
-    const make = (s) => (s === null ? null : { V: s.net, need: s.c.need, cand: s.c, Tempty: turnsToGo(ctx, s.c.need, ZERO_H), T: s.T });
+    const make = (s) => (s === null ? null : { V: s.net, need: s.rn, cand: s.c, Tempty: turnsToGo(ctx, s.rn, ZERO_H), T: s.T });
     ctx._targets = { t1: make(best), t2: make(second), count: sorted.length };
     return ctx._targets;
   }
@@ -654,7 +717,7 @@ export function createPr2eHeuristicPolicies(engine) {
     cand.tolls = tolls;
     cand.arrival = arrival;
     cand.V = V;
-    cand.net = V - (cand.need.ground + cand.need.tunnel + cand.need.bridge) * W.tileKept;
+    cand.net = V - (cand.need.ground + cand.need.tunnel + cand.need.bridge + cand.need.wild) * W.tileKept;
     return cand;
   }
 
@@ -686,7 +749,7 @@ export function createPr2eHeuristicPolicies(engine) {
       const cities = [s.city];
       const routes = [];
       const visited = new Set(cities);
-      const need = { ground: 0, tunnel: 0, bridge: 0 };
+      const need = { ground: 0, tunnel: 0, bridge: 0, wild: 0 };
       const unlaid = [];
 
       const push = (e) => {
@@ -697,6 +760,7 @@ export function createPr2eHeuristicPolicies(engine) {
         if (!laid) {
           unlaid.push(e.id);
           for (const t of TERRAINS) need[t] += e.r.cost[t];
+          need.wild += e.r.wild;
         }
         return laid;
       };
@@ -707,6 +771,7 @@ export function createPr2eHeuristicPolicies(engine) {
         if (!laid) {
           unlaid.pop();
           for (const t of TERRAINS) need[t] -= e.r.cost[t];
+          need.wild -= e.r.wild;
         }
       };
       const record = () => {
@@ -717,7 +782,7 @@ export function createPr2eHeuristicPolicies(engine) {
             cities: cities.slice(),
             routes: routes.slice(),
             unlaid: unlaid.slice(),
-            need: { ground: need.ground, tunnel: need.tunnel, bridge: need.bridge },
+            need: { ground: need.ground, tunnel: need.tunnel, bridge: need.bridge, wild: need.wild },
             prefixLength: opts.prefix !== null ? opts.prefix.routes.length : 0,
           })
         );
@@ -735,7 +800,7 @@ export function createPr2eHeuristicPolicies(engine) {
             if (mustJoin && m.comp[e.r.a] === m.comp[e.r.b]) continue;
             if (shape === 'one-new-route' && unlaid.length >= 1) continue;
             if (opts.affordable) {
-              if (need.ground + e.r.cost.ground > holds.ground || need.tunnel + e.r.cost.tunnel > holds.tunnel || need.bridge + e.r.cost.bridge > holds.bridge) continue;
+              if (!payable(holds, { ground: need.ground + e.r.cost.ground, tunnel: need.tunnel + e.r.cost.tunnel, bridge: need.bridge + e.r.cost.bridge, wild: need.wild + e.r.wild })) continue;
             }
           } else if (shape === 'adjacent-only') continue;
           const laid = push(e);
@@ -811,13 +876,13 @@ export function createPr2eHeuristicPolicies(engine) {
   function affordLays(ctx) {
     if (ctx._afford !== null) return ctx._afford;
     const h = ctx.h;
-    const list = planCandidates(ctx).sorted.filter((c) => c.need.ground <= h.ground && c.need.tunnel <= h.tunnel && c.need.bridge <= h.bridge);
+    const list = planCandidates(ctx).sorted.filter((c) => payable(h, c.need));
     ctx._afford = list;
     return list;
   }
 
   function holdsAfter(cand, tiles) {
-    return tiles.ground >= cand.need.ground && tiles.tunnel >= cand.need.tunnel && tiles.bridge >= cand.need.bridge;
+    return payable(tiles, cand.need);
   }
 
   /** What `M` lays of one Lay Track action are worth: the best, then the best that is still affordable and shares no route. */
@@ -839,7 +904,7 @@ export function createPr2eHeuristicPolicies(engine) {
       }
       if (pick === null) break;
       total += factor * pick.net;
-      for (const t of TERRAINS) tiles[t] -= pick.need[t];
+      payFrom(tiles, pick.need);
       for (const id of pick.unlaid) used.add(id);
       factor = ctx.W.secondLay;
     }
@@ -1462,6 +1527,27 @@ export function createPr2eHeuristicPolicies(engine) {
     });
   }
 
+  /**
+   * The tile for a wild slot (P14.9, P14.9.7). In this ruleset the choice matters only for what stays in storage, and
+   * every built tile left at the end is worth 1 VP whatever its type: so spend the terrain with the most spare tiles
+   * beyond what the plan's other targets still need, and keep the ones the next lays will want. Ties go to Ground
+   * (the cheapest to build again), then Tunnel.
+   */
+  function scoreWildSlot(ctx, frame, actions) {
+    const spare = wildSlotSpare(ctx.state);
+    if (spare === null) return actions.map(() => null);
+    const path = layPath(ctx.state);
+    const lay = new Set(path === null ? [] : path.routes);
+    const { t1, t2 } = ensureTargets(ctx);
+    const future = { ground: 0, tunnel: 0, bridge: 0 };
+    for (const t of [t1, t2]) {
+      if (t === null || t.cand.unlaid.some((id) => lay.has(id))) continue;
+      for (const j of TERRAINS) future[j] += t.need[j];
+    }
+    const order = { ground: 0.02, tunnel: 0.01, bridge: 0 };
+    return actions.map((a) => (spare[a.terrain] ?? 0) - future[a.terrain] + order[a.terrain]);
+  }
+
   function scorePlaceBuildings(ctx, frame, actions) {
     return actions.map((a) => {
       if (a.type === 'skipBuilding') return 0;
@@ -1497,6 +1583,8 @@ export function createPr2eHeuristicPolicies(engine) {
         return scoreFreeSpecialist(ctx, actions);
       case 'lay':
         return scoreLay(ctx, frame, actions);
+      case 'wildSlot':
+        return scoreWildSlot(ctx, frame, actions);
       case 'placeBuildings':
         return scorePlaceBuildings(ctx, frame, actions);
       default:

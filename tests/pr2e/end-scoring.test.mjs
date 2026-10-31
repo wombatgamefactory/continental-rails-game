@@ -9,18 +9,20 @@ import { E, start, act, setStorage, layRoutes, build, setTrains, clearGrid } fro
 
 const suite = makeSuite('pr2e end-scoring');
 
-/** The active player (on Bismarck with 5 Ground, Seattle - Helena - Bismarck laid) lays Bismarck - Minneapolis. */
+/** The active player (on Bismarck with 2 Ground and 1 Bridge, Seattle to Bismarck laid) lays Bismarck - Fargo - Minneapolis (3 slots, 9 VP). */
 function completeLine(state, pid) {
   clearGrid(state);
-  layRoutes(state, ['SEA-HEL', 'HEL-BIS']);
+  layRoutes(state, ['SEA-YAK', 'YAK-SPO', 'SPO-GFA', 'GFA-BIS']);
   setTrains(state, pid, ['BIS', 'LAX']);
-  setStorage(state, pid, { ground: 5 });
+  setStorage(state, pid, { ground: 2, bridge: 1 });
   act(state, { type: 'placeWorker', space: 'W4' });
   act(state, { type: 'chooseDistrict', district: 'D5', hats: 0, mode: 'lay' });
   let top = E.topFrame(state);
   if (top !== null && top.kind === 'lay' && top.path === null) act(state, { type: 'startLay', train: 0 });
   top = E.topFrame(state);
-  if (top !== null && top.kind === 'lay' && top.path.routes.length === 0) act(state, { type: 'extendPath', route: 'BIS-MIN' });
+  if (top !== null && top.kind === 'lay' && top.path.routes.length === 0) act(state, { type: 'extendPath', route: 'FAR-BIS' });
+  top = E.topFrame(state);
+  if (top !== null && top.kind === 'lay' && top.path.routes.length === 1) act(state, { type: 'extendPath', route: 'FAR-MIN' });
   top = E.topFrame(state);
   if (top !== null && top.kind === 'lay' && top.path !== null) act(state, { type: 'endLay' });
 }
@@ -58,16 +60,16 @@ suite.check('P19.3: the end triggered on the last seat\'s own turn ends the game
 
 suite.check('P19.2: the completion VP are paid once; a later line scores nothing extra', () => {
   const state = start(3);
-  layRoutes(state, ['SEA-HEL', 'HEL-BIS', 'BIS-MIN']);
-  state.completion = { player: 2, turn: 0, route: 'BIS-MIN', routes: ['BIS-MIN'], slots: 5 };
+  layRoutes(state, ['SEA-YAK', 'YAK-SPO', 'SPO-GFA', 'GFA-BIS', 'FAR-BIS', 'FAR-MIN']);
+  state.completion = { player: 2, turn: 0, route: 'FAR-MIN', routes: ['FAR-BIS', 'FAR-MIN'], slots: 3 };
   state.gameEnd = { reason: 'transcontinental', triggeredBy: 2, triggeredOnTurn: 0 };
-  // Another line: Los Angeles - Phoenix - El Paso - Fort Worth, Anna lays the last route.
-  layRoutes(state, ['LAX-PHX', 'PHX-ELP']);
-  setTrains(state, 0, ['ELP', 'SEA']);
-  setStorage(state, 0, { ground: 5 });
-  const r = E.evaluateLay(state, 0, ['ELP', 'FTW'], ['ELP-FTW']);
+  // Another line: Los Angeles - San Bernardino - Las Vegas - Phoenix - Santa Fe - El Paso - Amarillo - Abilene - Fort Worth, Anna lays the last route.
+  layRoutes(state, ['LAX-SBD', 'SBD-LVG', 'LVG-PHX', 'SFE-PHX', 'SFE-ELP', 'ELP-AMA', 'AMA-ABI']);
+  setTrains(state, 0, ['ABI', 'SEA']);
+  setStorage(state, 0, { tunnel: 1 });
+  const r = E.evaluateLay(state, 0, ['ABI', 'FTW'], ['ABI-FTW']);
   assert.equal(r.completes, false);
-  assert.equal(r.trackVp, 5, 'ordinary track VP (a start city: 1 per slot)');
+  assert.equal(r.trackVp, 1, 'ordinary track VP (a start city: 1 per slot)');
 });
 
 suite.check('P19.2 with P19.5: a first line completed after the turn limit has triggered the end still pays, and the reason stays', () => {
@@ -76,7 +78,7 @@ suite.check('P19.2 with P19.5: a first line completed after the turn limit has t
   while (state.turn.player === 0) act(state, E.rngPick(rng, E.getValidActions(state)));
   assert.equal(state.gameEnd.reason, 'turn-limit');
   completeLine(state, 1);
-  assert.equal(state.players[1].vp.completion, 15);
+  assert.equal(state.players[1].vp.completion, 9);
   assert.equal(state.gameEnd.reason, 'turn-limit');
   assert.equal(E.isGameOver(state), true);
 });
@@ -141,7 +143,7 @@ suite.check('P20.4: ties broken by district houses, then buildings; still tied, 
 // P21 - variants and constants
 // ---------------------------------------------------------------------------
 
-suite.check('P21.1: the seven variants by name, with the ruled defaults; unknown names and values are refused', () => {
+suite.check('P21.1: the eight variants by name, with the ruled defaults; unknown names and values are refused', () => {
   assert.deepEqual(E.defaultVariants(), {
     tycoonMode: false,
     layShape: 'path',
@@ -150,7 +152,11 @@ suite.check('P21.1: the seven variants by name, with the ruled defaults; unknown
     upgradePlacement: 'first-free',
     hatOverflow: 'resource',
     maxTurnsPerPlayer: 80,
+    wildSlotTerrain: 'tile-terrain',
   });
+  assert.equal(E.VARIANTS.length, 8);
+  assert.throws(() => E.resolveVariants({ wildSlotTerrain: 'any' }), /Illegal value "any" for variant "wildSlotTerrain"/);
+  assert.equal(E.resolveVariants({ wildSlotTerrain: 'no-terrain' }).wildSlotTerrain, 'no-terrain');
   assert.throws(() => E.resolveVariants({ conversionRate: '1:1' }), /Unknown variant "conversionRate"/);
   assert.throws(() => E.resolveVariants({ layShape: 'zigzag' }), /Illegal value "zigzag" for variant "layShape"/);
   assert.throws(() => E.resolveVariants({ maxTurnsPerPlayer: '30' }), /Illegal value/);
@@ -173,9 +179,9 @@ suite.check('P21.2: every constant is named data; overrides are recorded and rea
   assert.throws(() => start(2, { constants: { MAP_RULES: { tollVp: 'x' } } }), /must be a number/);
   // The toll override is used.
   const s2 = start(3, { constants: { MAP_RULES: { tollVp: 5 } } });
-  layRoutes(s2, ['POR-SPO']);
-  build(s2, 'railwayStation', 'SPO', 1);
-  const r = E.evaluateLay(s2, 0, ['POR', 'SPO', 'REN'], ['POR-SPO', 'SPO-REN']);
+  layRoutes(s2, ['TDL-POR']);
+  build(s2, 'railwayStation', 'TDL', 1);
+  const r = E.evaluateLay(s2, 0, ['POR', 'TDL', 'SPO'], ['TDL-POR', 'SPO-TDL']);
   assert.equal(r.tollVp, 5);
 });
 

@@ -165,7 +165,7 @@ export default function part3() {
   check('P8.5/free', 'the free specialist that comes with carriage 1 never costs anything, even in Tycoon Mode', () => {
     const s = start(2, { variants: { tycoonMode: true } });
     setTrains(s, 0, ['POR', 'MIN']);
-    setStorage(s, 0, { tunnel: 2 });
+    setStorage(s, 0, { ground: 1, tunnel: 1, bridge: 1 });
     layNowSimple(s);
     assert.equal(frame(s), 'chooseFreeSpecialist');
     const before = JSON.stringify([s.players[0].resources, s.players[0].coins]);
@@ -335,7 +335,7 @@ export default function part3() {
 
   check('P10.1/K7', 'K7: pay 3 Coins; place a railway station and / or a telegraph station on the map', () => {
     const s = atFinancier(3, { coins: 3 });
-    layRoutes(s, ['SEA-SPO']);
+    layRoutes(s, ['SEA-TDL']);
     take(s, 'K7');
     assert.equal(s.players[0].coins, 0);
     assert.equal(frame(s), 'congressPlacement');
@@ -466,13 +466,13 @@ export default function part3() {
 
   check('P10.3/4', 'K7: a railway station in an inland city with no building that a laid route ends at, or with another player\'s telegraph station and no railway station; a telegraph station in a city with another\'s railway station and no telegraph station', () => {
     const s = atFinancier(3, { coins: 3 });
-    layRoutes(s, ['SEA-SPO']);
+    layRoutes(s, ['SEA-TDL']);
     build(s, 'railwayStation', 'REN', 1);
     build(s, 'telegraphStation', 'BOI', 2);
     build(s, 'railwayStation', 'FRE', 0); // own railway station: no telegraph for Anna there
     take(s, 'K7');
     const rail = [...new Set(offers(s, 'placeRailwayStation').map((a) => a.city))].sort();
-    assert.deepEqual(rail, ['BOI', 'SPO']);
+    assert.deepEqual(rail, ['BOI', 'TDL']);
     const tele = offers(s, 'placeTelegraphStation').map((a) => a.city).sort();
     assert.deepEqual(tele, ['REN']);
     refused(s, { type: 'placeRailwayStation', city: 'HEL', houseTrack: 'wood' }); // no laid route ends there
@@ -484,7 +484,7 @@ export default function part3() {
     build(s, 'telegraphStation', 'REN', 0);
     build(s, 'railwayStation', 'FRE', 0);
     build(s, 'telegraphStation', 'BOI', 1);
-    layRoutes(s, ['SEA-SPO']);
+    layRoutes(s, ['SEA-TDL']);
     s.players[0].telegraphsPlaced = 1;
     take(s, 'K7');
     assert.ok(!offers(s, 'placeRailwayStation').some((a) => a.city === 'REN'), 'own telegraph station in Reno');
@@ -494,15 +494,15 @@ export default function part3() {
 
   check('P10.3/4b', 'K7: one or both buildings, never in the same city; no carriage; no track VP; skipBuilding once one is placed', () => {
     const s = atFinancier(3, { coins: 3 });
-    layRoutes(s, ['SEA-SPO']);
+    layRoutes(s, ['SEA-TDL']);
     build(s, 'railwayStation', 'REN', 1);
     take(s, 'K7');
     assert.ok(!types(s).includes('skipBuilding'), 'at least one is required');
-    act(s, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'iron' });
+    act(s, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'iron' });
     assert.equal(s.players[0].train.specialistCarriages.length, 0);
     assert.equal(s.players[0].layStationsPlaced, 0);
     assert.ok(types(s).includes('skipBuilding'));
-    assert.ok(!offers(s, 'placeTelegraphStation').some((a) => a.city === 'SPO'), 'not in the city that got the railway station');
+    assert.ok(!offers(s, 'placeTelegraphStation').some((a) => a.city === 'TDL'), 'not in the city that got the railway station');
     act(s, { type: 'placeTelegraphStation', city: 'REN' });
     assert.equal(vp(s, 0, 'telegraph'), 1);
     assert.equal(vp(s, 0, 'track'), 0);
@@ -534,7 +534,7 @@ export default function part3() {
     const t = atFinancier(2, { coins: 3 });
     setHouses(t, 0, 0);
     t.players[0].telegraphsPlaced = 7;
-    layRoutes(t, ['SEA-SPO']);
+    layRoutes(t, ['SEA-TDL']);
     assert.ok(!has(t, 'takeCongressColumn', { column: 'K7' }), 'no pieces left');
   });
 
@@ -768,7 +768,7 @@ export default function part3() {
   void playOut;
 }
 
-/** Anna (train on Portland) lays Portland - Reno with 2 Tunnel tiles and takes the railway station there. */
+/** Anna (train on Portland) lays Portland - Reno (Bridge, Tunnel, Ground) and takes the railway station there. */
 function layNowSimple(s) {
   chooseLay(s);
   doLay(s, ['POR-REN']);

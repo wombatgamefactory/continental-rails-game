@@ -124,18 +124,18 @@ suite.check('P10.3.5: K6 gives 4 resources of choice, never Coins', () => {
 
 suite.check('P10.3.4: K7 places a railway station (empty city on the network, or with another\'s telegraph station) and / or a telegraph station (with another\'s railway station); no carriage', () => {
   const state = atFinancier(3, { coins: 3 });
-  layRoutes(state, ['SEA-SPO']);
+  layRoutes(state, ['SEA-TDL']);
   build(state, 'railwayStation', 'REN', 1);
   build(state, 'telegraphStation', 'BOI', 2);
   take(state, 'K7');
   assert.equal(E.topFrame(state).kind, 'congressPlacement');
   const rail = [...new Set(E.getValidActions(state).filter((a) => a.type === 'placeRailwayStation').map((a) => a.city))].sort();
-  assert.deepEqual(rail, ['BOI', 'SPO'], 'Spokane (empty, a laid route ends there) and Boise (Cara\'s telegraph station)');
+  assert.deepEqual(rail, ['BOI', 'TDL'], 'The Dalles (empty, a laid route ends there) and Boise (Cara\'s telegraph station)');
   const tele = E.getValidActions(state).filter((a) => a.type === 'placeTelegraphStation').map((a) => a.city);
   assert.deepEqual(tele, ['REN'], 'Reno (Ben\'s railway station)');
   assert.match(E.getBlockReason(state, { type: 'placeRailwayStation', city: 'HEL', houseTrack: 'wood' }), /only in a city with no building that a laid route reaches/);
   assert.match(E.getBlockReason(state, { type: 'skipBuilding' }), /at least one building/);
-  act(state, { type: 'placeRailwayStation', city: 'SPO', houseTrack: 'wood' });
+  act(state, { type: 'placeRailwayStation', city: 'TDL', houseTrack: 'wood' });
   assert.equal(state.players[0].train.specialistCarriages.length, 0, 'P16.5: no carriage for a K7 station');
   assert.equal(state.players[0].layStationsPlaced, 0);
   assert.ok(types(state).includes('skipBuilding') && types(state).includes('placeTelegraphStation'));

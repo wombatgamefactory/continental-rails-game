@@ -220,4 +220,89 @@ suite.check('Medium averages under a millisecond a decision', () => {
   assert.ok(us < 1000, `Medium averages ${us.toFixed(0)} microseconds a decision`);
 });
 
+// ---------------------------------------------------------------------------
+// Wild slots (P14.9): the bots plan through them and choose the fill
+// ---------------------------------------------------------------------------
+
+/** A game at Anna's worker step with her trains and tiles set by hand (no worker on the grid, seats in order). */
+function wildStart(tiles, trains, laid = []) {
+  const state = createGame({ players: [{ name: 'Anna' }, { name: 'Ben' }], seed: 'wild-bots', shuffleSeats: false });
+  while (state.phase === 'setup') applyAction(state, getValidActions(state)[0], SILENT);
+  state.players[0].railheads = trains.slice();
+  state.players[0].resources = { iron: 0, wood: 0, gunpowder: 0 };
+  state.players[0].coins = 0;
+  state.players[0].builtTiles = { ground: 0, tunnel: 0, bridge: 0, ...tiles };
+  for (const id of laid) state.map.routeOwner[id] = 1;
+  return state;
+}
+
+/** Medium plays Anna's decisions until her turn is over. Returns the actions it took. */
+function playTurn(state, seed) {
+  const rng = makeRng(seed);
+  const taken = [];
+  for (let n = 0; state.toAct === 0 && !isGameOver(state) && n < 200; n++) {
+    const a = policies.heuristicPolicy(state, { rng: forkRng(rng) });
+    taken.push(actionKey(a));
+    applyAction(state, a, SILENT);
+  }
+  return taken;
+}
+
+suite.check('Medium lays a route with a wild slot when its tiles pay the fixed slots and one more tile of any kind', () => {
+  // Spokane - Helena is Tunnel, Bridge and a wild slot. One Tunnel, one Bridge and one Ground pay it exactly.
+  const state = wildStart({ tunnel: 1, bridge: 1, ground: 1 }, ['SPO', 'SPO'], ['SEA-YAK', 'YAK-SPO']);
+  applyAction(state, { type: 'placeWorker', space: 'W4' }, SILENT);
+  applyAction(state, { type: 'chooseDistrict', district: 'D5', hats: 0, mode: 'lay' }, SILENT);
+  const taken = playTurn(state, 'wild-lay');
+  assert.notEqual(state.map.routeOwner['SPO-HEL'], null, `the wild route was laid: ${taken.join(' ')}`);
+  assert.deepEqual(state.map.wildFill['SPO-HEL'], [{ slot: 2, terrain: 'ground' }], 'the only spare tile was Ground');
+});
+
+suite.check('Medium does not plan a path its tiles cannot pay: a wild slot needs a tile beyond the fixed slots', () => {
+  const state = wildStart({ tunnel: 1, bridge: 1 }, ['SPO', 'SPO'], ['SEA-YAK', 'YAK-SPO']);
+  assert.equal(E.hasLegalLay(state, 0), true, 'Spokane - Boise (one Tunnel) is still possible');
+  applyAction(state, { type: 'placeWorker', space: 'W4' }, SILENT);
+  applyAction(state, { type: 'chooseDistrict', district: 'D5', hats: 0, mode: 'lay' }, SILENT);
+  const taken = playTurn(state, 'wild-no');
+  assert.equal(state.map.routeOwner['SPO-HEL'], null, taken.join(' '));
+});
+
+suite.check('the wildSlot decision: Medium scores every terrain, spends the one with the most spare tiles, and is deterministic', () => {
+  // Denver - Billings - Bismarck: the fixed slots take 2 Tunnel and 1 Bridge; 3 Tunnel, 2 Bridge and 5 Ground leave 1, 1 and 5 spare.
+  const state = wildStart({ tunnel: 3, bridge: 2, ground: 5 }, ['DEN', 'DEN']);
+  applyAction(state, { type: 'placeWorker', space: 'W4' }, SILENT);
+  applyAction(state, { type: 'chooseDistrict', district: 'D5', hats: 0, mode: 'lay' }, SILENT);
+  for (const route of ['BIL-DEN', 'BIL-BIS']) {
+    if (E.topFrame(state).kind === 'lay' && E.topFrame(state).path === null) applyAction(state, { type: 'startLay', train: 0 }, SILENT);
+    applyAction(state, { type: 'extendPath', route }, SILENT);
+  }
+  if (E.topFrame(state).kind === 'lay') applyAction(state, { type: 'endLay' }, SILENT);
+  assert.equal(E.topFrame(state).kind, 'wildSlot');
+  const scored = policies.scoreValidActions(state);
+  assert.deepEqual(scored.map((x) => x.action.terrain).sort(), ['bridge', 'ground', 'tunnel']);
+  assert.ok(scored.every((x) => typeof x.score === 'number'), 'every fill has a score');
+  const pick = (seed) => policies.heuristicPolicy(state, { rng: makeRng(seed) });
+  assert.equal(pick('a').terrain, 'ground', 'Ground has the most spare tiles');
+  assert.equal(actionKey(pick('a')), actionKey(pick('a')));
+  // Easy and the rollout policy also answer with a legal fill.
+  for (const f of [policies.easyBot.chooseAction(state, { rng: makeRng('e') }), policies.rolloutPolicy(state, { rng: makeRng('r') })]) {
+    assert.ok(getValidActions(state).some((a) => actionKey(a) === actionKey(f)), actionKey(f));
+  }
+});
+
+suite.check('Medium and Easy play whole games in which wild slots are laid: the fills they choose are always legal (every game of 3 and 4 players here ends by the line)', () => {
+  let wildLaid = 0;
+  for (const players of [3, 4]) {
+    for (let seed = 1; seed <= 6; seed++) {
+      const config = { playerCount: players, seed: `wild-${players}-${seed}` };
+      const r = play(config, [policies.heuristicBot, policies.easyBot], { botSeed: `wb-${seed}` });
+      assert.equal(r.refusals.length, 0, JSON.stringify(r.refusals[0]));
+      assert.equal(r.illegal.length, 0);
+      assert.equal(r.capHit, false);
+      wildLaid += Object.keys(r.state.map.wildFill).length;
+    }
+  }
+  assert.ok(wildLaid > 0, 'at least one wild slot was laid in 12 games');
+});
+
 suite.finish();

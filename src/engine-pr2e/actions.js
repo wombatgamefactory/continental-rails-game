@@ -34,6 +34,7 @@ import {
   districtHousesOn,
   nextTelegraphVp,
   evaluateLay,
+  wildSlotsOnPath,
   upgradeTileData,
 } from './queries.js';
 import { ACTIONS, FRAMES, getBlockReason, describeAction, canPlaceArrivalBuilding, hasLegalLay, canHire } from './legality.js';
@@ -237,6 +238,73 @@ function congressReward(state, playerId, column) {
     default:
       throw new Error(`Engine bug: unknown Congress reward "${column.reward}".`);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Resolving a lay (P14.5)
+// ---------------------------------------------------------------------------
+
+/**
+ * P14.5, steps 1 to 7, for the lay in `layFrame` (the `lay` frame, on top of the
+ * stack). `fills` is the terrain chosen for each wild slot of its unlaid routes,
+ * `[{ route, slot, terrain }]` in path order (P14.9); empty when there is none.
+ * Runs at `endLay` itself when the path has no wild slot, otherwise when the last
+ * `fillWildSlot` is answered.
+ */
+function resolveLay(state, layFrame, fills) {
+  const K = getConstants(state);
+  const frame = layFrame;
+  const pid = frame.player;
+  const player = state.players[pid];
+  const { train, cities, routes } = frame.path;
+  const from = cities[0];
+  const to = cities[cities.length - 1];
+  const result = evaluateLay(state, pid, cities, routes);
+  const laid = routes.filter((id) => state.map.routeOwner[id] === null);
+  // 1. Pay: the built tiles go onto the slots, each wild slot taking the tile chosen for it (P14.9); the routes are laid, and belong to nobody.
+  const paid = { ground: result.tiles.ground, tunnel: result.tiles.tunnel, bridge: result.tiles.bridge };
+  for (const f of fills) paid[f.terrain] += 1;
+  for (const t of K.TERRAINS) player.builtTiles[t] -= paid[t];
+  for (const id of laid) {
+    const route = MAP.routeById[id];
+    const here = fills.filter((f) => f.route === id).map((f) => ({ slot: f.slot, terrain: f.terrain })).sort((x, y) => x.slot - y.slot);
+    const cost = { ...route.cost };
+    for (const f of here) cost[f.terrain] += 1;
+    state.map.routeOwner[id] = pid;
+    if (here.length > 0) state.map.wildFill[id] = here.map((f) => ({ ...f }));
+    emit({ type: 'routeLaid', player: pid, route: id, slots: route.length, cost, wild: here.map((f) => ({ ...f })) });
+  }
+  // 2. The transcontinental check (P19.1, P19.2).
+  if (result.completes) {
+    state.completion = { player: pid, turn: state.turn.number, route: laid[laid.length - 1], routes: laid.slice(), slots: result.slots };
+    if (state.gameEnd === null) triggerGameEnd(state, 'transcontinental');
+  }
+  // 3. Track VP (P14.7), or the completion VP instead (P19.2).
+  if (result.completes) {
+    emit({ type: 'completion', player: pid, route: laid[laid.length - 1], routes: laid.slice(), bonus: result.completionVp });
+    addVp(state, pid, 'completion', result.completionVp, 'P19.2');
+  } else {
+    for (const seg of result.segments) addVp(state, pid, 'track', seg.perSlot * seg.slots, 'P14.7');
+  }
+  // 4. Tolls (P17).
+  for (const toll of result.tolls) {
+    emit({ type: 'toll', player: toll.owner, by: pid, city: toll.city, kind: toll.kind });
+    addVp(state, toll.owner, 'toll', K.MAP_RULES.tollVp, 'P17.1');
+  }
+  // 5. Advance: the train moves to the destination.
+  player.railheads[train] = to;
+  emit({ type: 'railheadMoved', player: pid, railhead: train, from, to, cities: cities.slice(), routes: routes.slice() });
+  emit({ type: 'lay', player: pid, from, to, cities: cities.slice(), routes: routes.slice(), laid: laid.slice(), segments: result.segments, trackVp: result.trackVp, completes: result.completes, wild: fills.map((f) => ({ ...f })) });
+  frame.path = null;
+  frame.taken += 1;
+  frame.remaining -= 1;
+  // 6. The arrival building (P14.6): asked only if the player is able.
+  if (canPlaceArrivalBuilding(state, pid, to)) {
+    // P14.3.3 b - a zero-tile lay always ends with a building, whatever `arrivalBuilding` says.
+    const optional = state.variants.arrivalBuilding === 'optional' && laid.length > 0;
+    pushFrame(state, { kind: 'placeBuildings', player: pid, city: to, optional, cause: 'arrival' });
+  }
+  // 7. The carriage reward follows from placeRailwayStation (P16.5).
 }
 
 // ---------------------------------------------------------------------------
@@ -537,55 +605,37 @@ export const MUTATORS = {
     frame.path.routes.push(a.route);
   },
 
-  /** P14.5. Resolves the lay, steps 1 to 7. */
+  /**
+   * P14.5, P14.9. Ends the lay. With no wild slot on its unlaid routes it resolves at
+   * once (`resolveLay`). With wild slots it first asks for their tiles: one
+   * `wildSlot` frame per slot is pushed, the first the train passes on top, and the
+   * lay resolves when the last is answered (`fillWildSlot`).
+   */
   endLay(state, frame) {
-    const K = getConstants(state);
-    const pid = frame.player;
-    const player = state.players[pid];
-    const { train, cities, routes } = frame.path;
-    const from = cities[0];
-    const to = cities[cities.length - 1];
-    const result = evaluateLay(state, pid, cities, routes);
-    const laid = routes.filter((id) => state.map.routeOwner[id] === null);
-    // 1. Pay: the built tiles go onto the slots; the routes are laid, and belong to nobody.
-    for (const t of K.TERRAINS) player.builtTiles[t] -= result.tiles[t];
-    for (const id of laid) {
-      state.map.routeOwner[id] = pid;
-      emit({ type: 'routeLaid', player: pid, route: id, slots: MAP.routeById[id].length, cost: { ...MAP.routeById[id].cost } });
+    const wild = wildSlotsOnPath(state, frame.path.cities, frame.path.routes);
+    if (wild.length === 0) {
+      resolveLay(state, frame, []);
+      return;
     }
-    // 2. The transcontinental check (P19.1, P19.2).
-    if (result.completes) {
-      state.completion = { player: pid, turn: state.turn.number, route: laid[laid.length - 1], routes: laid.slice(), slots: result.slots };
-      if (state.gameEnd === null) triggerGameEnd(state, 'transcontinental');
+    frame.wildFills = [];
+    for (let i = wild.length - 1; i >= 0; i--) {
+      pushFrame(state, { kind: 'wildSlot', player: frame.player, route: wild[i].route, slot: wild[i].slot, remaining: wild.length - 1 - i, cause: 'lay' });
     }
-    // 3. Track VP (P14.7), or the completion VP instead (P19.2).
-    if (result.completes) {
-      emit({ type: 'completion', player: pid, route: laid[laid.length - 1], routes: laid.slice(), bonus: result.completionVp });
-      addVp(state, pid, 'completion', result.completionVp, 'P19.2');
-    } else {
-      for (const seg of result.segments) addVp(state, pid, 'track', seg.perSlot * seg.slots, 'P14.7');
-    }
-    // 4. Tolls (P17).
-    for (const toll of result.tolls) {
-      emit({ type: 'toll', player: toll.owner, by: pid, city: toll.city, kind: toll.kind });
-      addVp(state, toll.owner, 'toll', K.MAP_RULES.tollVp, 'P17.1');
-    }
-    // 5. Advance: the train moves to the destination.
-    player.railheads[train] = to;
-    emit({ type: 'railheadMoved', player: pid, railhead: train, from, to, cities: cities.slice(), routes: routes.slice() });
-    emit({ type: 'lay', player: pid, from, to, cities: cities.slice(), routes: routes.slice(), laid: laid.slice(), segments: result.segments, trackVp: result.trackVp, completes: result.completes });
-    frame.path = null;
-    frame.taken += 1;
-    frame.remaining -= 1;
-    // 6. The arrival building (P14.6): asked only if the player is able.
-    if (canPlaceArrivalBuilding(state, pid, to)) {
-      // P14.3.3 b - a zero-tile lay always ends with a building, whatever `arrivalBuilding` says.
-      const optional = state.variants.arrivalBuilding === 'optional' && laid.length > 0;
-      pushFrame(state, { kind: 'placeBuildings', player: pid, city: to, optional, cause: 'arrival' });
-    }
-    // 7. The carriage reward follows from placeRailwayStation (P16.5).
   },
 
+  /** P14.9.3. The tile for one wild slot; after the last, the lay resolves (P14.5). */
+  fillWildSlot(state, frame, a) {
+    // The `lay` frame is the nearest one under the remaining `wildSlot` frames.
+    let lay = null;
+    for (let i = state.stack.length - 2; i >= 0 && lay === null; i--) if (state.stack[i].kind === 'lay') lay = state.stack[i];
+    lay.wildFills.push({ route: frame.route, slot: frame.slot, terrain: a.terrain });
+    popFrame(state);
+    if (frame.remaining === 0) {
+      const fills = lay.wildFills;
+      delete lay.wildFills;
+      resolveLay(state, lay, fills);
+    }
+  },
   /** P14.1. */
   stopLaying(state) {
     popFrame(state);

@@ -2,8 +2,8 @@
 
 - Date: 31/10/2026. The checks were written from the ruleset's rules text; the engine's own suites were read only to learn how to drive the API. The rules text itself is not part of this repository; rule numbers (`P14.6`) refer to it, and only short descriptions in my own words are given here.
 - Subject: `src/engine-pr2e/` (ruleset id `pr2e`) against that rules text.
-- Suite: `tests/pr2e/rules-audit-pr2e.test.mjs`; the checks are in `tests/rules-audit-pr2e/part-1.mjs` to `part-8.mjs`, the runner and set-up helpers in `kit.mjs`, and the rules that cannot be tested in `untestable.mjs`. The suite is found and run by `tests/run-all.mjs` (`npm test`).
-- Result when the audit was written: `368/368 checks passed (3 known failures, 17 skipped)`. **Now: `371/371 checks passed (0 known failures, 17 skipped)`: the engine was corrected afterwards for all three (section 6), and the three checks are ordinary checks.**
+- Suite: `tests/pr2e/rules-audit-pr2e.test.mjs`; the checks are in `tests/rules-audit-pr2e/part-1.mjs` to `part-9.mjs`, the runner and set-up helpers in `kit.mjs`, and the rules that cannot be tested in `untestable.mjs`. The suite is found and run by `tests/run-all.mjs` (`npm test`).
+- Result when the audit was written: `368/368 checks passed (3 known failures, 17 skipped)`. After the three fixes of section 6: `371/371 (0 known failures, 17 skipped)`. **Now, on route map v3 with the wild slot (section 10): `386/386 checks passed (0 known failures, 18 skipped)`.**
 
 ## 1. Verdict in one paragraph
 
@@ -13,18 +13,18 @@ The engine conforms to the rules text in everything the audit could reach, with 
 
 | | |
 |---|---|
-| Rule heads covered by the audit (P1.1 to P21.2) | 129 |
-| - with at least one check | 123 |
+| Rule heads covered by the audit (P1.1 to P21.2) | 130 |
+| - with at least one check | 124 |
 | - not testable, with a reason (section 5) | 6 |
 | - not covered | 0 |
-| Checks | 371 (368 pass, 3 known failures, 0 failing) |
-| - hand-built checks on rule numbers (P1 to P24) | 321 |
-| - worked examples E1 to E8 (and variants of them) | 10 |
-| - random-play checks against the oracles | 33 |
+| Checks | 386 (all pass, 0 known failures, 0 failing) |
+| - hand-built checks on rule numbers (P1 to P24) | 334 |
+| - worked examples E1 to E9 (and variants of them) | 11 |
+| - random-play checks against the oracles | 34 |
 | - lay-legality checks against the exhaustive search | 7 |
-| Untestable entries | 17 |
+| Untestable entries | 18 |
 
-Checks per rule group: P1 17, P2 7, P3 12, P4 15, P5 26, P6 18, P7 13, P8 15, P9 10, P10 26, P11 8, P12 16, P13 9, P14 59, P15 7, P16 25, P17 12, P18 17, P19 15, P20 14, P21 18, P24 1.
+Checks per rule group: P1 18, P2 7, P3 12, P4 15, P5 26, P6 18, P7 13, P8 15, P9 10, P10 26, P11 8, P12 16, P13 9, P14 71, P15 7, P16 25, P17 12, P18 17, P19 16, P20 14, P21 18, P24 1; the worked examples E1 to E9 are counted apart (11 checks) and so is the random-play coverage check.
 
 `AUDIT_LIST=1 node tests/pr2e/rules-audit-pr2e.test.mjs` prints every check id; `AUDIT_JSON=1` adds a machine-readable list.
 
@@ -49,7 +49,7 @@ One row per numbered rule head. A check id with a suffix after `/` is one of sev
 | P1.13 | board activation (the word) | 0 | - | not testable (section 5) |
 | P1.14 | specialist and Foreman (the words) | 0 | - | not testable (section 5) |
 | P1.15 | city, start city, inland city | 1 | P1.15 | pass |
-| P1.16 | route and slot; a laid route belongs to nobody | 1 | P1.16 | pass |
+| P1.16 | route, slot and wild slot; a laid route belongs to nobody | 2 | P1.16, P1.16/wild | pass |
 | P1.17 | train: moves only as part of a lay | 1 | P1.17 | pass |
 | P1.18 | connected city = inland city with a building | 1 | P1.18 | pass |
 | P1.19 | action bonus and M | 1 | P1.19 | pass |
@@ -121,19 +121,20 @@ One row per numbered rule head. A check id with a suffix after `/` is one of sev
 | P12.3 | replacing a token | 2 | P12.3, P12.3/item4 | pass |
 | P12.4 | when a token works | 2 | P12.4, P12.4/once | pass |
 | P12.5 | permanence | 2 | P12.5, P12.5/random-play | pass |
-| P13.1 | the network | 1 | P13.1 | pass |
+| P13.1 | the network: 35 cities, 65 routes, 134 slots by kind (46 Ground, 44 Tunnel, 41 Bridge, 3 wild); start cities with a 1-slot and a 3-slot route; at most one wild slot per route | 1 | P13.1 | pass |
 | P13.2 | start cities | 4 | P13.2, P13.2/no-building, P13.2/vp, P13.2/ordinary | pass |
 | P13.3 | inland cities | 1 | P13.3 | pass |
 | P13.4 | routes: laid whole, once | 2 | P13.4, P13.4/random-play | pass |
 | P13.5 | the three states of an inland city | 1 | P13.5 | pass |
 | P14.1 | M lays per action | 3 | P14.1, P14.1/stop, P14.1/oracle | pass |
 | P14.2 | the path | 5 | P14.2/1, P14.2/2, P14.2/3, P14.2/mix, P14.2/1/oracle | pass |
-| P14.3 | a legal lay (tiles, ending, shape, connection) | 12 | P14.3/2, P14.3/3a, P14.3/3b, P14.3/3b-score, P14.3/4-path, P14.3/4-one-new-route and 6 more | pass |
+| P14.3 | a legal lay (tiles including the tile of any type each wild slot needs, ending, shape, connection) | 13 | P14.3/2, P14.3/2-wild, P14.3/3a, P14.3/3b, P14.3/3b-score, P14.3/4-path and 7 more | pass |
 | P14.4 | a path ends at a city | 1 | P14.4 | pass |
 | P14.5 | resolution order of a lay | 7 | P14.5/order, P14.5/1, P14.5/2, P14.5/2b, P14.5/4, P14.5/5 and 1 more | pass |
 | P14.6 | the compulsory arrival building | 22 | P14.6/both-possible, P14.6/railway-only, P14.6/telegraph-only, P14.6/no-houses, P14.6/no-telegraph, P14.6/own-telegraph and 16 more | known failure (section 6) |
-| P14.7 | track VP by scoring city | 8 | P14.7/2, P14.7/1, P14.7/1b, P14.7/4, P14.7/start-stop, P14.7/3 and 2 more | pass |
+| P14.7 | track VP by scoring city (a wild slot scores like any slot) | 9 | P14.7/2, P14.7/1, P14.7/1b, P14.7/4, P14.7/start-stop, P14.7/3, P14.7/2-wild and 2 more | pass |
 | P14.8 | a laid route is only travelled over | 1 | P14.8 | pass |
+| P14.9 | filling wild slots: asked when the lay ends, one decision per slot in path order, only when two or more kinds are spare; legality; what is recorded; `wildSlotTerrain` changes nothing; saved mid-decision | 11 | P14.9/1-when, P14.9/1-travelled, P14.9/2-legality, P14.9/3-frame, P14.9/3-order, P14.9/4-auto, P14.9/5-record, P14.9/6-terrain, P14.9/save, P14.9/random-play, E9 | pass |
 | P15.1 | two trains each | 1 | P15.1 | pass |
 | P15.2 | trains move only in a lay | 2 | P15.2, P15.2/zero-tile | pass |
 | P15.3 | trains share cities | 1 | P15.3 | pass |
@@ -152,7 +153,7 @@ One row per numbered rule head. A check id with a suffix after `/` is one of sev
 | P18.2 | the twelve goals | 14 | P18.2/table, P18.2/1, P18.2/2, P18.2/3, P18.2/4, P18.2/5 and 8 more | pass |
 | P18.3 | scoring a goal, ties | 2 | P18.3, P18.3/2p | pass |
 | P19.1 | the end trigger | 4 | P19.1, P19.1/negative, P19.1/checked-after-every-lay, P19.1/random-play | pass |
-| P19.2 | completion VP | 4 | P19.2/once, P19.2/second-lay, P19.2/whole-lay, P19.2/random-play | pass |
+| P19.2 | completion VP (a wild slot counts) | 5 | P19.2/once, P19.2/second-lay, P19.2/whole-lay, P19.2/wild, P19.2/random-play | pass |
 | P19.3 | finishing the round | 4 | P19.3/rest-of-action, P19.3/equal-turns, P19.3/last-seat, P19.3/random-play | pass |
 | P19.4 | play after the trigger | 1 | P19.4 | pass |
 | P19.5 | no other end; the turn limit | 1 | P19.5 | pass |
@@ -161,7 +162,7 @@ One row per numbered rule head. A check id with a suffix after `/` is one of sev
 | P20.2 | final scoring | 3 | P20.2/order, P20.2/nothing-else, P20.2/random-play | pass |
 | P20.3 | the building table | 4 | P20.3/table, P20.3/play, P20.3/check, P20.3/random-play | pass |
 | P20.4 | winner and tie-breaks | 5 | P20.4/1, P20.4/2, P20.4/3, P20.4/vp, P20.4/random-play | pass |
-| P21.1 | the variants | 5 | P21.1/table, P21.1/rejects, P21.1/tycoonMode, P21.1/hatOverflow, P21.1/maxTurns | pass |
+| P21.1 | the eight variants | 5 | P21.1/table, P21.1/rejects, P21.1/tycoonMode, P21.1/hatOverflow, P21.1/maxTurns | pass |
 | P21.2 | tuning constants are data | 13 | P21.2/more-data, P21.2/carriages, P21.2/tollVp, P21.2/track-vp, P21.2/goalVp, P21.2/storage and 7 more | known failure (section 6) |
 
 ## 4. Variants and worked examples
@@ -184,8 +185,9 @@ Every value of every variant of P21.1 is covered by at least one check, and the 
 | hatOverflow | resource | P10.3/2, P11.1/other, P21.1/hatOverflow |
 | hatOverflow | lost | P21.1/hatOverflow |
 | maxTurnsPerPlayer | 0 to 500, default 80 | P19.5, P21.1/maxTurns, P21.1/rejects |
+| wildSlotTerrain | tile-terrain (default), no-terrain | P14.9/6-terrain (both values play the same game), P21.1/table |
 
-Worked examples: `E1`, `E2`, `E3`, `E3/variants`, `E3/stop`, `E4`, `E5`, `E6`, `E7`, `E8`. Each is replayed through the real actions on the real map. One note: in E2 the upgrade token's Wood is taken by the engine at once when its step comes up (the step asks nothing), so the in-between storage figure of 8 of 9 after the second Financier action cannot be observed; the check asserts the following state (9 of 9, Engineer next) instead.
+Worked examples: `E1`, `E2`, `E3`, `E3/variants`, `E3/stop`, `E4`, `E5`, `E6`, `E7`, `E8`, `E9` (the wild-slot example, in part 9). E3, E4, E5 and E8 were redone for route map v3. Each is replayed through the real actions on the real map. One note: in E2 the upgrade token's Wood is taken by the engine at once when its step comes up (the step asks nothing), so the in-between storage figure of 8 of 9 after the second Financier action cannot be observed; the check asserts the following state (9 of 9, Engineer next) instead.
 
 The special-attention areas of the brief, and where they are checked: lays (P14.1 to P14.5, `P14.3/*`, `P4.7`, `P14.3/oracle`); path lays and travel over laid track (`P14.2/mix`, `P14.7/1b`, `P15.4`); zero-tile lays (`P14.3/3b`, `P14.3/3b-score`, `P15.2/zero-tile`, `P16.5/zero-tile`); track VP by scoring city (`P14.7/*`, E3, `P14.7/random-play`); the completion bonus (`P14.5/2`, `P19.2/*`, `P19.1` for all 16 west-east pairs); the arrival building and every "able" case (`P14.6/*`, E8); tolls and several buildings in one city (`P17.*`); carriages only from Lay Track railway stations (`P16.5/*`); displacement and hat compensation (`P5.5/*`, E6); additive action bonuses and extra hires (`P5.7/*`, `P5.8/*`, `P6.3`, `P8.1`); every Congress column, the Reset, K5 and K7 placement (`P10.1/*`, `P10.2/*`, `P10.3/*`, E2); upgrade placement and yields (`P12.*`); all 12 goal metrics and ties (`P18.2/1` to `P18.2/12`); the building table (`P20.3/*`); tie-breaks (`P20.4/*`).
 
@@ -201,10 +203,11 @@ The special-attention areas of the brief, and where they are checked: lays (P14.
 - **P3.1.4** tiles, resources, hats and carriages go in the general supply: the engine keeps no supply for them (P2.4), so there is no state to read.
 - **P4.2/step-4** end of turn: checked under P19.3 (equal turns, game end after the last seat).
 - **P9.3/refusal** a Crew, Miner or Engineer step may be used only if its cost can be paid: an unpayable step is skipped by the engine itself, so no decision is ever asked in which a refusal could be observed; that the skip happens is checked under P9.3/crew and P10.4.
-- **P13.1/data** the 47 routes and their terrains match the route table of the map file: the table the rule points to is not available to this audit; the counts (25 cities, 47 routes, 136 slots by terrain), the start-city roles and the structural facts are checked.
+- **P13.1/data** the 65 routes and their terrains match the route table of the map file: the table the rule points to is not available to this audit; the counts (35 cities, 65 routes, 134 slots by kind: 46 Ground, 44 Tunnel, 41 Bridge, 3 wild), the start-city roles, the wild routes and the structural facts are checked.
 - **P19.5/stop-timing** the turn limit stops a game in which any player has taken the limit: the wording does not say whether the game stops at once or at the end of the round; the checks only require the end reason turn-limit and that nobody exceeds the limit.
 - **P21.2/SUPPLY.hats** SUPPLY.hats, SUPPLY.trackTilesPerType, SUPPLY.resourcesPerType: the rules say these are for display only and never enforced, so changing them has no observable effect.
-- **P22** worked examples: checked as E1 to E8.
+- **P14.9/7** what a bot sees and keeps for a wild slot: a note for the bot writer; the bots are tested in `tests/pr2e/bots-pr2e.test.mjs`, not here.
+- **P22** worked examples: checked as E1 to E9.
 - **P23** where the network changes the feel: commentary, not rules.
 - **P24** differences from the earlier engine: a note for the programmer; the dropped systems are checked under P24.4, the changed ones under their own rules.
 - **P25** source disagreements: commentary, not rules.
@@ -264,3 +267,16 @@ node tests/qa/sweep.mjs                           # the public-repository sweep
 ```
 
 The audit is permanently green. A red line is a regression: fix the engine, not the check, unless the rules themselves changed (then change the check and say so here).
+
+## 10. Route map v3 and the wild slot (31/10/2026)
+
+The map changed from the 25-city, 47-route map to route map v3 (35 cities, 65 routes of 1 to 4 slots, 134 slots: 46 Ground, 44 Tunnel, 41 Bridge and 3 wild), and a lay can now include **wild slots** (P1.16, P14.3 item 2, P14.9): a slot that takes one built tile of any terrain. What changed in the audit:
+
+- **Every check that named a city or route of the old map was redone** on the new one (parts 1 to 6): the fixtures are Seattle - Yakima (one Tunnel) for the simple lay and arrival-building cases, Seattle - The Dalles - Spokane for the longer paths, and Bismarck - Fargo - Minneapolis (with Seattle to Bismarck laid) for the completing lay; the counts are 35 / 27 / 65 / 134 and the worked examples E3, E4, E5 and E8 follow the rules text's versions on map v3. Check ids and what each rule check asserts did not change, except where a count is the rule's own (P1.15, P2.1, P13.1, P13.3, P16.1/inland).
+- **Part 9 is new** (14 checks): the wild slot as a kind of slot and not of tile (`P1.16/wild`), the payment test (`P14.3/2-wild`: a path of G-G and T-B-W needs a fifth tile of any terrain), when the player is asked (`P14.9/1-when`: nothing of the resolution happens before the last answer; `P14.9/1-travelled`: a wild route only travelled over is not asked about), legality and the block reason (`P14.9/2-legality`), the frame and the action (`P14.9/3-frame`, `P14.9/3-order`: path order, the slot counted from the route's first city, no stop action), the engine applying a forced answer (`P14.9/4-auto`), what is recorded (`P14.9/5-record`: `map.wildFill`, the `routeLaid` cost and `wild`, the `lay` summary), `wildSlotTerrain` (`P14.9/6-terrain`: both values play the same game), a save taken mid-decision (`P14.9/save`), that a wild slot scores like any slot (`P14.7/2-wild`) and counts for the completion VP (`P19.2/wild`), and the worked example `E9`.
+- **Random play (part 7)** gained `P14.9/random-play`: for every lay the tiles that leave the player's storage equal the tiles on the slots laid, the `routeLaid` cost sums to the route's length, every wild slot has its fill, a `wildSlot` decision never reaches the player with fewer than two answers, and `fillWildSlot` is never offered for a terrain the player does not hold. The 24 games lay 7 routes with a wild slot (printed in the check's title; `AUDIT_STATS=1` prints the counters of parts 7 and 8).
+- **The lay oracle (part 8)** knows the wild slots (a path is payable when the fixed slots are paid by terrain and enough tiles of any kind are left over, written from the rules text, not from the engine) and its coverage check now requires 50 path steps beside an unlaid wild route (168 are compared).
+- **Untestable**: `P14.9/7` (what a bot sees and keeps for a wild slot) is a note for the bot writer; the bots are tested in `tests/pr2e/bots-pr2e.test.mjs`. `P13.1/data` now speaks of 65 routes and 134 slots by kind.
+
+Nothing in the engine failed an audit check on the new map once the checks were redone: the wild slot, the payment test and the decision were written first and the audit then confirmed them (including the exhaustive-search oracle in 900 random positions). Two things the audit cannot see are listed in the rules text's own notes: the choice of fill matters only for what stays in storage in this ruleset, and the map's 30 routes without a drawn black line are a matter for the page.
+

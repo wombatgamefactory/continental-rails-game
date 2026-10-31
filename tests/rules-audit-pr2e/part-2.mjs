@@ -315,7 +315,7 @@ export default function part2() {
   check('P5.8/lay', 'Lay Track: each action bonus is one more lay', () => {
     const s = start(2);
     setHats(s, 0, 2);
-    setStorage(s, 0, { ground: 4, tunnel: 4 });
+    setStorage(s, 0, { ground: 4, tunnel: 4, bridge: 4 });
     setTrains(s, 0, ['SEA', 'POR']);
     chooseLay(s, 2);
     assert.equal(E.topFrame(s).remaining, 3);

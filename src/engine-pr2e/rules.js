@@ -23,8 +23,14 @@ export const CHOICE_RESOURCES = ['wood', 'iron', 'gunpowder', 'coins'];
 /** P1.10, P13.1. Track tile types; also the terrain of a slot. */
 export const TERRAINS = ['ground', 'tunnel', 'bridge'];
 
-/** P13.1. Terrain letters of the map data. */
-export const TERRAIN_BY_LETTER = { G: 'ground', T: 'tunnel', B: 'bridge' };
+/**
+ * P1.16. The printed kind of a wild slot: any built tile fills it. It is a kind
+ * of SLOT only, never a tile type or a storage item, so it is not in TERRAINS.
+ */
+export const WILD = 'wild';
+
+/** P13.1. Terrain letters of the map data (W = a wild slot, P1.16). */
+export const TERRAIN_BY_LETTER = { G: 'ground', T: 'tunnel', B: 'bridge', W: WILD };
 
 /** P7.3. Everything that takes one unit of storage. */
 export const STORAGE_ITEMS = ['iron', 'wood', 'gunpowder', 'coins', 'ground', 'tunnel', 'bridge'];
@@ -45,6 +51,8 @@ export const NAMES = {
   ground: 'Ground',
   tunnel: 'Tunnel',
   bridge: 'Bridge',
+  /** P1.16. The printed kind of a wild slot, as a player reads it. */
+  wild: 'any tile',
   crew: 'Crew',
   miner: 'Miner',
   engineer: 'Engineer',
@@ -368,6 +376,7 @@ export const GOAL_TILES = [
 // ---------------------------------------------------------------------------
 
 export const RULES = {
+  WILD,
   RESOURCES,
   CHOICE_RESOURCES,
   TERRAINS,

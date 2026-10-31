@@ -103,6 +103,7 @@ function randomAudit() {
   let arrivals = 0;
   let carriagesSeen = 0;
   let actions = 0;
+  let wildLays = 0;
 
   for (const [players, seed, variants] of GAMES) {
     const state = E.createGame({ players: Array.from({ length: players }, (_, i) => ({ name: `P${i}` })), seed, variants: { maxTurnsPerPlayer: 45, ...variants } });
@@ -184,6 +185,44 @@ function randomAudit() {
         void mover;
       }
 
+      // ---- P14.9: the tiles paid are exactly the tiles on the slots laid, wild fills included ------
+      const laidEvents = events.filter((e) => e.type === 'routeLaid');
+      if (laidEvents.length > 0) {
+        const paid = { ground: 0, tunnel: 0, bridge: 0 };
+        for (const e of laidEvents) {
+          const r = E.MAP.routeById[e.route];
+          const fixed = { ground: 0, tunnel: 0, bridge: 0 };
+          for (const t of r.terrains) if (t !== 'wild') fixed[t] += 1;
+          const wildSlots = r.terrains.filter((t) => t === 'wild').length;
+          const sum = e.cost.ground + e.cost.tunnel + e.cost.bridge;
+          if (sum !== r.terrains.length) note('P14.9', `seed ${seed}: ${e.route} paid ${sum} tiles for ${r.terrains.length} slots`);
+          if (!Array.isArray(e.wild) || e.wild.length !== wildSlots) note('P14.9', `seed ${seed}: ${e.route} has ${wildSlots} wild slots but the event lists ${JSON.stringify(e.wild)}`);
+          for (const t of ['ground', 'tunnel', 'bridge']) {
+            if (e.cost[t] < fixed[t]) note('P14.9', `seed ${seed}: ${e.route} paid ${e.cost[t]} ${t}, fewer than its fixed slots ${fixed[t]}`);
+            paid[t] += e.cost[t];
+          }
+          for (const f of e.wild ?? []) {
+            if (!['ground', 'tunnel', 'bridge'].includes(f.terrain)) note('P14.9', `seed ${seed}: wild slot filled with ${f.terrain}`);
+            if (r.terrains[f.slot] !== 'wild') note('P14.9', `seed ${seed}: slot ${f.slot} of ${e.route} is not wild`);
+            if (state.map.wildFill[e.route]?.some((w) => w.slot === f.slot && w.terrain === f.terrain) !== true) note('P14.9', `seed ${seed}: map.wildFill lacks the fill of ${e.route} slot ${f.slot}`);
+          }
+          if (wildSlots > 0) wildLays += 1;
+        }
+        const was = pre.players[mover].builtTiles;
+        const now = state.players[mover].builtTiles;
+        for (const t of ['ground', 'tunnel', 'bridge']) if (was[t] - now[t] !== paid[t]) note('P14.9', `seed ${seed}: ${t} tiles fell by ${was[t] - now[t]}, the routes laid paid ${paid[t]}`);
+      }
+      // A wildSlot decision never leaves the player without an answer (P14.9.2) and never offers a terrain they cannot spare.
+      {
+        const wtop = E.topFrame(state);
+        if (wtop !== null && wtop.kind === 'wildSlot') {
+          const offeredNow = E.getValidActions(state);
+          if (offeredNow.length < 2) note('P14.9', `seed ${seed}: a wildSlot decision with ${offeredNow.length} answers reached the player (it should have been applied)`);
+          const held = state.players[wtop.player].builtTiles;
+          for (const a of offeredNow) if (held[a.terrain] < 1) note('P14.9', `seed ${seed}: fillWildSlot ${a.terrain} offered with none held`);
+        }
+      }
+
       // ---- invariants -----------------------------------------------------------------------
       const K = E.getConstants(state);
       for (const p of state.players) {
@@ -258,7 +297,7 @@ function randomAudit() {
     }
     if (sc.winners.length === 0) note('P20.4', 'no winner');
   }
-  return { bad, stats: { lays, zeroTile, completions, arrivals, carriagesSeen, actions } };
+  return { bad, stats: { lays, zeroTile, completions, arrivals, carriagesSeen, actions, wildLays } };
 }
 
 export default function part7() {
@@ -270,14 +309,17 @@ export default function part7() {
     return;
   }
   const { bad, stats } = run;
-  const ids = ['P4.6', 'P5.2', 'P6.6', 'P2.3', 'P7.2', 'P7.5', 'P7.6', 'P7.7', 'P8.3', 'P8.6', 'P11.1', 'P12.2/1', 'P12.2/3', 'P12.5', 'P13.4', 'P14.5/2', 'P14.6', 'P14.6/skip', 'P14.7', 'P16.1', 'P16.3', 'P16.5', 'P16.6', 'P17.1', 'P17.2/3', 'P19.1', 'P19.2', 'P19.3', 'P20.1', 'P20.2', 'P20.3', 'P20.4'];
+  if (process.env.AUDIT_STATS) process.stderr.write(`random-play stats ${JSON.stringify(stats)}
+`);
+  const ids = ['P4.6', 'P5.2', 'P6.6', 'P2.3', 'P7.2', 'P7.5', 'P7.6', 'P7.7', 'P8.3', 'P8.6', 'P11.1', 'P12.2/1', 'P12.2/3', 'P12.5', 'P13.4', 'P14.5/2', 'P14.6', 'P14.6/skip', 'P14.7', 'P14.9', 'P16.1', 'P16.3', 'P16.5', 'P16.6', 'P17.1', 'P17.2/3', 'P19.1', 'P19.2', 'P19.3', 'P20.1', 'P20.2', 'P20.3', 'P20.4'];
   for (const id of ids) {
-    check(`${id}/random-play`, `over ${stats.actions} random actions in ${GAMES.length} games (${stats.lays} lays, ${stats.zeroTile} zero-tile, ${stats.completions} completions): no violation`, () => {
+    check(`${id}/random-play`, `over ${stats.actions} random actions in ${GAMES.length} games (${stats.lays} lays, ${stats.zeroTile} zero-tile, ${stats.completions} completions, ${stats.wildLays} routes with a wild slot): no violation`, () => {
       assert.deepEqual(bad.get(id) ?? [], []);
     });
   }
-  check('random-play/coverage', 'the random games exercised lays, zero-tile lays, completions and carriages', () => {
+  check('random-play/coverage', 'the random games exercised lays, zero-tile lays, completions, carriages and wild slots', () => {
     assert.ok(stats.lays >= 50, `lays ${stats.lays}`);
+    assert.ok(stats.wildLays >= 1, `routes with a wild slot laid: ${stats.wildLays}`);
     assert.ok(stats.carriagesSeen >= 1, 'a carriage was earned');
   });
   for (const [id, list] of bad) if (!ids.includes(id)) check(`${id}/random-play`, 'unlisted violation', () => assert.deepEqual(list, []));

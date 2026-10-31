@@ -45,6 +45,7 @@ import {
   isEmptyInlandCity,
   tilesForRoutes,
   holdsTiles,
+  wildSlotsOnPath,
   laidComponents,
   routeName,
   formatRouteCost,
@@ -84,7 +85,24 @@ function cityName(city) {
 function tilesText(K, tiles) {
   const parts = [];
   for (const t of K.TERRAINS) if (tiles[t] > 0) parts.push(`${tiles[t]} ${K.NAMES[t]}`);
+  if (tiles.wild > 0) parts.push(`${tiles.wild} ${tiles.wild === 1 ? 'tile' : 'tiles'} of any type`);
   return parts.length === 0 ? 'no tiles' : parts.join(' + ');
+}
+
+/**
+ * P14.3.2, P14.9.2. Why a player cannot pay `need` (`{ ground, tunnel, bridge, wild }`):
+ * the fixed tiles by terrain first, then the tiles of any type the wild slots
+ * take. Null when they can.
+ */
+function whyCannotPayTiles(K, player, need) {
+  if (holdsTiles(player, need)) return null;
+  const b = player.builtTiles;
+  if (b.ground >= need.ground && b.tunnel >= need.tunnel && b.bridge >= need.bridge) {
+    const spare = b.ground - need.ground + (b.tunnel - need.tunnel) + (b.bridge - need.bridge);
+    const lack = need.wild - spare;
+    return `This lay also needs ${lack} more built ${lack === 1 ? 'tile' : 'tiles'} of any type for ${need.wild === 1 ? 'a wild slot' : `its ${need.wild} wild slots`}: after the fixed slots you have ${spare} spare.`;
+  }
+  return `This lay would need ${tilesText(K, need)} built tiles, and you hold ${heldTilesText(K, player)}.`;
 }
 
 function heldTilesText(K, player) {
@@ -248,7 +266,7 @@ export function canFinishLay(state, playerId, cities, routes) {
   }
   // (a) one more unlaid route.
   const comp = state.variants.newConnectionRule === 'must-join-unjoined' ? laidComponents(state) : null;
-  const need = { ground: 0, tunnel: 0, bridge: 0 };
+  const need = { ground: 0, tunnel: 0, bridge: 0, wild: 0 };
   for (const x of reach) {
     for (const id of MAP.cityRoutes[x]) {
       if (!isUnlaid(state, id)) continue;
@@ -258,6 +276,7 @@ export function canFinishLay(state, playerId, cities, routes) {
       need.ground = committed.ground + route.cost.ground;
       need.tunnel = committed.tunnel + route.cost.tunnel;
       need.bridge = committed.bridge + route.cost.bridge;
+      need.wild = committed.wild + route.wild;
       if (holdsTiles(player, need)) return true;
     }
   }
@@ -281,17 +300,57 @@ export function hasLegalLay(state, playerId) {
   return false;
 }
 
-/** The path of the lay being built, or null. */
-export function layPath(state) {
+/**
+ * The lay frame whose path is being built or resolved: the top frame when it is
+ * a `lay`, or the `lay` frame under the `wildSlot` frames of an ended lay
+ * (P14.9); null otherwise.
+ */
+function activeLayFrame(state) {
   const top = topFrame(state);
-  return top !== null && top.kind === 'lay' ? top.path : null;
+  if (top === null) return null;
+  if (top.kind === 'lay') return top;
+  if (top.kind === 'wildSlot') {
+    for (let i = state.stack.length - 2; i >= 0; i--) if (state.stack[i].kind === 'lay') return state.stack[i];
+  }
+  return null;
+}
+
+/** The path of the lay being built (or, during its wild-slot questions, being resolved), or null. */
+export function layPath(state) {
+  const frame = activeLayFrame(state);
+  return frame === null ? null : frame.path;
 }
 
 /** What the lay being built would score and pay if it ended now (for the UI): evaluateLay, or null. */
 export function previewLay(state) {
+  const frame = activeLayFrame(state);
+  if (frame === null || frame.path === null) return null;
+  return evaluateLay(state, frame.player, frame.path.cities, frame.path.routes);
+}
+
+/**
+ * P14.9.3. The terrains the wild-slot decision on top of the stack offers, as
+ * `{ terrain: spareCount }` for every tile type of which the player has a spare
+ * tile: held, minus the fixed slots of the lay's unlaid routes, minus the tiles
+ * already chosen for earlier wild slots of this lay. Null when no `wildSlot`
+ * decision is pending.
+ */
+export function wildSlotSpare(state) {
   const top = topFrame(state);
-  if (top === null || top.kind !== 'lay' || top.path === null) return null;
-  return evaluateLay(state, top.player, top.path.cities, top.path.routes);
+  if (top === null || top.kind !== 'wildSlot') return null;
+  const lay = activeLayFrame(state);
+  if (lay === null || lay.path === null) return null;
+  const K = getConstants(state);
+  const player = state.players[top.player];
+  const cost = tilesForRoutes(state, lay.path.routes);
+  const out = {};
+  for (const t of K.TERRAINS) {
+    let chosen = 0;
+    for (const f of lay.wildFills ?? []) if (f.terrain === t) chosen += 1;
+    const spare = player.builtTiles[t] - cost[t] - chosen;
+    if (spare >= 1) out[t] = spare;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -1038,10 +1097,8 @@ export function getExtendPathBlockReason(state, playerId, routeId) {
     if (state.variants.newConnectionRule === 'must-join-unjoined' && !connectionAllowed(state, route, laidComponents(state))) {
       return `${routeName(route)} would only close a loop: laid routes already join ${cityName(route.a)} and ${cityName(route.b)}.`;
     }
-    const need = tilesForRoutes(state, [...routes, route.id]);
-    if (!holdsTiles(state.players[playerId], need)) {
-      return `This lay would need ${tilesText(K, need)} built tiles, and you hold ${heldTilesText(K, state.players[playerId])}.`;
-    }
+    const short = whyCannotPayTiles(K, state.players[playerId], tilesForRoutes(state, [...routes, route.id]));
+    if (short !== null) return short;
   }
   if (!canFinishLay(state, playerId, [...cities, next], [...routes, route.id])) {
     return `From ${cityName(next)} this lay could not be finished: no affordable unlaid route and no empty city to build in is reachable from there.`;
@@ -1075,6 +1132,27 @@ export function getStopLayingBlockReason(state, playerId) {
     if (frame.taken === 0) return 'Choosing Lay Track commits you to at least one lay.';
   }
   return timingBlock(state, playerId, isKind('lay'), 'You are not laying track at the moment.');
+}
+
+/**
+ * P14.9. Why this player cannot fill the pending wild slot with a `terrain` tile:
+ * it is not a tile type, or they have no spare tile of it (after the lay's fixed
+ * slots and the tiles already chosen for earlier wild slots).
+ */
+export function getFillWildSlotBlockReason(state, playerId, terrain) {
+  const K = getConstants(state);
+  if (!K.TERRAINS.includes(terrain)) return `"${terrain}" is not a kind of track tile: choose Ground, Tunnel or Bridge.`;
+  const frame = ownFrame(state, playerId, 'wildSlot');
+  if (frame === null) {
+    if (timingSuspended) return null;
+    return timingBlock(state, playerId, () => false, 'There is no wild slot waiting for a tile.');
+  }
+  const spare = wildSlotSpare(state);
+  if (spare === null || !(terrain in spare)) {
+    const held = state.players[playerId].builtTiles[terrain];
+    return `You have no spare built ${K.NAMES[terrain]} tile for this wild slot: you hold ${held}, and the lay's fixed slots and your earlier choices use them all.`;
+  }
+  return timingBlock(state, playerId, isKind('wildSlot'), 'There is no wild slot waiting for a tile.');
 }
 
 // ---------------------------------------------------------------------------
@@ -1312,6 +1390,17 @@ export const ACTIONS = {
     block: (state, pid) => getStopLayingBlockReason(state, pid),
     space: () => [{ type: 'stopLaying' }],
     describe: () => 'Stop laying track',
+  },
+  fillWildSlot: {
+    params: ['terrain'],
+    rule: 'P14.9',
+    block: (state, pid, a) => getFillWildSlotBlockReason(state, pid, a.terrain),
+    space: (state) => getConstants(state).TERRAINS.map((terrain) => ({ type: 'fillWildSlot', terrain })),
+    describe: (state, a) => {
+      const top = topFrame(state);
+      const where = top !== null && top.kind === 'wildSlot' && MAP.routeById[top.route] ? ` of ${routeName(MAP.routeById[top.route])}` : '';
+      return `Fill the wild slot${where} with a built ${getConstants(state).NAMES[a.terrain]} tile`;
+    },
   },
   takeCongressColumn: {
     params: ['column'],
@@ -1568,6 +1657,19 @@ export const FRAMES = {
       }
       return keepLegal(state, pid, candidates);
     },
+  },
+  /**
+   * P14.9. Frame: { route, slot, remaining, cause: 'lay' }. One per wild slot on the
+   * ended lay's unlaid routes, the first the train passes on top; `remaining` is how
+   * many more come after this one. The lay frame under them keeps the path and the
+   * choices so far (`wildFills`).
+   */
+  wildSlot: {
+    label: (state, frame) => {
+      const route = MAP.routeById[frame.route];
+      return `choose the built tile for the wild slot of ${route ? routeName(route) : frame.route}${frame.remaining > 0 ? ` (${plural(frame.remaining, 'more wild slot', 'more wild slots')} after it)` : ''}`;
+    },
+    list: (state, frame) => keepLegal(state, frame.player, ACTIONS.fillWildSlot.space(state)),
   },
   /** P14.6. Frame: { city, optional, cause }. */
   placeBuildings: {

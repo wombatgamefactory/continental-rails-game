@@ -3,7 +3,7 @@
 //
 // SEMANTICS: this suite is PERMANENTLY GREEN. Every check is named for the rule it tests
 // (`P14.6`; a suffix after "/" separates several checks of one rule; `P10.1/K6` is a row of
-// a table; `E1` to `E8` are the worked examples of P22). A red line is a REGRESSION: the
+// a table; `E1` to `E9` are the worked examples of P22). A red line is a REGRESSION: the
 // engine has drifted from the rules. Fix the engine, not the check - unless the rules
 // themselves changed, in which case change the check and say so in
 // docs/rules-audit-report-pr2e.md.
@@ -34,6 +34,7 @@ import part5 from '../rules-audit-pr2e/part-5.mjs';
 import part6 from '../rules-audit-pr2e/part-6.mjs';
 import part7 from '../rules-audit-pr2e/part-7.mjs';
 import part8 from '../rules-audit-pr2e/part-8.mjs';
+import part9 from '../rules-audit-pr2e/part-9.mjs';
 import untestable from '../rules-audit-pr2e/untestable.mjs';
 
 part1(); // P1 to P4: terms, components, setup, turn structure
@@ -44,6 +45,7 @@ part5(); // P15 to P17: trains, buildings and carriages, tolls
 part6(); // P18 to P21: goals, the end, final scoring, variants and constants; worked examples E1 to E8
 part7(); // random play against independent oracles and invariants
 part8(); // lay legality against an exhaustive path search
+part9(); // the wild slot (P14.9) and worked example E9
 untestable(); // the rules that cannot be tested, with reasons
 
 finish();

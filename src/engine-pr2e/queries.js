@@ -412,25 +412,33 @@ export function railheadsAt(state, cityId) {
   return out;
 }
 
-/** P14.3.2. Built tiles one route needs, by terrain. */
+/** P14.3.2. Built tiles one route needs for its fixed slots, by terrain (its wild slots are `MAP.routeById[id].wild`, P14.9). */
 export function routeCost(routeId) {
   return MAP.routeById[routeId].cost;
 }
 
-/** P14.3.2. What a player lacks to lay one route: `{ ground, tunnel, bridge }` (all 0 = affordable). */
+/**
+ * P14.3.2, P14.9.2. What a player lacks to lay one route on its own:
+ * `{ ground, tunnel, bridge, wild }` (all 0 = affordable). `wild` is the number
+ * of tiles of ANY kind still missing for the route's wild slots, after the fixed
+ * slots are paid by terrain.
+ */
 export function routeShortfall(player, route) {
-  const out = { ground: 0, tunnel: 0, bridge: 0 };
+  const out = { ground: 0, tunnel: 0, bridge: 0, wild: 0 };
+  let spare = 0;
   for (const t in route.cost) {
     const lack = route.cost[t] - player.builtTiles[t];
     if (lack > 0) out[t] = lack;
+    else spare -= lack;
   }
+  const wildLack = route.wild - spare;
+  if (wildLack > 0) out.wild = wildLack;
   return out;
 }
 
-/** Whether a player holds the built tiles for one route on its own. */
+/** Whether a player holds the built tiles for one route on its own (P14.9.2: wild slots from the spare tiles). */
 export function canAffordRoute(player, route) {
-  for (const t in route.cost) if (player.builtTiles[t] < route.cost[t]) return false;
-  return true;
+  return holdsTiles(player, { ...route.cost, wild: route.wild });
 }
 
 /** "Seattle - Spokane". */
@@ -438,30 +446,66 @@ export function routeName(route) {
   return `${MAP.cityById[route.a].name} - ${MAP.cityById[route.b].name}`;
 }
 
-/** "2 Ground + 1 Tunnel" for a route's tiles. */
+/** "2 Ground + 1 Tunnel + 1 tile of any type" for a route's tiles (a wild slot takes a tile of any type, P14.9). */
 export function formatRouteCost(state, route) {
   const K = getConstants(state);
   const parts = [];
   for (const t of K.TERRAINS) if (route.cost[t] > 0) parts.push(`${route.cost[t]} ${K.NAMES[t]}`);
+  if (route.wild > 0) parts.push(`${route.wild} ${route.wild === 1 ? 'tile' : 'tiles'} of any type`);
   return parts.join(' + ');
 }
 
-/** P14.3.2. The built tiles every unlaid route of a list of routes needs. */
+/**
+ * P14.3.2, P14.9.2. The built tiles every unlaid route of a list of routes needs:
+ * `{ ground, tunnel, bridge, wild }` - the fixed slots by terrain, and `wild`,
+ * the number of wild slots, each of which takes one more tile of any terrain.
+ */
 export function tilesForRoutes(state, routeIds) {
-  const out = { ground: 0, tunnel: 0, bridge: 0 };
+  const out = { ground: 0, tunnel: 0, bridge: 0, wild: 0 };
   for (const id of routeIds) {
     if (state.map.routeOwner[id] !== null) continue;
-    const cost = MAP.routeById[id].cost;
-    out.ground += cost.ground;
-    out.tunnel += cost.tunnel;
-    out.bridge += cost.bridge;
+    const route = MAP.routeById[id];
+    out.ground += route.cost.ground;
+    out.tunnel += route.cost.tunnel;
+    out.bridge += route.cost.bridge;
+    out.wild += route.wild;
   }
   return out;
 }
 
-/** Whether a player holds `tiles` (`{ ground, tunnel, bridge }`) all at once. */
+/**
+ * P14.3.2, P14.9.2. Whether a player holds `tiles` (`{ ground, tunnel, bridge, wild? }`)
+ * all at once: each terrain's fixed tiles, and then at least `wild` tiles of any
+ * kind left over for the wild slots.
+ */
 export function holdsTiles(player, tiles) {
-  return player.builtTiles.ground >= tiles.ground && player.builtTiles.tunnel >= tiles.tunnel && player.builtTiles.bridge >= tiles.bridge;
+  const b = player.builtTiles;
+  if (b.ground < tiles.ground || b.tunnel < tiles.tunnel || b.bridge < tiles.bridge) return false;
+  const wild = tiles.wild ?? 0;
+  if (wild === 0) return true;
+  return b.ground - tiles.ground + (b.tunnel - tiles.tunnel) + (b.bridge - tiles.bridge) >= wild;
+}
+
+/**
+ * P14.9.3. The wild slots among the UNLAID routes of a path, in the order the
+ * train passes them: route by route from the path's first city, and within a
+ * route in the direction of travel. `[{ route, slot }]`, `slot` counted from 0
+ * from the route's first city `a` (the index in its terrain string).
+ */
+export function wildSlotsOnPath(state, cities, routes) {
+  const out = [];
+  for (let i = 0; i < routes.length; i++) {
+    const route = MAP.routeById[routes[i]];
+    if (route.wild === 0 || state.map.routeOwner[route.id] !== null) continue;
+    const forward = cities[i] === route.a;
+    const slots = [];
+    route.terrains.forEach((t, index) => {
+      if (t === 'wild') slots.push(index);
+    });
+    if (!forward) slots.reverse();
+    for (const slot of slots) out.push({ route: route.id, slot });
+  }
+  return out;
 }
 
 /** The route joining two cities, or null (no two cities share more than one route, P13.1). */
@@ -538,7 +582,7 @@ export function evaluateLay(state, playerId, cities, routes) {
     const j = scoringCityIndex(state, cities, i + 1);
     const scoring = cities[j];
     const perSlot = isEmptyInlandCity(state, scoring) ? K.MAP_RULES.vpPerSlotUnconnected : K.MAP_RULES.vpPerSlotConnected;
-    segments.push({ route: route.id, scoringCity: scoring, perSlot, slots: route.length });
+    segments.push({ route: route.id, scoringCity: scoring, perSlot, slots: route.length, wild: route.wild });
     slots += route.length;
     trackVp += perSlot * route.length;
   }

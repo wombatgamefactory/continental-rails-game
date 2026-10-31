@@ -1,4 +1,4 @@
-// variants.js - the 7 rule variants of the second edition's rules text (P21.1), exactly by name.
+// variants.js - the 8 rule variants of the second edition's rules text (P21.1), exactly by name.
 //
 // This table is the ONE list of variants of this ruleset. The setup screen
 // builds its "Rules variants" panel from it and the simulator builds its
@@ -88,6 +88,15 @@ export const VARIANTS = [
     description: 'Digital safety stop: the game end is triggered when a player has taken this many turns (0 = off)',
     rule: 'P19.5',
   },
+  {
+    name: 'wildSlotTerrain',
+    label: 'Wild slot terrain',
+    type: 'enum',
+    values: ['tile-terrain', 'no-terrain'],
+    default: 'tile-terrain',
+    description: 'What a filled wild slot counts as where a rule reads the terrain of a laid slot (no rule of this ruleset does, so both values play the same game)',
+    rule: 'P14.9.6',
+  },
 ];
 
 const BY_NAME = new Map(VARIANTS.map((v) => [v.name, v]));
@@ -152,7 +161,7 @@ function unknownVariantMessage(name) {
  * problem, a name that is not a variant and a value outside its allowed values.
  *
  * @param {object} [overrides] `{ variantName: value }`
- * @returns {object} a fresh plain object with all 7 variants
+ * @returns {object} a fresh plain object with all 8 variants
  */
 export function resolveVariants(overrides = {}) {
   if (overrides === null || typeof overrides !== 'object' || Array.isArray(overrides)) {

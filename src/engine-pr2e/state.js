@@ -18,7 +18,7 @@ import { MAP, DISTRICT_IDS, SPACE_IDS } from './board.js';
 export const SCHEMA_VERSION = 1;
 
 /** Identifies the ruleset and the map data in play; stored in the state so a save made elsewhere is refused. */
-export const MAP_ID = 'route-map-v2';
+export const MAP_ID = 'route-map-v3';
 
 /** The ruleset this engine plays, recorded in every state (`state.rules`). */
 export const RULESET_ID = 'pr2e';
@@ -337,7 +337,8 @@ export function createInitialState(config, options = {}) {
     railwayStation[id] = null;
     telegraphStation[id] = null;
   }
-  state.map = { routeOwner, railwayStation, telegraphStation };
+  // P14.9.5 - `wildFill` records the terrain of the tile on each laid wild slot: `{ routeId: [{ slot, terrain }] }`.
+  state.map = { routeOwner, railwayStation, telegraphStation, wildFill: {} };
 
   // P3.1.5, P3.1.6 - the limited supplies, filtered by player count.
   const specialists = {};

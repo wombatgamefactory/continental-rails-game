@@ -65,16 +65,18 @@ export default function part1() {
     assert.equal(s.players[0].builtTiles.ground, 4);
     const t = start(2);
     setTrains(t, 0, ['SEA', 'MIN']);
-    setStorage(t, 0, { ground: 3 });
+    setStorage(t, 0, { ground: 1, tunnel: 1, bridge: 1 });
     chooseLay(t);
-    doLay(t, ['SEA-SPO']);
-    assert.equal(t.players[0].builtTiles.ground + E.MAP.routeById['SEA-SPO'].length, 3);
+    doLay(t, ['SEA-TDL']);
+    const held = Object.values(t.players[0].builtTiles).reduce((a, b) => a + b, 0);
+    assert.equal(held + E.MAP.routeById['SEA-TDL'].length, 3, 'the 3 tiles are now 3 laid slots');
+    assert.equal(t.map.routeOwner['SEA-TDL'], 0);
   });
 
-  check('P1.15', 'a city is one of 25 circles of the map: 8 start cities on the edges and 17 inland cities', () => {
-    assert.equal(E.MAP.cities.length, 25);
+  check('P1.15', 'a city is one of 35 circles of the map: 8 start cities on the edges and 27 inland cities', () => {
+    assert.equal(E.MAP.cities.length, 35);
     assert.equal(E.MAP.cities.filter((c) => E.isStartCity(c.id)).length, 8);
-    assert.equal(E.MAP.cities.filter((c) => !E.isStartCity(c.id)).length, 17);
+    assert.equal(E.MAP.cities.filter((c) => !E.isStartCity(c.id)).length, 27);
   });
 
   check('P1.20', 'the Congress panel has 8 columns each with a senator; one Financier action moves one senator down or resets them', () => {
@@ -117,10 +119,10 @@ export default function part1() {
 
   check('P1.16', 'a laid route belongs to nobody: any train may travel over it', () => {
     const s = start(2);
-    layRoutes(s, ['SEA-SPO'], 1);
+    layRoutes(s, ['SEA-YAK'], 1);
     setTrains(s, 0, ['SEA', 'MIN']);
     setStorage(s, 0, {});
-    assert.equal(E.isLegalLay(s, 0, ['SEA', 'SPO'], ['SEA-SPO']), true, 'a zero-tile lay over a laid route of another player to an empty inland city');
+    assert.equal(E.isLegalLay(s, 0, ['SEA', 'YAK'], ['SEA-YAK']), true, 'a zero-tile lay over a laid route of another player to an empty inland city');
   });
 
   check('P1.17', 'a train moves only as part of a lay: no Move Train action exists', () => {
@@ -132,11 +134,11 @@ export default function part1() {
 
   check('P1.18', 'a connected city is an inland city with at least one building; a start city never is', () => {
     const s = start(2);
-    assert.equal(E.isCityConnected(s, 'SPO'), false);
-    layRoutes(s, ['SEA-SPO']);
-    assert.equal(E.isCityConnected(s, 'SPO'), false, 'on the network, not connected');
-    build(s, 'telegraphStation', 'SPO', 1);
-    assert.equal(E.isCityConnected(s, 'SPO'), true);
+    assert.equal(E.isCityConnected(s, 'YAK'), false);
+    layRoutes(s, ['SEA-YAK']);
+    assert.equal(E.isCityConnected(s, 'YAK'), false, 'on the network, not connected');
+    build(s, 'telegraphStation', 'YAK', 1);
+    assert.equal(E.isCityConnected(s, 'YAK'), true);
     assert.equal(E.isCityConnected(s, 'SEA'), false);
     assert.equal(E.isCityConnected(s, 'POR'), false);
   });
@@ -156,14 +158,15 @@ export default function part1() {
   // P2 - components
   // -------------------------------------------------------------------------
 
-  check('P2.1', 'shared components: 25 cities (8 start, 17 inland), 47 routes, 136 slots (44 Ground, 46 Tunnel, 46 Bridge); 8 senators; 8 hats', () => {
-    assert.equal(E.MAP.cities.length, 25);
-    assert.equal(E.MAP.routes.length, 47);
+  check('P2.1', 'shared components: 35 cities (8 start, 27 inland), 65 routes, 134 slots (46 Ground, 44 Tunnel, 41 Bridge, 3 wild); 8 senators; 8 hats', () => {
+    assert.equal(E.MAP.cities.length, 35);
+    assert.equal(E.MAP.routes.length, 65);
     assert.equal(E.MAP.startCities.length, 8);
-    assert.equal(E.MAP.inlandCities.length, 17);
-    const slots = { ground: 0, tunnel: 0, bridge: 0 };
+    assert.equal(E.MAP.inlandCities.length, 27);
+    assert.deepEqual(E.MAP.board, { w: 600, h: 350 });
+    const slots = { ground: 0, tunnel: 0, bridge: 0, wild: 0 };
     for (const r of E.MAP.routes) for (const t of r.terrains) slots[t] += 1;
-    assert.deepEqual(slots, { ground: 44, tunnel: 46, bridge: 46 });
+    assert.deepEqual(slots, { ground: 46, tunnel: 44, bridge: 41, wild: 3 });
     const s = start(3);
     assert.equal(Object.keys(s.congress.down).length, 8);
     assert.equal(E.getConstants(s).SUPPLY.hats, 8);
@@ -451,11 +454,11 @@ export default function part1() {
     assert.ok(types(s).includes('placeWorker') && types(s).includes('removeWorker'));
   });
 
-  check('P4.6', 'the decision frames: setupProduction, setup trains, workerStep, chooseDistrict, specialAction, boardActivation, hire, lay, placeBuildings', () => {
+  check('P4.6', 'the decision frames: setupProduction, setup trains, workerStep, chooseDistrict, specialAction, boardActivation, hire, lay, wildSlot, placeBuildings', () => {
     const s = fresh(2);
     assert.equal(frame(s), 'setupProduction');
     const kinds = new Set(E.FRAMES ? Object.keys(E.FRAMES) : []);
-    for (const k of ['setupProduction', 'setupRailhead', 'workerStep', 'chooseResource', 'chooseDistrict', 'specialAction', 'boardActivation', 'congressPlacement', 'chooseBuiltTile', 'hire', 'chooseFreeSpecialist', 'lay', 'placeBuildings', 'discard']) assert.ok(kinds.has(k), `frame ${k}`);
+    for (const k of ['setupProduction', 'setupRailhead', 'workerStep', 'chooseResource', 'chooseDistrict', 'specialAction', 'boardActivation', 'congressPlacement', 'chooseBuiltTile', 'hire', 'chooseFreeSpecialist', 'lay', 'wildSlot', 'placeBuildings', 'discard']) assert.ok(kinds.has(k), `frame ${k}`);
     const t = start(2);
     act(t, { type: 'placeWorker', space: 'W2' });
     act(t, { type: 'chooseDistrict', district: 'D3', hats: 0 });
@@ -479,12 +482,12 @@ export default function part1() {
 
   check('P4.6/not-decisions', 'toll, track VP, telegraph VP, level 1 and 2 upgrade yields and goal scoring never reach the stack', () => {
     const s = start(3);
-    layRoutes(s, ['SEA-SPO', 'POR-SPO'], 1);
-    build(s, 'railwayStation', 'SPO', 1);
+    layRoutes(s, ['SEA-TDL', 'TDL-POR'], 1);
+    build(s, 'railwayStation', 'TDL', 1);
     setTrains(s, 0, ['POR', 'MIN']);
-    setStorage(s, 0, { tunnel: 2 });
+    setStorage(s, 0, { ground: 2 });
     chooseLay(s);
-    doLay(s, ['POR-REN']);
+    doLay(s, ['TDL-POR', 'SPO-TDL']);
     for (const ev of E.getValidActions(s)) assert.ok(!['toll', 'payToll'].includes(ev.type));
     assert.equal(frame(s), 'placeBuildings');
     assert.ok(E.FRAMES && !('toll' in E.FRAMES) && !('trackVp' in E.FRAMES) && !('goals' in E.FRAMES));
@@ -494,7 +497,7 @@ export default function part1() {
     const s = start(3);
     setTrains(s, 0, ['POR', 'MIN']);
     setStorage(s, 0, { tunnel: 2, ground: 2, bridge: 2 });
-    layRoutes(s, ['POR-SPO'], 1);
+    layRoutes(s, ['TDL-POR'], 1);
     chooseLay(s);
     if (frame(s) === 'lay' && E.topFrame(s).path === null) act(s, { type: 'startLay', train: 0 });
     const before = { tiles: { ...s.players[0].builtTiles }, vp: { ...s.players[0].vp } };
@@ -506,9 +509,11 @@ export default function part1() {
     assert.equal(frame(s), 'lay');
     // A dead end: every offered extension can still be finished.
     const t = start(2);
-    setTrains(t, 0, ['POR', 'MIN']);
-    setStorage(t, 0, { tunnel: 2 });
+    setTrains(t, 0, ['POR', 'POR']);
+    setStorage(t, 0, { ground: 1, tunnel: 1, bridge: 1 });
     chooseLay(t);
+    assert.equal(frame(t), 'lay');
+    assert.ok(E.topFrame(t).path !== null, 'one train on Portland: the engine started the lay there');
     for (const a of E.getValidActions(t)) assert.ok(a.type !== 'extendPath' || E.canFinishLay(t, 0, E.topFrame(t).path.cities.concat([E.otherEnd(E.MAP.routeById[a.route], E.topFrame(t).path.cities.at(-1))]), E.topFrame(t).path.routes.concat([a.route])), a.route);
   });
 
